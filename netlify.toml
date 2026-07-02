@@ -1,0 +1,13 @@
+[build]
+command = "npm run netlify:prepare-db && npm run build && npm run netlify:bundle-db"
+publish = ".next"
+
+[functions]
+included_files = ["prisma/dev.db"]
+
+[[headers]]
+for = "/_next/static/*"
+
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"
+

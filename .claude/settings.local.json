@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(where node *)",
+      "Bash(where npm *)",
+      "Bash(npm install *)",
+      "Bash(npx prisma *)",
+      "Bash(npx tsx *)",
+      "Bash(npx next *)",
+      "Bash(PORT=3017 npx next dev)",
+      "Bash(curl -s -c /tmp/apex.cookies -b /tmp/apex.cookies -X POST http://localhost:3017/api/auth/login -H \"content-type: application/json\" -d '{\"email\":\"dr.rivera@apexcare.health\",\"password\":\"apex123\"}')"
+    ]
+  }
+}

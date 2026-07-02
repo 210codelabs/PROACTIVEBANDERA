@@ -1,0 +1,451 @@
+// ApexCare EHR — data model
+// SQLite for local dev. Switch provider to "postgresql" for production.
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// Auth & Staff
+// -------------------------------------------------------------
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  firstName      String
+  lastName       String
+  role           String   // provider | nurse | frontdesk | billing | admin
+  npi            String?  // for providers
+  credential     String?  // MD, DO, NP, PA, RN, DPT, etc.
+  specialty      String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  appointments   Appointment[]   @relation("ProviderAppts")
+  encounters     Encounter[]     @relation("EncounterProvider")
+  ordersPlaced   Order[]         @relation("OrderProvider")
+  notesAuthored  EncounterNote[] @relation("NoteAuthor")
+  messagesFrom   Message[]       @relation("MsgFrom")
+  messagesTo     Message[]       @relation("MsgTo")
+  auditLogs      AuditLog[]
+}
+
+// -------------------------------------------------------------
+// Patient & chart
+// -------------------------------------------------------------
+model Patient {
+  id             String   @id @default(cuid())
+  mrn            String   @unique
+  firstName      String
+  lastName       String
+  dob            DateTime
+  sex            String   // M | F | X
+  pronouns       String?
+  email          String?
+  phone          String?
+  addressLine1   String?
+  addressLine2   String?
+  city           String?
+  state          String?
+  postalCode     String?
+  country        String?  @default("US")
+  preferredLang  String?  @default("English")
+  ethnicity      String?
+  race           String?
+  maritalStatus  String?
+
+  // insurance
+  insurerName    String?
+  insurerPlan    String?
+  memberId       String?
+  groupNumber    String?
+
+  // emergency contact
+  ecName         String?
+  ecRelation     String?
+  ecPhone        String?
+
+  // status
+  status         String   @default("active") // active | inactive | deceased
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  allergies      Allergy[]
+  problems       Problem[]
+  medications    Medication[]
+  vitals         Vital[]
+  immunizations  Immunization[]
+  appointments   Appointment[]
+  encounters     Encounter[]
+  orders         Order[]
+  documents      Document[]
+  messages       Message[]
+}
+
+model Allergy {
+  id           String   @id @default(cuid())
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  substance    String
+  reaction     String?
+  severity     String?  // mild | moderate | severe | life-threatening
+  onsetDate    DateTime?
+  status       String   @default("active") // active | inactive | resolved
+  notes        String?
+  createdAt    DateTime @default(now())
+}
+
+model Problem {
+  id           String   @id @default(cuid())
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  icd10        String?
+  description  String
+  status       String   @default("active") // active | inactive | resolved | chronic
+  onsetDate    DateTime?
+  resolvedDate DateTime?
+  notes        String?
+  createdAt    DateTime @default(now())
+}
+
+model Medication {
+  id           String   @id @default(cuid())
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  name         String
+  strength     String?
+  form         String?  // tablet, capsule, cream, injection...
+  sig          String?  // dose instructions
+  route        String?  // PO, IM, IV, topical
+  frequency    String?
+  startDate    DateTime?
+  endDate      DateTime?
+  prescriberId String?
+  status       String   @default("active") // active | discontinued | completed
+  notes        String?
+  createdAt    DateTime @default(now())
+}
+
+model Vital {
+  id           String   @id @default(cuid())
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  takenAt      DateTime @default(now())
+  heightCm     Float?
+  weightKg     Float?
+  bmi          Float?
+  systolic     Int?
+  diastolic    Int?
+  pulse        Int?
+  temperatureC Float?
+  respRate     Int?
+  spo2         Int?
+  painScore    Int?
+  notes        String?
+}
+
+model Immunization {
+  id           String   @id @default(cuid())
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  vaccine      String
+  cvxCode      String?
+  givenAt      DateTime
+  lot          String?
+  site         String?
+  notes        String?
+}
+
+// -------------------------------------------------------------
+// Service catalog
+// -------------------------------------------------------------
+model ServiceType {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  category      String   // physical-therapy | wound-care | other-services | aesthetic-medicine | primary-care
+  durationMin   Int      @default(45)
+  description   String?
+  homeEligible  Boolean  @default(false)
+  defaultCpt    String?
+  active        Boolean  @default(true)
+
+  appointments  Appointment[]
+}
+
+// -------------------------------------------------------------
+// Scheduling
+// -------------------------------------------------------------
+model Appointment {
+  id             String      @id @default(cuid())
+  patientId      String
+  patient        Patient     @relation(fields: [patientId], references: [id])
+  providerId     String
+  provider       User        @relation("ProviderAppts", fields: [providerId], references: [id])
+  serviceTypeId  String?
+  serviceType    ServiceType? @relation(fields: [serviceTypeId], references: [id])
+  startsAt       DateTime
+  endsAt         DateTime
+  location       String?     // in-office | home-visit | telehealth
+  status         String      @default("scheduled") // scheduled | checked-in | in-room | completed | no-show | cancelled
+  reason         String?
+  notes          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  encounter      Encounter?
+}
+
+// -------------------------------------------------------------
+// Encounters (visits) and SOAP
+// -------------------------------------------------------------
+model Encounter {
+  id             String     @id @default(cuid())
+  patientId      String
+  patient        Patient    @relation(fields: [patientId], references: [id])
+  providerId     String
+  provider       User       @relation("EncounterProvider", fields: [providerId], references: [id])
+  appointmentId  String?    @unique
+  appointment    Appointment? @relation(fields: [appointmentId], references: [id])
+  visitType      String?    // office | telehealth | home | follow-up | new
+  chiefComplaint String?
+  startedAt      DateTime   @default(now())
+  signedAt       DateTime?
+  status         String     @default("open") // open | signed | amended
+
+  // SOAP body (denormalized for fast load)
+  subjective     String?
+  objective      String?
+  assessment     String?
+  plan           String?
+  ros            String?    // review of systems
+  examFindings   String?
+
+  notes          EncounterNote[]
+  diagnoses      EncounterDiagnosis[]
+  charges        EncounterCharge[]
+  orders         Order[]
+}
+
+model EncounterNote {
+  id           String     @id @default(cuid())
+  encounterId  String
+  encounter    Encounter  @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User       @relation("NoteAuthor", fields: [authorId], references: [id])
+  body         String
+  createdAt    DateTime   @default(now())
+}
+
+model EncounterDiagnosis {
+  id           String     @id @default(cuid())
+  encounterId  String
+  encounter    Encounter  @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  icd10        String
+  description  String
+  primary      Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+}
+
+model EncounterCharge {
+  id           String     @id @default(cuid())
+  encounterId  String
+  encounter    Encounter  @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  cpt          String
+  description  String
+  units        Int        @default(1)
+  modifier     String?
+  feeCents     Int        @default(0)
+  createdAt    DateTime   @default(now())
+}
+
+// -------------------------------------------------------------
+// Pharmacy directory (e-prescribe search & send)
+// -------------------------------------------------------------
+model Pharmacy {
+  id           String   @id @default(cuid())
+  ncpdpId      String?  @unique // NCPDP / NABP pharmacy identifier
+  npi          String?
+  name         String
+  network      String   @default("surescripts") // surescripts | availity | internal
+  addressLine1 String?
+  city         String?
+  state        String?
+  postalCode   String?
+  phone        String?
+  fax          String?
+  hours        String?  // e.g. "24 hours", "Mon-Fri 8a-9p"
+  services     String?  // comma list: delivery, compounding, drive-thru, specialty
+  preferred    Boolean  @default(false)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  orders       Order[]
+}
+
+// -------------------------------------------------------------
+// Orders (Rx, Lab, Imaging, Procedure)
+// -------------------------------------------------------------
+model Order {
+  id            String     @id @default(cuid())
+  patientId     String
+  patient       Patient    @relation(fields: [patientId], references: [id])
+  encounterId   String?
+  encounter     Encounter? @relation(fields: [encounterId], references: [id])
+  providerId    String
+  provider      User       @relation("OrderProvider", fields: [providerId], references: [id])
+  type          String     // rx | lab | imaging | referral | procedure
+  status        String     @default("pending") // pending | sent | completed | cancelled
+  createdAt     DateTime   @default(now())
+
+  // common fields
+  itemName      String     // medication name, lab panel name, imaging study, etc.
+  itemCode      String?    // RxNorm, LOINC, CPT, etc.
+  instructions  String?
+  priority      String?    @default("routine") // routine | stat | urgent
+
+  // rx-specific
+  rxStrength    String?
+  rxForm        String?
+  rxSig         String?
+  rxQty         String?
+  rxRefills     Int?
+  rxDispenseAsWritten Boolean? @default(false)
+
+  // pharmacy routing (e-prescribe)
+  pharmacyId     String?
+  pharmacy       Pharmacy?  @relation(fields: [pharmacyId], references: [id])
+  pharmacyName   String?    // denormalized for quick display
+  routingNetwork String?    // surescripts | availity | internal
+  routedAt       DateTime?
+
+  // lab/imaging
+  diagnosisCode String?
+  resultText    String?
+  resultAt      DateTime?
+}
+
+// -------------------------------------------------------------
+// Inventory & stock (pharmacy dispensary, supplies, retail)
+// -------------------------------------------------------------
+model InventoryItem {
+  id               String   @id @default(cuid())
+  sku              String   @unique
+  name             String
+  category         String   @default("supply") // medication | supply | retail | aesthetic | equipment
+  form             String?  // tablet, vial, box, unit...
+  strength         String?
+  unit             String?  @default("each")
+  quantityOnHand   Int      @default(0)
+  reorderLevel     Int      @default(0)
+  unitCostCents    Int      @default(0)
+  retailPriceCents Int      @default(0)
+  taxable          Boolean  @default(false)
+  lotNumber        String?
+  expiresAt        DateTime?
+  location         String?  // dispensary, front-retail, aesthetics-room, supply-room
+  supplier         String?
+  controlled       Boolean  @default(false)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  movements        StockMovement[]
+  saleLines        PosSaleLine[]
+}
+
+model StockMovement {
+  id          String        @id @default(cuid())
+  itemId      String
+  item        InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  type        String        // receive | adjust | dispense | sale | waste | count
+  quantity    Int           // signed delta applied to quantityOnHand
+  reason      String?
+  reference   String?       // sale number, Rx id, PO, etc.
+  actor       String?       // staff member name
+  createdAt   DateTime      @default(now())
+}
+
+// -------------------------------------------------------------
+// Point of Sale (retail checkout for products & services)
+// -------------------------------------------------------------
+model PosSale {
+  id                  String   @id @default(cuid())
+  number              String   @unique
+  status              String   @default("paid") // open | paid | refunded | void
+  cashier             String?
+  patientName         String?
+  patientId           String?
+  subtotalCents       Int      @default(0)
+  discountCents       Int      @default(0)
+  taxCents            Int      @default(0)
+  totalCents          Int      @default(0)
+  paymentMethod       String?  // cash | card | hsa-fsa | on-account
+  amountTenderedCents Int      @default(0)
+  changeCents         Int      @default(0)
+  note                String?
+  createdAt           DateTime @default(now())
+
+  lines               PosSaleLine[]
+}
+
+model PosSaleLine {
+  id             String         @id @default(cuid())
+  saleId         String
+  sale           PosSale        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  itemId         String?
+  item           InventoryItem? @relation(fields: [itemId], references: [id])
+  kind           String         @default("product") // product | service
+  sku            String?
+  description    String
+  qty            Int            @default(1)
+  unitPriceCents Int            @default(0)
+  lineTotalCents Int            @default(0)
+}
+
+// -------------------------------------------------------------
+// Messaging & docs
+// -------------------------------------------------------------
+model Message {
+  id           String     @id @default(cuid())
+  fromUserId   String
+  fromUser     User       @relation("MsgFrom", fields: [fromUserId], references: [id])
+  toUserId     String?
+  toUser       User?      @relation("MsgTo", fields: [toUserId], references: [id])
+  patientId    String?
+  patient      Patient?   @relation(fields: [patientId], references: [id])
+  subject      String
+  body         String
+  read         Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+}
+
+model Document {
+  id           String     @id @default(cuid())
+  patientId    String
+  patient      Patient    @relation(fields: [patientId], references: [id])
+  title        String
+  category     String?    // consent | lab-report | imaging | referral | other
+  body         String?    // text body or external URL
+  createdAt    DateTime   @default(now())
+}
+
+// -------------------------------------------------------------
+// Audit
+// -------------------------------------------------------------
+model AuditLog {
+  id          String    @id @default(cuid())
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  action      String
+  resource    String
+  resourceId  String?
+  meta        String?
+  createdAt   DateTime  @default(now())
+}
