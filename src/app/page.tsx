@@ -87,6 +87,7 @@ function Header({ L }: { L: LandingDict }) {
           <nav className="hidden md:flex items-center gap-7 text-sm font-semibold text-slate-600">
             <a href="#services" className="hover:text-brand-700 transition">{L.navServices}</a>
             <a href="#why" className="hover:text-brand-700 transition">{L.navWhy}</a>
+            <a href="#team" className="hover:text-brand-700 transition">{L.teamKicker}</a>
             <Link href="/portal/login" className="hover:text-brand-700 transition">{L.navPortal}</Link>
             <a href="#contact" className="hover:text-brand-700 transition">{L.navContact}</a>
           </nav>

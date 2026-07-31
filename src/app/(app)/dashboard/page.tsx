@@ -113,7 +113,7 @@ export default async function DashboardPage() {
         {/* today's schedule */}
         <section className="card card-interactive lg:col-span-2 border-l-4 border-l-brand-500">
           <header className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-            <div className="font-semibold text-slate-900">Today's Schedule</div>
+            <div className="font-semibold text-brand-900 flex items-center gap-2"><span className="h-7 w-7 rounded-lg bg-brand-100 grid place-items-center text-brand-700"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></span>Today's Schedule</div>
             <Link href="/schedule" prefetch={false} className="text-xs font-semibold text-brand-700 hover:underline">Open schedule →</Link>
           </header>
           {todays.length === 0 ? (
@@ -139,7 +139,7 @@ export default async function DashboardPage() {
 
         {/* open notes */}
         <section className="card card-interactive border-l-4 border-l-amber-500">
-          <header className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-900">Open Encounter Notes</header>
+          <header className="px-4 py-3 border-b border-slate-200 font-semibold text-brand-900 flex items-center gap-2"><span className="h-7 w-7 rounded-lg bg-amber-100 grid place-items-center text-amber-700"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg></span>Open Encounter Notes</header>
           {openEncounters.length === 0 ? (
             <div className="p-6 text-sm text-slate-500">No open notes.</div>
           ) : (
@@ -158,7 +158,7 @@ export default async function DashboardPage() {
 
         {/* recent patients */}
         <section className="card card-interactive border-l-4 border-l-emerald-500">
-          <header className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-900">Recent Patients</header>
+          <header className="px-4 py-3 border-b border-slate-200 font-semibold text-brand-900 flex items-center gap-2"><span className="h-7 w-7 rounded-lg bg-emerald-100 grid place-items-center text-emerald-700"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 14a4 4 0 10-8 0M4 20c0-3 3-5 8-5s8 2 8 5" /></svg></span>Recent Patients</header>
           <ul className="divide-y divide-slate-100">
             {recentPatients.map(p => (
               <li key={p.id} className="px-4 py-3 hover:bg-slate-50">
@@ -173,7 +173,7 @@ export default async function DashboardPage() {
 
         {/* pending orders */}
         <section className="card card-interactive lg:col-span-2 border-l-4 border-l-violet-500">
-          <header className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-900">Pending Orders</header>
+          <header className="px-4 py-3 border-b border-slate-200 font-semibold text-brand-900 flex items-center gap-2"><span className="h-7 w-7 rounded-lg bg-violet-100 grid place-items-center text-violet-700"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v6L4 19a2 2 0 002 3h12a2 2 0 002-3l-5-10V3M9 3h6" /></svg></span>Pending Orders</header>
           {openOrders.length === 0 ? (
             <div className="p-6 text-sm text-slate-500">No pending orders.</div>
           ) : (
