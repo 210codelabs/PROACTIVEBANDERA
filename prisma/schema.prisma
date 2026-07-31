@@ -18,6 +18,30 @@ model AppSetting {
 }
 
 // -------------------------------------------------------------
+// Reference / master data catalog (dropdown value sets)
+// One flexible table powers every clinical & demographic dropdown.
+// type examples: medication | diagnosis | allergen | allergyReaction |
+//   allergySeverity | billingCode | problemStatus | language | race |
+//   ethnicity | maritalStatus | usState | insurer | medForm | medRoute |
+//   medFrequency | vaccine | sex | pronouns | apptLocation | serviceCategory
+// system examples: ICD-10-CM | RxNorm | CPT | HCPCS | CVX | OMB | NUCC | local
+// -------------------------------------------------------------
+model RefData {
+  id        String   @id @default(cuid()) @map("_id")
+  type      String
+  code      String?
+  display   String
+  system    String?
+  data      Json?
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([type, display])
+  @@index([type])
+}
+
+// -------------------------------------------------------------
 // Auth & Staff
 // -------------------------------------------------------------
 model User {

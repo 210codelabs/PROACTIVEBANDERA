@@ -103,6 +103,35 @@
 #====================================================================================================user_problem_statement: "Proactive Clinic EHR (imported ApexCare, rebranded). New backend features: AI assistant (OpenAI GPT-4o via Emergent LLM key) for patient FAQs, and patient-portal appointment request that saves to MongoDB via Prisma."
 
 backend:
+  - task: "Reference/master data catalog API (/api/refdata GET+POST)"
+    implemented: true
+    working: true
+    file: "src/app/api/refdata/route.ts, prisma/schema.prisma, scripts/seed-refdata.mjs"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW: Added Prisma model RefData (type, code, display, system, data JSON, sortOrder, active; @@unique([type,display])). Seeded 292 USA-standard values across 20 types (diagnosis=ICD-10-CM, billingCode=CPT/HCPCS, medication=RxNorm, vaccine=CVX, race/ethnicity=OMB, usState=USPS, plus allergen/reaction/severity/language/insurer/marital/sex/pronouns/medForm/medRoute/medFrequency/problemStatus/apptLocation). API: GET /api/refdata?type=&q=&limit= returns active items ordered by sortOrder (auth required via middleware); POST /api/refdata {type,display,code?,system?,data?} upserts a new value (requires session, 401 otherwise, 400 if missing type/display, 201 on success). Please test: (A) GET with a valid session cookie for type=diagnosis returns items incl code+display; (B) GET with q=diab filters; (C) GET without session -> 401 (middleware); (D) GET missing type -> 400; (E) POST new value creates and is returned/retrievable on next GET; (F) POST without session -> 401; (G) POST missing display -> 400."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_refdata.py. All test cases passed: (A) GET /api/refdata?type=diagnosis with session returns 200 with 35 diagnosis items, all have id/display/code fields with ICD-10 codes ✅. (B) GET with q=diab filter returns 1 item containing 'diabetes' ✅. (C) GET without session correctly blocked with 401 ✅. (D) GET without type parameter correctly returns 400 ✅. (E) GET /api/refdata?type=allergySeverity returns exactly 4 items (Mild/Moderate/Severe/Life-threatening) ✅. (F) POST /api/refdata with session creates new allergen, returns 201 with {item:{id,type,display}} ✅. (G) Verification: new allergen retrievable via GET ✅. (H) POST without session correctly blocked with 401 ✅. (I) POST with missing display correctly returns 400 ✅. Authentication, validation, data persistence, and filtering all working correctly."
+  - task: "Patient registration accepts race/ethnicity/maritalStatus"
+    implemented: true
+    working: true
+    file: "src/app/api/patients/route.ts"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Added race, ethnicity, maritalStatus to the POST /api/patients Zod schema so the new registration dropdowns persist. Please test creating a patient with race/ethnicity/maritalStatus/state(code)/insurerName set and confirm they persist on the returned patient object."
+        -working: true
+        -agent: "testing"
+        -comment: "Backend testing completed via backend_test_refdata.py. Test passed: POST /api/patients with {firstName, lastName, dob:'1990-05-01', sex:'M', race:'White', ethnicity:'Not Hispanic or Latino', maritalStatus:'Single', state:'TX', insurerName:'Aetna'} returns 200 with patient object. All demographics fields persisted correctly: race='White' ✅, ethnicity='Not Hispanic or Latino' ✅, maritalStatus='Single' ✅, state='TX' ✅, insurerName='Aetna' ✅. Patient created with MRN and all fields verified in response. Demographics persistence working correctly."
+
   - task: "Patient portal appointment request (create, saves to DB)"
     implemented: true
     working: true
@@ -165,6 +194,8 @@ agent_communication:
     -message: "Please test the two new backend endpoints. AUTH: (1) Portal session via POST /api/portal/auth/login {mrn:'PC-100000', dob:'1958-04-12'} -> keep cookie. (2) Staff session via POST /api/auth/login {email:'andy.manzano@proactiveclinic.com', password:'apex123'}. TESTS: (a) POST /api/portal/appointments with portal cookie and body {date: <future YYYY-MM-DD>, time:'14:30', location:'telehealth', reason:'test'} should return 200 {ok:true, appointment:{...status:'requested'}} and persist. Also test validation: past date -> 400, missing date/time -> 400, no cookie -> should be blocked (401/redirect). (b) POST /api/portal/assistant with portal cookie: free-form FAQ like {message:'What are your hours?'} -> 200 with a helpful reply mentioning Proactive Clinic (NOT ApexCare); a scheduling command {message:'schedule PT on 2026-09-01 at 3:00 PM'} -> rule-based action; a medical/dosage question -> should refuse to prescribe. Base URL: use internal http://localhost:3000. Do NOT test frontend."
     -agent: "testing"
     -message: "✅ Backend testing completed successfully. All tests passed with no critical issues. Created /app/backend_test.py with comprehensive test coverage. Test results: (1) Appointment request endpoint: All validation working (future date ✅, past date rejection ✅, missing fields rejection ✅, auth blocking ✅). (2) AI assistant endpoint: GPT-4o integration working ✅, correct branding (Proactive Clinic, no ApexCare) ✅, rule-based scheduling ✅, safety guardrails (refuses medical advice) ✅. (3) Portal auth: Cookie-based authentication working ✅. No issues found. Ready for main agent to summarize and finish."
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for NEW reference/master-data feature. All tests passed with no critical issues. Created /app/backend_test_refdata.py with comprehensive test coverage. Test results: (1) GET /api/refdata: All test cases passed - diagnosis items with ICD-10 codes ✅, filtering with q=diab ✅, auth blocking (401) ✅, missing type validation (400) ✅, allergySeverity 4 items ✅. (2) POST /api/refdata: All test cases passed - create new allergen (201) ✅, retrieval verification ✅, auth blocking (401) ✅, missing display validation (400) ✅. (3) POST /api/patients: Demographics persistence working - race/ethnicity/maritalStatus/state/insurerName all persisted correctly ✅. No issues found. Ready for main agent to summarize and finish."
 
 ## ---- Iteration 2 (main agent) ----
 backend:

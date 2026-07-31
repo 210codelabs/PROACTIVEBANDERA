@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import RefSelect from "@/components/RefSelect";
 
 export default function NewPatientForm() {
   const router = useRouter();
@@ -31,9 +32,12 @@ export default function NewPatientForm() {
         <Field label="First name" name="firstName" required />
         <Field label="Last name" name="lastName" required />
         <Field label="DOB" name="dob" type="date" required />
-        <Select label="Sex" name="sex" required options={["M", "F", "X"]} />
-        <Field label="Pronouns" name="pronouns" placeholder="he/him, she/her, they/them" />
-        <Field label="Preferred language" name="preferredLang" defaultValue="English" />
+        <RefSelect type="sex" label="Sex" name="sex" emit="code" showCode={false} required />
+        <RefSelect type="pronouns" label="Pronouns" name="pronouns" showCode={false} />
+        <RefSelect type="language" label="Preferred language" name="preferredLang" defaultValue="English" showCode={false} />
+        <RefSelect type="race" label="Race" name="race" showCode={false} />
+        <RefSelect type="ethnicity" label="Ethnicity" name="ethnicity" showCode={false} />
+        <RefSelect type="maritalStatus" label="Marital status" name="maritalStatus" showCode={false} />
       </Section>
       <Section title="Contact">
         <Field label="Email" name="email" type="email" />
@@ -41,11 +45,11 @@ export default function NewPatientForm() {
         <Field label="Address line 1" name="addressLine1" />
         <Field label="Address line 2" name="addressLine2" />
         <Field label="City" name="city" />
-        <Field label="State" name="state" />
+        <RefSelect type="usState" label="State" name="state" emit="code" showCode />
         <Field label="ZIP" name="postalCode" />
       </Section>
       <Section title="Insurance">
-        <Field label="Insurer" name="insurerName" />
+        <RefSelect type="insurer" label="Insurer" name="insurerName" showCode={false} />
         <Field label="Plan" name="insurerPlan" />
         <Field label="Member ID" name="memberId" />
         <Field label="Group #" name="groupNumber" />
@@ -77,14 +81,3 @@ function Field({ label, name, ...rest }: { label: string; name: string } & React
   );
 }
 
-function Select({ label, name, options, ...rest }: { label: string; name: string; options: string[] } & React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <label className="block">
-      <span className="label">{label}</span>
-      <select name={name} className="input" {...rest}>
-        <option value="">—</option>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </label>
-  );
-}

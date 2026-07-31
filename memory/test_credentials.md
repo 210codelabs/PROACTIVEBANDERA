@@ -1,3 +1,16 @@
 # Test Credentials
 # Agent writes here when creating/modifying auth credentials (admin accounts, test users).
 # Testing agent reads this before auth tests. Fork/continuation agents read on startup.
+
+## Staff / EHR login (demo roster enabled via ALLOW_DEMO_LOGIN=true)
+- Provider (default): andy.manzano@proactiveclinic.com / apex123
+- Admin:              admin@proactiveclinic.com / apex123
+- Nurse:              nurse.kim@proactiveclinic.com / apex123
+- Front desk:         front.lopez@proactiveclinic.com / apex123
+- Billing:            billing@proactiveclinic.com / apex123
+Login page: /login  (staff). All EHR routes under /(app) and protected /api/* require this session cookie.
+
+## Patient Portal login
+- MRN: PC-100000  DOB: 1958-04-12  (Eleanor Adams)
+Portal login also available from the landing hero "Patient Portal" tab.
+
