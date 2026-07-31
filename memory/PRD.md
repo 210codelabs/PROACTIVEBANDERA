@@ -31,3 +31,10 @@ Imported the existing **ApexCare EHR** (full Next.js 15 + Prisma + MongoDB app, 
 - **Services replaced with brochure list** (EN+ES): Primary Care & Preventive Care, Physical Rehabilitation, Pain Management Clinic, Wellness & Recovery Programs, Chronic Condition Monitoring, Telehealth & Follow-Up Support. Why-Choose = brochure's 4 points. Hero text updated to brochure messaging.
 - **Practice Director renamed everywhere**: Mariuska→Andy, Aristica→Manzano, mariuska.aristica@→andy.manzano@ (code + DB reseeded). Verified login returns Andy Manzano.
 - **Logos site-wide**: `public/pclinic-light.png` on light backgrounds (headers, portal, shell), `public/pclinic-dark.png` on dark backgrounds (staff login page + footer).
+
+## Update — Team photos, portal quick actions, testimonials, location map
+- **Team section**: real provider headshots (Unsplash) replacing initials avatars.
+- **Landing testimonials**: new "What Our Patients Say" section with 3 patient reviews (5-star, colored avatars), bilingual EN/ES; added to nav flow.
+- **Location map**: Google Maps embed (no API key, `output=embed`) in the Contact section next to insurance/CTA card.
+- **Portal quick actions**: 4 colored action cards (Appointments, Messages, Documents, AI Assistant) on the patient portal dashboard linking to portal routes. Added `portal.quickActions` i18n key (EN/ES).
+- All verified 200 with no compile errors.

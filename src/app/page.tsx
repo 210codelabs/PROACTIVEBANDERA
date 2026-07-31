@@ -33,6 +33,7 @@ export default async function HomePage() {
       <Services L={L} />
       <WhyChooseUs L={L} />
       <Team L={L} />
+      <Testimonials L={L} />
       <BookBand L={L} />
       <ContactAndHours L={L} />
       <Footer L={L} />
@@ -262,10 +263,10 @@ function WhyChooseUs({ L }: { L: LandingDict }) {
 
 function Team({ L }: { L: LandingDict }) {
   const members = [
-    { name: "Andy Manzano", cred: "PD", specialty: "Practice Director", initials: "AM" },
-    { name: "Linh Tan", cred: "NP", specialty: "Primary Care / Aesthetics", initials: "LT" },
-    { name: "Devon Jones", cred: "DPT", specialty: "Physical Rehabilitation", initials: "DJ" },
-    { name: "Aaron Smith", cred: "MD", specialty: "Pain Management / Wound Care", initials: "AS" },
+    { name: "Andy Manzano", cred: "PD", specialty: "Practice Director", initials: "AM", photo: "https://images.unsplash.com/photo-1585240975858-7264fd020798?crop=entropy&cs=srgb&fm=jpg&q=80&w=400" },
+    { name: "Linh Tan", cred: "NP", specialty: "Primary Care / Aesthetics", initials: "LT", photo: "https://images.unsplash.com/photo-1606240569045-aca76646c656?crop=entropy&cs=srgb&fm=jpg&q=80&w=400" },
+    { name: "Devon Jones", cred: "DPT", specialty: "Physical Rehabilitation", initials: "DJ", photo: "https://images.unsplash.com/photo-1639747279286-c07eecb47a0b?crop=entropy&cs=srgb&fm=jpg&q=80&w=400" },
+    { name: "Aaron Smith", cred: "MD", specialty: "Pain Management / Wound Care", initials: "AS", photo: "https://images.unsplash.com/photo-1649705433263-5c80d699b5f5?crop=entropy&cs=srgb&fm=jpg&q=80&w=400" },
   ];
   return (
     <section id="team" className="py-16 sm:py-24 bg-white">
@@ -286,13 +287,53 @@ function Team({ L }: { L: LandingDict }) {
               <div key={mem.name} className="group rounded-2xl border border-slate-100 bg-white shadow-sm hover:shadow-xl transition overflow-hidden text-center">
                 <div className={`h-24 bg-gradient-to-r ${a.bar}`} />
                 <div className="px-6 pb-6 -mt-12">
-                  <div className={`mx-auto h-24 w-24 rounded-full ${a.circle} ring-4 ring-white grid place-items-center text-white text-2xl font-extrabold shadow-lg`}>
-                    {mem.initials}
+                  <div className={`mx-auto h-24 w-24 rounded-full ring-4 ring-white shadow-lg overflow-hidden ${a.circle}`}>
+                    <img src={mem.photo} alt={mem.name} className="h-full w-full object-cover" loading="lazy" />
                   </div>
                   <h3 className="mt-4 font-bold text-brand-900 text-lg">{mem.name}<span className="text-slate-400 font-semibold">, {mem.cred}</span></h3>
                   <p className={`text-sm font-semibold ${a.text} mt-0.5`}>{mem.specialty}</p>
                 </div>
               </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Testimonials({ L }: { L: LandingDict }) {
+  return (
+    <section id="testimonials" className="py-16 sm:py-24 bg-gradient-to-b from-white to-brand-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-2xl mx-auto mb-14">
+          <div className="inline-flex items-center gap-2 text-sm font-bold text-brand-700 uppercase tracking-wider mb-3">
+            <span className="h-1 w-6 rounded-full bg-emerald-500" />
+            {L.testKicker}
+            <span className="h-1 w-6 rounded-full bg-red-500" />
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-brand-900">{L.testTitle}</h2>
+          <p className="mt-4 text-slate-600 text-lg">{L.testDesc}</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-6">
+          {L.reviews.map((r, i) => {
+            const a = ACCENTS[i % ACCENTS.length];
+            return (
+              <figure key={r.name} className="relative rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-xl transition p-7 flex flex-col">
+                <div className="flex items-center gap-1 text-amber-400 mb-4">
+                  {[0, 1, 2, 3, 4].map((s) => (
+                    <svg key={s} className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.35 4.16a1 1 0 00.95.69h4.37c.97 0 1.37 1.24.59 1.81l-3.54 2.57a1 1 0 00-.36 1.12l1.35 4.16c.3.92-.76 1.69-1.54 1.12l-3.54-2.57a1 1 0 00-1.18 0l-3.54 2.57c-.78.57-1.84-.2-1.54-1.12l1.35-4.16a1 1 0 00-.36-1.12L1.44 9.6c-.78-.57-.38-1.81.59-1.81h4.37a1 1 0 00.95-.69L9.05 2.93z" /></svg>
+                  ))}
+                </div>
+                <blockquote className="text-slate-600 text-sm leading-relaxed flex-1">&ldquo;{r.text}&rdquo;</blockquote>
+                <figcaption className="mt-5 flex items-center gap-3 border-t border-slate-100 pt-4">
+                  <div className={`h-11 w-11 rounded-full ${a.circle} grid place-items-center text-white font-bold`}>{r.name.charAt(0)}</div>
+                  <div>
+                    <div className="font-bold text-brand-900 text-sm">{r.name}</div>
+                    <div className="text-xs text-slate-500">{r.location}</div>
+                  </div>
+                </figcaption>
+              </figure>
             );
           })}
         </div>
@@ -428,9 +469,21 @@ function ContactAndHours({ L }: { L: LandingDict }) {
             );
           })}
         </div>
-        <div className="mt-8 rounded-2xl border border-brand-100 bg-brand-50 p-6 text-center">
-          <h3 className="font-bold text-brand-900 mb-2">{L.insuranceTitle}</h3>
-          <p className="text-sm text-slate-600 max-w-2xl mx-auto">{L.insuranceDesc}</p>
+        <div className="mt-8 grid lg:grid-cols-5 gap-6 items-stretch">
+          <div className="lg:col-span-3 rounded-2xl overflow-hidden border border-slate-200 shadow-sm min-h-[300px]">
+            <iframe
+              title="Proactive Clinic location map"
+              src="https://www.google.com/maps?q=800%20NW%2057th%20Ave%2C%20Miami%2C%20FL%2033126&output=embed"
+              className="w-full h-full min-h-[300px]"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+          <div className="lg:col-span-2 rounded-2xl border border-brand-100 bg-brand-50 p-6 flex flex-col justify-center">
+            <h3 className="font-bold text-brand-900 mb-2">{L.insuranceTitle}</h3>
+            <p className="text-sm text-slate-600">{L.insuranceDesc}</p>
+            <a href="#contact" className="btn-primary mt-5 self-start">{L.scheduleVisit}</a>
+          </div>
         </div>
       </div>
     </section>

@@ -79,6 +79,7 @@ const en = {
   portal: {
     title: "Proactive Clinic Patient Portal",
     welcome: "Welcome",
+    quickActions: "Quick Actions",
     overview: "Overview",
     appointments: "Appointments",
     aiAssistant: "AI Assistant",
@@ -168,6 +169,14 @@ const en = {
     teamKicker: "Our Team",
     teamTitle: "Meet Your Care Team",
     teamDesc: "A multidisciplinary team of providers dedicated to your wellness and recovery.",
+    testKicker: "Testimonials",
+    testTitle: "What Our Patients Say",
+    testDesc: "Real stories from the people at the heart of everything we do.",
+    reviews: [
+      { name: "Maria G.", location: "Miami, FL", text: "From the front desk to my therapist, everyone made me feel cared for. My recovery after surgery was faster than I ever expected." },
+      { name: "James R.", location: "Doral, FL", text: "The team actually listens. My pain management plan changed my quality of life, and the telehealth follow-ups are so convenient." },
+      { name: "Sofía P.", location: "Hialeah, FL", text: "Bilingual, kind, and truly modern. Booking is easy and the patient portal keeps everything in one place. Highly recommend." },
+    ],
     portalKicker: "Patient Portal",
     portalTitle: "Access Your Care Anytime",
     portalDesc:
@@ -330,6 +339,7 @@ const es = {
   portal: {
     title: "Portal del Paciente Proactive Clinic",
     welcome: "Bienvenido",
+    quickActions: "Acciones Rápidas",
     overview: "Resumen",
     appointments: "Citas",
     aiAssistant: "Asistente IA",
@@ -419,6 +429,14 @@ const es = {
     teamKicker: "Nuestro Equipo",
     teamTitle: "Conoce a tu Equipo de Atención",
     teamDesc: "Un equipo multidisciplinario de proveedores dedicados a tu bienestar y recuperación.",
+    testKicker: "Testimonios",
+    testTitle: "Lo que dicen nuestros pacientes",
+    testDesc: "Historias reales de las personas que son el corazón de todo lo que hacemos.",
+    reviews: [
+      { name: "María G.", location: "Miami, FL", text: "Desde la recepción hasta mi terapeuta, todos me hicieron sentir cuidada. Mi recuperación tras la cirugía fue más rápida de lo que esperaba." },
+      { name: "James R.", location: "Doral, FL", text: "El equipo realmente escucha. Mi plan de manejo del dolor cambió mi calidad de vida, y los seguimientos por telesalud son muy convenientes." },
+      { name: "Sofía P.", location: "Hialeah, FL", text: "Bilingüe, amable y verdaderamente moderno. Agendar es fácil y el portal del paciente mantiene todo en un solo lugar. Muy recomendado." },
+    ],
     portalKicker: "Portal del paciente",
     portalTitle: "Accede a tu atención en cualquier momento",
     portalDesc:

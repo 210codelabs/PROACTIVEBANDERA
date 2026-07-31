@@ -1,4 +1,5 @@
 import PortalShell from "@/components/portal/PortalShell";
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { requirePortalSession } from "@/lib/portalAuth";
 import { getT } from "@/lib/i18n/server";
@@ -61,6 +62,26 @@ export default async function PortalDashboardPage() {
         <Metric label={t("portal.upcomingAppointments")} value={upcoming.length} accent="brand" icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         <Metric label={t("portal.unreadMessages")} value={unreadCount} accent="rose" icon="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         <Metric label={t("portal.recentDocuments")} value={recentDocs.length} accent="emerald" icon="M9 12h6m-6 4h6m2 4H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </div>
+
+      {/* Quick actions */}
+      <div className="mb-4">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">{t("portal.quickActions")}</div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { href: "/portal/appointments", label: t("portal.appointments"), bg: "bg-brand-600", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
+            { href: "/portal/messages", label: t("portal.messages"), bg: "bg-rose-600", icon: "M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
+            { href: "/portal/documents", label: t("portal.documents"), bg: "bg-emerald-600", icon: "M9 12h6m-6 4h6m2 4H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+            { href: "/portal/assistant", label: t("portal.aiAssistant"), bg: "bg-violet-600", icon: "M12 8V4m0 0H8m4 0h4M5 12a7 7 0 0114 0v3a2 2 0 01-2 2h-1l-2 3-2-3H7a2 2 0 01-2-2v-3z" },
+          ].map((q) => (
+            <Link key={q.href} href={q.href} prefetch={false} className="group rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm p-4 flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all">
+              <span className={`h-11 w-11 shrink-0 rounded-xl ${q.bg} grid place-items-center text-white shadow-sm`}>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={q.icon} /></svg>
+              </span>
+              <span className="font-semibold text-sm text-brand-900">{q.label}</span>
+            </Link>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
