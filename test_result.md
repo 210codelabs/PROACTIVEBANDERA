@@ -186,7 +186,7 @@ backend:
 frontend:
   - task: "Landing hero: slideshow background + tabbed auth (Patient Portal / Staff Access)"
     implemented: true
-    working: false
+    working: true
     file: "src/components/HeroAuth.tsx, src/app/page.tsx"
     stuck_count: 0
     priority: "high"
@@ -198,6 +198,12 @@ frontend:
         -working: false
         -agent: "testing"
         -comment: "Comprehensive UI testing completed. PASS: Hero slideshow with 4 images ✅, trust chips (Hablamos Español, Home Visits, Most Insurances) ✅, 'Now Accepting New Patients' red badge ✅, both auth tabs (Patient Portal and Staff Access) ✅, Patient login working correctly (redirects to /portal/dashboard with Welcome banner, MRN PC-100000, and Quick Actions) ✅. FAIL: Staff login does NOT redirect to /dashboard - stays on landing page after clicking login button. API call to /api/auth/login succeeds (200), but /dashboard?_rsc request fails with net::ERR_ABORTED. Issue appears to be with dashboard page loading, not authentication."
+        -working: true
+        -agent: "main"
+        -comment: "BUGFIX: Changed both login forms from router.push()+router.refresh() to window.location.assign() for full-page navigation. This resolves the ERR_ABORTED issue on staff dashboard navigation."
+        -working: true
+        -agent: "testing"
+        -comment: "Bug fix verified via comprehensive regression testing. TEST A (Staff Access): Staff login now successfully redirects to /dashboard with full EHR dashboard rendering - 'Good morning, Andy.' greeting visible, KPI tiles (3 TODAY, 0 OPEN NOTES, 2 PENDING ORDERS, 3 UNREAD MSGS, 10 PATIENTS), Live Operations section, Today's Schedule, Recent Patients, and complete navigation sidebar. No ERR_ABORTED on main navigation. TEST B (Patient Portal - Regression): Patient login continues to work correctly, redirects to /portal/dashboard with 'Welcome Eleanor Adams · MRN PC-100000' banner, Quick Actions, and appointments. Minor: Background requests to /cdn-cgi/rum (Cloudflare monitoring) and /api/auth/refresh fail with ERR_ABORTED but don't affect core functionality. Original bug FIXED - window.location.assign() solution working as expected."
   - task: "Patient portal booking flow UI with confirmation summary"
     implemented: true
     working: true
@@ -259,3 +265,10 @@ agent_communication:
     -message: "Iteration 2 FRONTEND: Test the 4 new frontend features via UI automation at https://nextjs-ssr-stack.preview.emergentagent.com: (1) Landing hero slideshow + tabbed auth (Patient/Staff login), (2) Patient portal booking flow with confirmation, (3) Assistant suggested FAQ chips, (4) Services section with photos + colored icons."
     -agent: "testing"
     -message: "Frontend UI testing completed. CRITICAL BUG FIXED: PortalAssistantChat.tsx had undefined SUGGESTIONS constant causing page crash - replaced STARTER_PROMPTS with proper SUGGESTIONS object. RESULTS: ✅ Patient portal booking flow (TEST 2) - fully working with confirmation number and summary. ✅ Assistant FAQ chips (TEST 3) - working after fix, GPT-4o responses correct, no ApexCare branding. ✅ Services section (TEST 4) - all 6 cards with photos, icons, and checklists working. ❌ Staff login (TEST 1) - FAILS to redirect to /dashboard. Patient login works correctly. Staff login API succeeds (200) but /dashboard page request fails (net::ERR_ABORTED). Issue is with dashboard page loading, not authentication. Recommend investigating /dashboard page server-side rendering or middleware blocking."
+
+## ---- Iteration 2 fix (main agent) ----
+agent_communication:
+    -agent: "main"
+    -message: "BUGFIX applied for staff login redirect. In src/components/HeroAuth.tsx the auth card previously did router.push()+router.refresh() which aborted the navigation for staff (net::ERR_ABORTED). Changed BOTH tabs to full-page navigation window.location.assign('/dashboard') and window.location.assign('/portal/dashboard'). Please RE-VERIFY on https://nextjs-ssr-stack.preview.emergentagent.com: (1) On '/', click 'Staff Access' tab, enter andy.manzano@proactiveclinic.com / apex123, click Login (label may be 'Ingresar'): MUST end up on /dashboard with the EHR dashboard visible (KPI tiles + greeting). (2) Regression: On '/', Patient Portal tab with MRN PC-100000 and DOB 1958-04-12 -> MUST end up on /portal/dashboard. Report pass/fail for both."
+    -agent: "testing"
+    -message: "✅ BUG FIX VERIFIED - Both tests PASSED. TEST A (Staff Access): Staff login now successfully redirects to /dashboard. Dashboard fully renders with 'Good morning, Andy.' greeting, KPI tiles (3 TODAY, 0 OPEN NOTES, 2 PENDING ORDERS, 3 UNREAD MSGS, 10 PATIENTS), Live Operations section, Today's Schedule, and full navigation. No ERR_ABORTED on main navigation. TEST B (Patient Portal - Regression): Patient login still works correctly, redirects to /portal/dashboard with 'Welcome Eleanor Adams · MRN PC-100000' banner, Quick Actions, and appointments visible. Minor: Background requests to /cdn-cgi/rum (Cloudflare monitoring) and /api/auth/refresh fail with ERR_ABORTED but don't affect core functionality. The original bug (dashboard not loading due to ERR_ABORTED on main navigation) is FIXED. window.location.assign() solution working as expected."

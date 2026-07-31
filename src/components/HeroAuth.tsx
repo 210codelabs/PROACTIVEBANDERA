@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 
 const SLIDES = ["/hero-slide-1.jpg", "/hero-proactive.png", "/hero-slide-2.jpg", "/hero-slide-3.jpg"];
 
@@ -94,7 +93,6 @@ export default function HeroAuth({ heading, accent, tagline, subtitle, chips }: 
 }
 
 function AuthCard({ lang }: { lang: "es" | "en" }) {
-  const router = useRouter();
   const [tab, setTab] = useState<"portal" | "staff">("portal");
 
   // Portal state
@@ -125,8 +123,7 @@ function AuthCard({ lang }: { lang: "es" | "en" }) {
         setBusy(false);
         return;
       }
-      router.push("/portal/dashboard");
-      router.refresh();
+      window.location.assign("/portal/dashboard");
     } catch {
       setError(tt(lang, "Portal is temporarily unavailable.", "El portal no está disponible temporalmente."));
       setBusy(false);
@@ -150,8 +147,7 @@ function AuthCard({ lang }: { lang: "es" | "en" }) {
         setBusy(false);
         return;
       }
-      router.push("/dashboard");
-      router.refresh();
+      window.location.assign("/dashboard");
     } catch {
       setError(tt(lang, "Login is temporarily unavailable.", "El inicio de sesión no está disponible."));
       setBusy(false);
