@@ -9,17 +9,25 @@ export default function AddProblemForm({ patientId }: { patientId: string }) {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const form = e.currentTarget; // capture before await
     setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const body = Object.fromEntries(fd.entries());
-    await fetch(`/api/patients/${patientId}/problems`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setLoading(false);
-    (e.currentTarget as HTMLFormElement).reset();
-    router.refresh();
+    try {
+      const fd = new FormData(form);
+      const body = Object.fromEntries(fd.entries());
+      const res = await fetch(`/api/patients/${patientId}/problems`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to save problem");
+      form.reset();
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+      alert("Could not save the problem. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
   return (
     <form className="space-y-3" onSubmit={onSubmit}>

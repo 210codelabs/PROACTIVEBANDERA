@@ -7,16 +7,24 @@ export default function AddVitalsForm({ patientId }: { patientId: string }) {
   const [loading, setLoading] = useState(false);
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const form = e.currentTarget; // capture before await (currentTarget is nulled after the handler returns)
     setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const body = Object.fromEntries(fd.entries());
-    await fetch(`/api/patients/${patientId}/vitals`, {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setLoading(false);
-    (e.currentTarget as HTMLFormElement).reset();
-    router.refresh();
+    try {
+      const fd = new FormData(form);
+      const body = Object.fromEntries(fd.entries());
+      const res = await fetch(`/api/patients/${patientId}/vitals`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to save vitals");
+      form.reset();
+      router.refresh(); // re-fetch the server component so the new reading shows immediately
+    } catch (err) {
+      console.error(err);
+      alert("Could not save vitals. Please check the values and try again.");
+    } finally {
+      setLoading(false);
+    }
   }
   return (
     <form className="grid grid-cols-2 gap-3" onSubmit={onSubmit}>
