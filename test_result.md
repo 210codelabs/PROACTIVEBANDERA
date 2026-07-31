@@ -165,3 +165,78 @@ agent_communication:
     -message: "Please test the two new backend endpoints. AUTH: (1) Portal session via POST /api/portal/auth/login {mrn:'PC-100000', dob:'1958-04-12'} -> keep cookie. (2) Staff session via POST /api/auth/login {email:'andy.manzano@proactiveclinic.com', password:'apex123'}. TESTS: (a) POST /api/portal/appointments with portal cookie and body {date: <future YYYY-MM-DD>, time:'14:30', location:'telehealth', reason:'test'} should return 200 {ok:true, appointment:{...status:'requested'}} and persist. Also test validation: past date -> 400, missing date/time -> 400, no cookie -> should be blocked (401/redirect). (b) POST /api/portal/assistant with portal cookie: free-form FAQ like {message:'What are your hours?'} -> 200 with a helpful reply mentioning Proactive Clinic (NOT ApexCare); a scheduling command {message:'schedule PT on 2026-09-01 at 3:00 PM'} -> rule-based action; a medical/dosage question -> should refuse to prescribe. Base URL: use internal http://localhost:3000. Do NOT test frontend."
     -agent: "testing"
     -message: "✅ Backend testing completed successfully. All tests passed with no critical issues. Created /app/backend_test.py with comprehensive test coverage. Test results: (1) Appointment request endpoint: All validation working (future date ✅, past date rejection ✅, missing fields rejection ✅, auth blocking ✅). (2) AI assistant endpoint: GPT-4o integration working ✅, correct branding (Proactive Clinic, no ApexCare) ✅, rule-based scheduling ✅, safety guardrails (refuses medical advice) ✅. (3) Portal auth: Cookie-based authentication working ✅. No issues found. Ready for main agent to summarize and finish."
+
+## ---- Iteration 2 (main agent) ----
+backend:
+  - task: "Appointment request now returns confirmationNumber + creates front-desk Message"
+    implemented: true
+    working: true
+    file: "src/app/api/portal/appointments/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "POST /api/portal/appointments now returns {ok:true, confirmationNumber:'PC-XXXXXX', appointment:{...status:'requested'}} and additionally creates a Message (front-desk notice) with subject containing the patient name + confirmation number. Message creation is wrapped in try/catch (non-fatal). Need retest: valid create returns confirmationNumber (string starting 'PC-'); a Message row is created for the request; past date -> 400; missing fields -> 400; no session -> 401."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test.py. All test cases passed: (1a) Valid future appointment returns 200 with {ok:true, confirmationNumber:'PC-5WRYPH', appointment:{status:'requested'}}. confirmationNumber format verified (starts with 'PC-'). (1b) Front-desk Message successfully created in MongoDB with subject 'New appointment request — Eleanor Adams (MRN PC-100000) [PC-5WRYPH]' containing the confirmationNumber. (1c) Past date validation correctly returns 400. (1d) Missing date/time validation correctly returns 400. (1e) Unauthenticated request correctly blocked with 401. All functionality working as expected."
+
+frontend:
+  - task: "Landing hero: slideshow background + tabbed auth (Patient Portal / Staff Access)"
+    implemented: true
+    working: "NA"
+    file: "src/components/HeroAuth.tsx, src/app/page.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Hero has a 4-image crossfade slideshow background with blue scrim. Right side is a card with two tabs. Patient Portal tab = MRN + DOB (PC-100000 / 1958-04-12) -> should redirect to /portal/dashboard. Staff Access tab = email + password (andy.manzano@proactiveclinic.com / apex123) -> should redirect to /dashboard."
+  - task: "Patient portal booking flow UI with confirmation summary"
+    implemented: true
+    working: "NA"
+    file: "src/components/portal/PortalBookingForm.tsx, src/app/portal/appointments/page.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "On /portal/appointments, 'New Request' opens a form (service, visit type, date, time, reason). Submitting a valid future request shows a green confirmation panel with the confirmation number + summary, and the new 'requested' appointment appears in the list."
+  - task: "Assistant suggested FAQ buttons (language-aware)"
+    implemented: true
+    working: "NA"
+    file: "src/components/portal/PortalAssistantChat.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Portal assistant page shows 'Suggested questions' chips (FAQ). Clicking one sends it and returns a GPT-4o answer."
+  - task: "Services section redesigned with photo + colored icon"
+    implemented: true
+    working: "NA"
+    file: "src/app/page.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Landing 'Complete Healthcare Under One Roof' service cards now show a photo with an overlapping colored icon badge + brochure services."
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 2: BACKEND retest only for /api/portal/appointments (now returns confirmationNumber and creates a front-desk Message). Auth via POST /api/portal/auth/login {mrn:'PC-100000', dob:'1958-04-12'}. Verify: valid future request returns 200 with confirmationNumber (string starting 'PC-') and status 'requested'; a Message document is created (front-desk notice); past date -> 400; missing date/time -> 400; unauthenticated -> 401. Base URL http://localhost:3000."
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for POST /api/portal/appointments. All test cases passed with no critical issues. Test results: (1a) Valid appointment creation returns confirmationNumber starting with 'PC-' ✅, appointment status 'requested' ✅. (1b) Front-desk Message successfully created in MongoDB with confirmationNumber in subject ✅. (1c) Past date validation returns 400 ✅. (1d) Missing date/time validation returns 400 ✅. (1e) Unauthenticated request blocked with 401 ✅. All functionality working correctly. Ready for main agent to summarize and finish."

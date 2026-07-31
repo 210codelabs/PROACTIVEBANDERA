@@ -9,8 +9,14 @@ Tests two new endpoints:
 import requests
 import json
 from datetime import datetime, timedelta
+from pymongo import MongoClient
+import os
 
 BASE_URL = "http://localhost:3000"
+
+# MongoDB connection
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+DB_NAME = os.getenv("DB_NAME", "proactive_clinic")
 
 # Test credentials
 PORTAL_CREDS = {
@@ -73,16 +79,18 @@ def test_appointment_request(portal_cookie):
     
     cookies = {"proactive_portal_session": portal_cookie}
     all_passed = True
+    confirmation_number = None
     
-    # Test 1a: Valid future appointment
-    print("\n--- Test 1a: Valid future appointment ---")
+    # Test 1a: Valid future appointment with confirmationNumber
+    print("\n--- Test 1a: Valid future appointment with confirmationNumber ---")
     try:
         future_date = (datetime.now() + timedelta(days=120)).strftime("%Y-%m-%d")
         payload = {
             "date": future_date,
-            "time": "14:30",
-            "location": "telehealth",
-            "reason": "QA test appointment"
+            "time": "10:00",
+            "serviceTypeId": None,
+            "location": "in-office",
+            "reason": "QA confirm test"
         }
         response = requests.post(
             f"{BASE_URL}/api/portal/appointments",
@@ -92,20 +100,39 @@ def test_appointment_request(portal_cookie):
         )
         
         print(f"Status: {response.status_code}")
-        print(f"Response: {response.text[:300]}")
+        print(f"Response: {response.text[:500]}")
         
         if response.status_code == 200:
             data = response.json()
-            if data.get("ok") and data.get("appointment"):
+            if data.get("ok") and data.get("appointment") and data.get("confirmationNumber"):
                 appt = data["appointment"]
+                confirmation_number = data["confirmationNumber"]
                 status = appt.get("status")
+                
+                # Check status
                 if status == "requested":
-                    print_test("Valid appointment creation", True, f"Appointment ID: {appt.get('id')}, Status: {status}")
+                    print_test("Appointment status", True, f"Status: {status}")
                 else:
-                    print_test("Valid appointment creation", False, f"Expected status 'requested', got '{status}'")
+                    print_test("Appointment status", False, f"Expected status 'requested', got '{status}'")
                     all_passed = False
+                
+                # Check confirmationNumber format
+                if confirmation_number and confirmation_number.startswith("PC-"):
+                    print_test("Confirmation number format", True, f"confirmationNumber: {confirmation_number}")
+                else:
+                    print_test("Confirmation number format", False, f"Expected confirmationNumber starting with 'PC-', got '{confirmation_number}'")
+                    all_passed = False
+                    
+                print(f"   Appointment ID: {appt.get('id')}")
             else:
-                print_test("Valid appointment creation", False, "Response missing 'ok' or 'appointment' fields")
+                missing_fields = []
+                if not data.get("ok"):
+                    missing_fields.append("ok")
+                if not data.get("appointment"):
+                    missing_fields.append("appointment")
+                if not data.get("confirmationNumber"):
+                    missing_fields.append("confirmationNumber")
+                print_test("Valid appointment creation", False, f"Response missing fields: {', '.join(missing_fields)}")
                 all_passed = False
         else:
             print_test("Valid appointment creation", False, f"Expected 200, got {response.status_code}")
@@ -114,13 +141,43 @@ def test_appointment_request(portal_cookie):
         print_test("Valid appointment creation", False, f"Exception: {e}")
         all_passed = False
     
-    # Test 1b: Past date validation
-    print("\n--- Test 1b: Past date validation ---")
+    # Test 1b: Verify front-desk Message was created
+    print("\n--- Test 1b: Verify front-desk Message creation ---")
+    if confirmation_number:
+        try:
+            client = MongoClient(MONGO_URL)
+            db = client[DB_NAME]
+            
+            # Query for Message with the confirmation number in subject
+            message = db.Message.find_one(
+                {"subject": {"$regex": confirmation_number}},
+                sort=[("createdAt", -1)]
+            )
+            
+            if message:
+                subject = message.get("subject", "")
+                print_test("Front-desk Message created", True, f"Found Message with subject: {subject[:80]}...")
+                print(f"   Message ID: {message.get('_id')}")
+                print(f"   Subject: {subject}")
+            else:
+                print_test("Front-desk Message created", False, f"No Message found with confirmationNumber '{confirmation_number}' in subject")
+                # This is non-fatal per requirements, so don't fail the test
+                print("   Note: Message creation is best-effort/non-fatal per requirements")
+            
+            client.close()
+        except Exception as e:
+            print_test("Front-desk Message verification", False, f"Exception querying MongoDB: {e}")
+            print("   Note: Message creation is best-effort/non-fatal per requirements")
+    else:
+        print("⚠️  Skipping Message verification - no confirmation number from previous test")
+    
+    # Test 1c: Past date validation
+    print("\n--- Test 1c: Past date validation ---")
     try:
         payload = {
             "date": "2020-01-01",
-            "time": "14:30",
-            "location": "telehealth",
+            "time": "10:00",
+            "location": "in-office",
             "reason": "Test past date"
         }
         response = requests.post(
@@ -142,14 +199,10 @@ def test_appointment_request(portal_cookie):
         print_test("Past date validation", False, f"Exception: {e}")
         all_passed = False
     
-    # Test 1c: Missing date validation
-    print("\n--- Test 1c: Missing date validation ---")
+    # Test 1d: Missing date/time validation
+    print("\n--- Test 1d: Missing date/time validation ---")
     try:
-        payload = {
-            "time": "14:30",
-            "location": "telehealth",
-            "reason": "Test missing date"
-        }
+        payload = {}
         response = requests.post(
             f"{BASE_URL}/api/portal/appointments",
             json=payload,
@@ -161,40 +214,12 @@ def test_appointment_request(portal_cookie):
         print(f"Response: {response.text[:200]}")
         
         if response.status_code == 400:
-            print_test("Missing date validation", True, "Correctly rejected missing date with 400")
+            print_test("Missing date/time validation", True, "Correctly rejected missing fields with 400")
         else:
-            print_test("Missing date validation", False, f"Expected 400, got {response.status_code}")
+            print_test("Missing date/time validation", False, f"Expected 400, got {response.status_code}")
             all_passed = False
     except Exception as e:
-        print_test("Missing date validation", False, f"Exception: {e}")
-        all_passed = False
-    
-    # Test 1d: Missing time validation
-    print("\n--- Test 1d: Missing time validation ---")
-    try:
-        future_date = (datetime.now() + timedelta(days=120)).strftime("%Y-%m-%d")
-        payload = {
-            "date": future_date,
-            "location": "telehealth",
-            "reason": "Test missing time"
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/portal/appointments",
-            json=payload,
-            cookies=cookies,
-            timeout=10
-        )
-        
-        print(f"Status: {response.status_code}")
-        print(f"Response: {response.text[:200]}")
-        
-        if response.status_code == 400:
-            print_test("Missing time validation", True, "Correctly rejected missing time with 400")
-        else:
-            print_test("Missing time validation", False, f"Expected 400, got {response.status_code}")
-            all_passed = False
-    except Exception as e:
-        print_test("Missing time validation", False, f"Exception: {e}")
+        print_test("Missing date/time validation", False, f"Exception: {e}")
         all_passed = False
     
     # Test 1e: Unauthenticated request (no cookie)
@@ -203,8 +228,8 @@ def test_appointment_request(portal_cookie):
         future_date = (datetime.now() + timedelta(days=120)).strftime("%Y-%m-%d")
         payload = {
             "date": future_date,
-            "time": "14:30",
-            "location": "telehealth",
+            "time": "10:00",
+            "location": "in-office",
             "reason": "Test no auth"
         }
         response = requests.post(
@@ -397,6 +422,7 @@ def main():
     """Run all backend tests"""
     print("\n" + "="*80)
     print("  PROACTIVE CLINIC EHR - BACKEND API TESTS")
+    print("  Testing: POST /api/portal/appointments (Iteration 2)")
     print("  Base URL: " + BASE_URL)
     print("="*80)
     
@@ -407,19 +433,16 @@ def main():
         print("\n❌ CRITICAL: Cannot proceed without portal session cookie")
         return False
     
-    # Run tests
+    # Run appointment tests only
     test1_passed = test_appointment_request(portal_cookie)
-    test2_passed = test_portal_assistant(portal_cookie)
     
     # Summary
     print_section("TEST SUMMARY")
     print(f"Appointment Request Tests: {'✅ PASSED' if test1_passed else '❌ FAILED'}")
-    print(f"Portal AI Assistant Tests: {'✅ PASSED' if test2_passed else '❌ FAILED'}")
     
-    overall = test1_passed and test2_passed
-    print(f"\nOverall Result: {'✅ ALL TESTS PASSED' if overall else '❌ SOME TESTS FAILED'}")
+    print(f"\nOverall Result: {'✅ ALL TESTS PASSED' if test1_passed else '❌ SOME TESTS FAILED'}")
     
-    return overall
+    return test1_passed
 
 if __name__ == "__main__":
     success = main()

@@ -7,6 +7,8 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 const HERO_IMAGE = "/hero-proactive.png";
 
+const SERVICE_IMAGES = ["/svc-1.jpg", "/svc-2.jpg", "/svc-3.jpg", "/svc-4.jpg", "/svc-5.jpg", "/svc-6.jpg"];
+
 // Brochure-inspired rotating accents: blue -> green -> red
 const ACCENTS = [
   { circle: "bg-brand-600", soft: "bg-brand-50", text: "text-brand-600", bar: "from-brand-500 to-brand-700" },
@@ -206,21 +208,27 @@ function Services({ L }: { L: LandingDict }) {
           {L.services.map((s, i) => {
             const a = ACCENTS[i % ACCENTS.length];
             return (
-              <article key={s.title} className="group relative rounded-2xl border border-slate-100 bg-white p-7 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
-                <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${a.bar}`} />
-                <div className={`h-16 w-16 rounded-2xl ${a.circle} grid place-items-center text-white shadow-lg mb-5`}>
-                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={SERVICE_ICONS[i % SERVICE_ICONS.length]} /></svg>
+              <article key={s.title} className="group relative rounded-2xl border border-slate-100 bg-white hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col">
+                <div className="relative h-44 overflow-hidden">
+                  <img src={SERVICE_IMAGES[i % SERVICE_IMAGES.length]} alt={s.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/55 via-slate-900/10 to-transparent" />
+                  <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${a.bar}`} />
+                  <div className={`absolute -bottom-6 left-5 h-14 w-14 rounded-2xl ${a.circle} grid place-items-center text-white shadow-lg ring-4 ring-white`}>
+                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={SERVICE_ICONS[i % SERVICE_ICONS.length]} /></svg>
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold text-brand-900 mb-2">{s.title}</h3>
-                <p className="text-sm text-slate-600 mb-4 leading-relaxed">{s.description}</p>
-                <ul className="space-y-1.5 border-t border-slate-100 pt-4">
-                  {s.items.map((item) => (
-                    <li key={item} className="flex items-center gap-2 text-xs font-medium text-slate-500">
-                      <svg className={`w-3.5 h-3.5 ${a.text} shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+                <div className="p-6 pt-9 flex flex-col flex-1">
+                  <h3 className="text-lg font-bold text-brand-900 mb-2">{s.title}</h3>
+                  <p className="text-sm text-slate-600 mb-4 leading-relaxed">{s.description}</p>
+                  <ul className="space-y-1.5 border-t border-slate-100 pt-4 mt-auto">
+                    {s.items.map((item) => (
+                      <li key={item} className="flex items-center gap-2 text-xs font-medium text-slate-500">
+                        <svg className={`w-3.5 h-3.5 ${a.text} shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </article>
             );
           })}

@@ -24,7 +24,7 @@ export default function PortalBookingForm({ services }: { services: Service[] })
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  const [confirmation, setConfirmation] = useState<null | { number: string; when: string; location: string; service: string }>(null);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -44,11 +44,20 @@ export default function PortalBookingForm({ services }: { services: Service[] })
         setError(data.error || t(lang, "Could not submit your request.", "No se pudo enviar tu solicitud."));
         return;
       }
-      setDone(true);
+      const svc = services.find((s) => s.id === serviceTypeId);
+      const locLabel = location === "telehealth" ? t(lang, "Telehealth", "Telesalud") : location === "home-visit" ? t(lang, "Home visit", "Visita a domicilio") : t(lang, "In-office", "En consultorio");
+      const whenStr = new Date(`${date}T${time}`).toLocaleString(lang === "es" ? "es-US" : "en-US", { dateStyle: "full", timeStyle: "short" });
+      setConfirmation({
+        number: data.confirmationNumber || "PC-CONFIRMED",
+        when: whenStr,
+        location: locLabel,
+        service: svc?.name || t(lang, "General visit", "Consulta general"),
+      });
       setReason("");
       setDate("");
       setTime("");
       setServiceTypeId("");
+      setOpen(false);
       router.refresh();
     } catch {
       setError(t(lang, "Network error. Please try again.", "Error de red. Intenta de nuevo."));
@@ -73,6 +82,27 @@ export default function PortalBookingForm({ services }: { services: Service[] })
           {open ? t(lang, "Close", "Cerrar") : t(lang, "New Request", "Nueva solicitud")}
         </button>
       </header>
+
+      {confirmation && (
+        <div className="mx-5 mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex items-start gap-3">
+            <span className="h-10 w-10 shrink-0 rounded-full bg-emerald-600 grid place-items-center text-white">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M5 13l4 4L19 7" /></svg>
+            </span>
+            <div className="min-w-0">
+              <h3 className="font-bold text-emerald-900">{t(lang, "Request received!", "¡Solicitud recibida!")}</h3>
+              <p className="text-sm text-emerald-800">{t(lang, "Our front desk will confirm your visit shortly. Please save your confirmation number.", "Nuestra recepción confirmará tu visita en breve. Guarda tu número de confirmación.")}</p>
+              <div className="mt-3 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                <div className="flex items-center gap-2"><span className="text-slate-500">{t(lang, "Confirmation", "Confirmación")}:</span> <span className="font-mono font-bold text-brand-900">{confirmation.number}</span></div>
+                <div className="flex items-center gap-2"><span className="text-slate-500">{t(lang, "Service", "Servicio")}:</span> <span className="font-medium text-slate-800">{confirmation.service}</span></div>
+                <div className="flex items-center gap-2"><span className="text-slate-500">{t(lang, "When", "Cuándo")}:</span> <span className="font-medium text-slate-800">{confirmation.when}</span></div>
+                <div className="flex items-center gap-2"><span className="text-slate-500">{t(lang, "Visit type", "Tipo")}:</span> <span className="font-medium text-slate-800">{confirmation.location}</span></div>
+              </div>
+              <button type="button" onClick={() => { setConfirmation(null); setOpen(true); }} className="btn-secondary mt-4 text-sm">{t(lang, "Request another", "Solicitar otra")}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {open && (
         <form onSubmit={submit} className="px-5 pb-5 grid sm:grid-cols-2 gap-4 border-t border-brand-100 pt-4">
@@ -111,7 +141,6 @@ export default function PortalBookingForm({ services }: { services: Service[] })
           </label>
 
           {error && <div className="sm:col-span-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">{error}</div>}
-          {done && <div className="sm:col-span-2 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">{t(lang, "Your request was submitted! Our team will confirm shortly.", "¡Tu solicitud fue enviada! Nuestro equipo la confirmará en breve.")}</div>}
 
           <div className="sm:col-span-2 flex justify-end">
             <button type="submit" className="btn-primary" disabled={busy}>

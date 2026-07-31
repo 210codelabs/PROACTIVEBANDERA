@@ -149,18 +149,24 @@ export default function PortalAssistantChat() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {STARTER_PROMPTS.map((prompt) => (
-          <button
-            key={prompt}
-            type="button"
-            onClick={() => sendMessage(prompt)}
-            disabled={sending}
-            className="chip bg-white text-slate-700 ring-slate-200 hover:bg-brand-50 hover:ring-brand-200 hover:text-brand-800 transition"
-          >
-            {prompt}
-          </button>
-        ))}
+      <div>
+        <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+          <svg className="h-3.5 w-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          {t(uiLang, "Suggested questions", "Preguntas sugeridas")}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {SUGGESTIONS[uiLang].map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => sendMessage(prompt)}
+              disabled={sending}
+              className="chip bg-white text-slate-700 ring-slate-200 hover:bg-brand-50 hover:ring-brand-200 hover:text-brand-800 transition"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
       </div>
 
       <form
