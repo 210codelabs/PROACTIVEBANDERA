@@ -278,7 +278,7 @@ frontend:
     status_history:
         -working: "NA"
         -agent: "main"
-        -comment: "Replaced hero slide 1 (was solo African-American doctor) with a diverse medical team portrait (MD, NP, RN, PT, MA) in a clinical setting. Added the user-provided Proactive Clinic glass sign (public/clinic-sign.png) as a visible overlay at bottom-left of the hero, fading in only on slide 0. Verified via screenshot: team image + sign render correctly, login card unaffected."
+        -comment: "Hero slide 1 image iterated per user feedback (previous team shot looked stiff/'tosco'). Now uses a warm, bright clinic photo of two diverse clinicians smiling together (public/hero-slide-1.jpg). Kept the user-provided Proactive Clinic glass sign (public/clinic-sign.png) as a visible overlay at bottom-left, fading in only on slide 0. Verified via screenshot: warm image + sign render correctly, login card unaffected."
   - task: "Services 'Complete Healthcare Under One Roof' icon-not-cut-off fix"
     implemented: true
     working: true
