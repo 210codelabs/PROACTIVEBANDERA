@@ -34,9 +34,14 @@ export default function PortalShell({
       <SessionGuard refreshUrl="/api/portal/auth/refresh" logoutUrl="/api/portal/auth/logout" redirectTo="/portal/login" />
       <header className="border-b border-slate-200 bg-white/90 backdrop-blur sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sm:gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="text-base sm:text-lg font-bold text-slate-900 truncate">{t("portal.title")}</div>
-            <div className="text-xs text-slate-500 truncate">{t("portal.welcome")} {session.firstName} {session.lastName} · MRN {session.mrn}</div>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <Link href="/" className="shrink-0" title="Proactive Clinic">
+              <img src="/proactive-logo.png" alt="Proactive Clinic" className="h-10 sm:h-12 w-auto object-contain" />
+            </Link>
+            <div className="min-w-0">
+              <div className="text-base sm:text-lg font-bold text-brand-900 truncate">{t("portal.title")}</div>
+              <div className="text-xs text-slate-500 truncate">{t("portal.welcome")} {session.firstName} {session.lastName} · MRN {session.mrn}</div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <LanguageSwitcher className="hidden sm:inline-flex" />

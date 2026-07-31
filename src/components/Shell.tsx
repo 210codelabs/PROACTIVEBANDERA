@@ -117,7 +117,7 @@ export default function Shell({
                   href={item.href}
                   prefetch={false}
                   onClick={mobile ? closeMobileMenu : undefined}
-                  className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition ${active ? "bg-teal-400/20 text-white" : "text-slate-100 hover:bg-teal-400/20 hover:text-white"}`}
+                  className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition ${active ? "bg-brand-400/25 text-white" : "text-slate-100 hover:bg-brand-400/25 hover:text-white"}`}
                 >
                   <span className="text-slate-300">{item.icon}</span>
                   {item.label}
@@ -158,7 +158,7 @@ export default function Shell({
           roleLabel={roleLabel(user.role)}
         />
         {/* TOP HEADER */}
-        <header className="h-[var(--header-h)] bg-white/95 backdrop-blur border-b border-teal-100 flex items-center px-3 sm:px-4 gap-2 sm:gap-3">
+        <header className="h-[var(--header-h)] bg-white/95 backdrop-blur border-b border-brand-100 flex items-center px-3 sm:px-4 gap-2 sm:gap-3">
           {/* MOBILE MENU TOGGLE */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -217,7 +217,7 @@ export default function Shell({
         {/* SIDEBAR - DESKTOP */}
         <aside className="w-[var(--sidebar-w)] shrink-0 bg-gradient-to-b from-[var(--navy-900)] to-[var(--navy-800)] border-r border-sky-900/50 sticky top-[var(--chrome-h)] h-[calc(100vh-var(--chrome-h))] hidden md:flex flex-col">
           <div className="px-3 pt-3 pb-2 border-b border-sky-900/50">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-100/80">{t("shell.workspace")}</div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-100/80">{t("shell.workspace")}</div>
             <div className="mt-1 text-xs text-slate-200">{activeSection?.title || t("sections.clinical")} / {activeItem?.label || t("nav.dashboard")}</div>
           </div>
           <nav className="flex-1 p-2 space-y-3 overflow-y-auto no-scrollbar">
@@ -228,10 +228,10 @@ export default function Shell({
               href="https://www.proactivemtech.com"
               target="_blank"
               rel="noreferrer"
-              className="group block rounded-md p-0 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 hover:ring-teal-300/40 transition overflow-hidden"
+              className="group block rounded-md p-0 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 hover:ring-brand-300/40 transition overflow-hidden"
               title="Powered by ProActive UMS"
             >
-              <div className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-100/90 group-hover:text-white">
+              <div className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-100/90 group-hover:text-white">
                 {t("shell.poweredBy")}
               </div>
               <div className="px-1 pb-2">
@@ -253,7 +253,7 @@ export default function Shell({
           }`}
         >
           <div className="px-3 pt-3 pb-2 border-b border-sky-900/50">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-100/80">{t("shell.navigation")}</div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-100/80">{t("shell.navigation")}</div>
             <div className="mt-1 text-xs text-slate-200">{activeSection?.title || t("sections.clinical")} / {activeItem?.label || t("nav.dashboard")}</div>
           </div>
           <nav className="flex-1 p-2 space-y-3 overflow-y-auto no-scrollbar">
@@ -265,10 +265,10 @@ export default function Shell({
               href="https://www.proactivemtech.com"
               target="_blank"
               rel="noreferrer"
-              className="group block rounded-md p-0 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 hover:ring-teal-300/40 transition overflow-hidden"
+              className="group block rounded-md p-0 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 hover:ring-brand-300/40 transition overflow-hidden"
               title="Powered by ProActive UMS"
             >
-              <div className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-100/90 group-hover:text-white">
+              <div className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-100/90 group-hover:text-white">
                 {t("shell.poweredBy")}
               </div>
               <div className="px-1 pb-2">
@@ -297,7 +297,7 @@ export default function Shell({
                     key={link.href}
                     href={link.href}
                     prefetch={false}
-                    className={`chip ${quickActive ? "bg-teal-100 text-teal-800 ring-teal-300" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"}`}
+                    className={`chip ${quickActive ? "bg-brand-100 text-brand-800 ring-brand-300" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"}`}
                   >
                     {link.label}
                   </Link>

@@ -129,6 +129,24 @@ function Hero({ L }: { L: LandingDict }) {
             <div className="relative rounded-[1.75rem] overflow-hidden ring-4 ring-white shadow-2xl">
               <img src={HERO_IMAGE} alt={L.heroTitle} className="w-full h-[320px] sm:h-[420px] object-cover" />
             </div>
+            {/* Rotating "Now Accepting New Patients" seal */}
+            <div className="absolute -top-6 -right-4 sm:-right-6 h-24 w-24 sm:h-28 sm:w-28 drop-shadow-xl">
+              <svg viewBox="0 0 120 120" className="animate-spin-slow h-full w-full">
+                <defs>
+                  <path id="sealPath" d="M60,60 m-44,0 a44,44 0 1,1 88,0 a44,44 0 1,1 -88,0" />
+                </defs>
+                <circle cx="60" cy="60" r="58" fill="#dc2626" />
+                <circle cx="60" cy="60" r="46" fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="1" />
+                <text fill="#ffffff" fontSize="12.5" fontWeight="800" letterSpacing="2.5">
+                  <textPath href="#sealPath" startOffset="0">NOW ACCEPTING • NEW PATIENTS • </textPath>
+                </text>
+              </svg>
+              <div className="absolute inset-0 grid place-items-center">
+                <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" />
+                </svg>
+              </div>
+            </div>
             <div className="absolute -bottom-5 -left-5 sm:-left-8 bg-white rounded-2xl shadow-xl border border-slate-100 px-5 py-3 flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-brand-600 grid place-items-center text-white">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>

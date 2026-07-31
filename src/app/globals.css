@@ -239,3 +239,7 @@ table.data tbody tr:hover { @apply bg-slate-50; }
   table.data thead th { @apply px-2 py-1.5 text-[10px]; }
   table.data tbody td { @apply px-2 py-1.5; }
 }
+
+/* Landing hero rotating "Now Accepting" seal */
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+.animate-spin-slow { animation: spin-slow 16s linear infinite; }
