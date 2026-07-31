@@ -266,9 +266,44 @@ agent_communication:
     -agent: "testing"
     -message: "Frontend UI testing completed. CRITICAL BUG FIXED: PortalAssistantChat.tsx had undefined SUGGESTIONS constant causing page crash - replaced STARTER_PROMPTS with proper SUGGESTIONS object. RESULTS: ✅ Patient portal booking flow (TEST 2) - fully working with confirmation number and summary. ✅ Assistant FAQ chips (TEST 3) - working after fix, GPT-4o responses correct, no ApexCare branding. ✅ Services section (TEST 4) - all 6 cards with photos, icons, and checklists working. ❌ Staff login (TEST 1) - FAILS to redirect to /dashboard. Patient login works correctly. Staff login API succeeds (200) but /dashboard page request fails (net::ERR_ABORTED). Issue is with dashboard page loading, not authentication. Recommend investigating /dashboard page server-side rendering or middleware blocking."
 
-## ---- Iteration 2 fix (main agent) ----
+## ---- Iteration 3 (main agent) ----
+frontend:
+  - task: "Hero slide 1 = diverse medical team + visible clinic sign overlay"
+    implemented: true
+    working: "NA"
+    file: "src/components/HeroAuth.tsx, public/hero-slide-1.jpg, public/clinic-sign.png"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Replaced hero slide 1 (was solo African-American doctor) with a diverse medical team portrait (MD, NP, RN, PT, MA) in a clinical setting. Added the user-provided Proactive Clinic glass sign (public/clinic-sign.png) as a visible overlay at bottom-left of the hero, fading in only on slide 0. Verified via screenshot: team image + sign render correctly, login card unaffected."
+  - task: "Services 'Complete Healthcare Under One Roof' icon-not-cut-off fix"
+    implemented: true
+    working: true
+    file: "src/app/page.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "User reported the service-card icon badges were being cut off when overlapping the photo. Fix: photo stays fully inside the card (h-44 container), and the colored icon badge was moved OUT of the photo overlay into the card body, next to the title. Verified via screenshot: all 6 cards show full photos inside cards + complete icons beside titles, no clipping."
+
+  - task: "Remove remaining Miami references (San Antonio rebrand)"
+    implemented: true
+    working: true
+    file: "src/app/api/portal/assistant/route.ts, src/app/api/pharmacies/search/route.ts"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "AI assistant system prompt changed 'Miami, FL' -> 'San Antonio, TX'. Pharmacy fallback demo data changed Miami/FL/(305) -> San Antonio/TX/(210). grep confirms 0 remaining Miami/Doral/Hialeah references in src/."
+
 agent_communication:
     -agent: "main"
-    -message: "BUGFIX applied for staff login redirect. In src/components/HeroAuth.tsx the auth card previously did router.push()+router.refresh() which aborted the navigation for staff (net::ERR_ABORTED). Changed BOTH tabs to full-page navigation window.location.assign('/dashboard') and window.location.assign('/portal/dashboard'). Please RE-VERIFY on https://nextjs-ssr-stack.preview.emergentagent.com: (1) On '/', click 'Staff Access' tab, enter andy.manzano@proactiveclinic.com / apex123, click Login (label may be 'Ingresar'): MUST end up on /dashboard with the EHR dashboard visible (KPI tiles + greeting). (2) Regression: On '/', Patient Portal tab with MRN PC-100000 and DOB 1958-04-12 -> MUST end up on /portal/dashboard. Report pass/fail for both."
-    -agent: "testing"
-    -message: "✅ BUG FIX VERIFIED - Both tests PASSED. TEST A (Staff Access): Staff login now successfully redirects to /dashboard. Dashboard fully renders with 'Good morning, Andy.' greeting, KPI tiles (3 TODAY, 0 OPEN NOTES, 2 PENDING ORDERS, 3 UNREAD MSGS, 10 PATIENTS), Live Operations section, Today's Schedule, and full navigation. No ERR_ABORTED on main navigation. TEST B (Patient Portal - Regression): Patient login still works correctly, redirects to /portal/dashboard with 'Welcome Eleanor Adams · MRN PC-100000' banner, Quick Actions, and appointments visible. Minor: Background requests to /cdn-cgi/rum (Cloudflare monitoring) and /api/auth/refresh fail with ERR_ABORTED but don't affect core functionality. The original bug (dashboard not loading due to ERR_ABORTED on main navigation) is FIXED. window.location.assign() solution working as expected."
+    -message: "Iteration 3: Frontend visual changes only (hero slide 1 image swap + clinic sign overlay, service card icon reposition) plus Miami->San Antonio copy cleanup in two API files. Verified via screenshots. Awaiting user decision on whether a formal frontend UI test run is needed."
+

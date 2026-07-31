@@ -5,9 +5,9 @@ import { db } from "@/lib/db";
 // Curated fallback so pharmacy search keeps working even if the DB is
 // briefly unavailable in the serverless runtime.
 const FALLBACK_PHARMACIES = [
-  { id: "fallback-cvs", name: "CVS Pharmacy #4821", network: "surescripts", ncpdpId: "0512381", city: "Miami", state: "FL", phone: "(305) 555-0112", hours: "Mon-Sun 8a-10p", services: "drive-thru,delivery", preferred: true },
-  { id: "fallback-walgreens", name: "Walgreens #6610", network: "surescripts", ncpdpId: "0661102", city: "Miami", state: "FL", phone: "(305) 555-0144", hours: "24 hours", services: "24h,delivery", preferred: true },
-  { id: "fallback-inhouse", name: "Proactive Clinic In-House Dispensary", network: "internal", ncpdpId: "9000001", city: "Miami", state: "FL", phone: "(305) 555-0148", hours: "Mon-Fri 8a-6p", services: "in-house,compounding", preferred: true },
+  { id: "fallback-cvs", name: "CVS Pharmacy #4821", network: "surescripts", ncpdpId: "0512381", city: "San Antonio", state: "TX", phone: "(210) 555-0112", hours: "Mon-Sun 8a-10p", services: "drive-thru,delivery", preferred: true },
+  { id: "fallback-walgreens", name: "Walgreens #6610", network: "surescripts", ncpdpId: "0661102", city: "San Antonio", state: "TX", phone: "(210) 555-0144", hours: "24 hours", services: "24h,delivery", preferred: true },
+  { id: "fallback-inhouse", name: "Proactive Clinic In-House Dispensary", network: "internal", ncpdpId: "9000001", city: "San Antonio", state: "TX", phone: "(210) 555-0148", hours: "Mon-Fri 8a-6p", services: "in-house,compounding", preferred: true },
 ];
 
 export async function GET(req: Request) {

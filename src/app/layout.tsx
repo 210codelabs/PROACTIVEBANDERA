@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Manrope, Sora } from "next/font/google";
 import FloatingAssistantWidget from "@/components/FloatingAssistantWidget";
+import CookieConsent from "@/components/CookieConsent";
 import { I18nProvider } from "@/components/i18n/I18nProvider";
 import { getLocale } from "@/lib/i18n/server";
 
@@ -16,9 +17,9 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "Proactive Clinic | PMR, Wound Care, Aesthetics & Primary Care in Miami",
+  title: "Proactive Clinic | Primary Care, Rehab, Pain Management & Wellness in San Antonio",
   description:
-    "Proactive Clinic offers physical medicine & rehabilitation, wound care, aesthetic medicine, primary care, and in-house pharmacy services in Miami, FL. Now accepting new patients.",
+    "Proactive Clinic offers primary & preventive care, physical rehabilitation, pain management, wellness & recovery, chronic condition monitoring, and telehealth in San Antonio, TX. Now accepting new patients. A Division of Proactive UMS Inc.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -29,6 +30,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <I18nProvider initialLocale={locale}>
           {children}
           <FloatingAssistantWidget />
+          <CookieConsent />
         </I18nProvider>
       </body>
     </html>

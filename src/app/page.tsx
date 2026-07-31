@@ -40,7 +40,6 @@ export default async function HomePage() {
       />
       <Services L={L} />
       <WhyChooseUs L={L} />
-      <Team L={L} />
       <Testimonials L={L} />
       <BookBand L={L} />
       <ContactAndHours L={L} />
@@ -92,14 +91,13 @@ function Header({ L }: { L: LandingDict }) {
           <nav className="hidden md:flex items-center gap-6 lg:gap-7 text-sm font-semibold text-slate-600">
             <a href="#services" className="hover:text-brand-700 transition">{L.navServices}</a>
             <a href="#why" className="hover:text-brand-700 transition">{L.navWhy}</a>
-            <a href="#team" className="hover:text-brand-700 transition">{L.teamKicker}</a>
             <a href="#testimonials" className="hover:text-brand-700 transition">{L.testKicker}</a>
             <a href="#contact" className="hover:text-brand-700 transition">{L.navContact}</a>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
-            <a href="tel:+13055550148" className="hidden lg:inline-flex items-center gap-2 text-sm font-bold text-brand-800">
+            <a href="tel:+12105002914" className="hidden lg:inline-flex items-center gap-2 text-sm font-bold text-brand-800">
               <svg className="h-4 w-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-              (305) 555-0148
+              (210) 500-2914
             </a>
             <LanguageSwitcher className="mr-1" />
             <a href="#contact" className="inline-flex items-center gap-2 rounded-full bg-brand-700 hover:bg-brand-800 text-white text-sm font-bold px-4 sm:px-5 py-2.5 shadow-sm transition">
@@ -211,14 +209,22 @@ function Services({ L }: { L: LandingDict }) {
               <article key={s.title} className="group relative rounded-2xl border border-slate-100 bg-white hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col">
                 <div className="relative h-44 overflow-hidden">
                   <img src={SERVICE_IMAGES[i % SERVICE_IMAGES.length]} alt={s.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/55 via-slate-900/10 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/45 via-transparent to-transparent" />
+                  {i === 5 && (
+                    <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-white/95 rounded-md px-2 py-1 shadow ring-1 ring-black/5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <img src="/pclinic-light.png" alt="Proactive Clinic" className="h-4 sm:h-5 w-auto object-contain" />
+                    </div>
+                  )}
                   <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${a.bar}`} />
-                  <div className={`absolute -bottom-6 left-5 h-14 w-14 rounded-2xl ${a.circle} grid place-items-center text-white shadow-lg ring-4 ring-white`}>
-                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={SERVICE_ICONS[i % SERVICE_ICONS.length]} /></svg>
-                  </div>
                 </div>
-                <div className="p-6 pt-9 flex flex-col flex-1">
-                  <h3 className="text-lg font-bold text-brand-900 mb-2">{s.title}</h3>
+                <div className="p-6 flex flex-col flex-1">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`h-12 w-12 shrink-0 rounded-xl ${a.circle} grid place-items-center text-white shadow-md`}>
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={SERVICE_ICONS[i % SERVICE_ICONS.length]} /></svg>
+                    </div>
+                    <h3 className="text-lg font-bold text-brand-900 leading-tight">{s.title}</h3>
+                  </div>
                   <p className="text-sm text-slate-600 mb-4 leading-relaxed">{s.description}</p>
                   <ul className="space-y-1.5 border-t border-slate-100 pt-4 mt-auto">
                     {s.items.map((item) => (
@@ -379,7 +385,7 @@ function BookBand({ L }: { L: LandingDict }) {
             </div>
             <div className="flex items-center gap-3 text-brand-50">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-              <span className="font-semibold">(305) 555-0148</span>
+              <span className="font-semibold">(210) 500-2914</span>
             </div>
             <a href="#contact" className="inline-flex items-center justify-center gap-2 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3.5 shadow-lg transition">
               {L.bookCta}
@@ -425,7 +431,7 @@ export function PortalAccess({ L, t }: { L: LandingDict; t: (k: string) => strin
               <h3 className="text-base font-bold text-brand-900 mb-2">{L.newPatient}</h3>
               <p className="text-sm text-slate-600 mb-3">
                 {L.newPatientDesc}{" "}
-                <a href="tel:+13055550148" className="text-brand-700 font-medium">(305) 555-0148</a>
+                <a href="tel:+12105002914" className="text-brand-700 font-medium">(210) 500-2914</a>
               </p>
               <p className="text-xs text-slate-500">
                 {L.demoMrn}: <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">PC-100000</code> (DOB: 1958-04-12)
@@ -452,11 +458,11 @@ function ContactAndHours({ L }: { L: LandingDict }) {
     {
       title: L.location, icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z",
       icon2: "M15 11a3 3 0 11-6 0 3 3 0 016 0z",
-      body: (<><p className="text-sm text-slate-600">800 NW 57th Ave, Suite 200</p><p className="text-sm text-slate-600">Miami, FL 33126</p></>),
+      body: (<><p className="text-sm text-slate-600">8103 Bandera Rd, Suite 102</p><p className="text-sm text-slate-600">San Antonio, TX 78250</p></>),
     },
     {
       title: L.phone, icon: "M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z",
-      body: (<><a href="tel:+13055550148" className="text-sm text-brand-700 font-medium hover:underline">(305) 555-0148</a><p className="text-xs text-slate-500 mt-1">Fax: (305) 555-0149</p></>),
+      body: (<><a href="tel:+12105002914" className="text-sm text-brand-700 font-medium hover:underline">(210) 500-2914</a><p className="text-xs text-slate-500 mt-1">Se habla español</p></>),
     },
     {
       title: L.hours, icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
@@ -488,7 +494,7 @@ function ContactAndHours({ L }: { L: LandingDict }) {
           <div className="lg:col-span-3 rounded-2xl overflow-hidden border border-slate-200 shadow-sm min-h-[300px]">
             <iframe
               title="Proactive Clinic location map"
-              src="https://www.google.com/maps?q=800%20NW%2057th%20Ave%2C%20Miami%2C%20FL%2033126&output=embed"
+              src="https://www.google.com/maps?q=8103%20Bandera%20Rd%2C%20San%20Antonio%2C%20TX%2078250&output=embed"
               className="w-full h-full min-h-[300px]"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
@@ -509,7 +515,7 @@ export function Footer({ L }: { L: LandingDict }) {
   return (
     <footer className="bg-brand-950 text-slate-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8">
           <div className="space-y-3">
             <div className="inline-flex bg-white rounded-xl p-2.5 shadow-sm">
               <img src="/pclinic-dark.png" alt="Proactive Clinic" className="h-12 w-auto object-contain" />
@@ -540,10 +546,20 @@ export function Footer({ L }: { L: LandingDict }) {
           <div>
             <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">{L.footerContact}</h4>
             <ul className="space-y-2 text-sm">
-              <li>800 NW 57th Ave, Suite 200</li>
-              <li>Miami, FL 33126</li>
-              <li><a href="tel:+13055550148" className="hover:text-brand-300 transition">(305) 555-0148</a></li>
+              <li>8103 Bandera Rd, Suite 102</li>
+              <li>San Antonio, TX 78250</li>
+              <li><a href="tel:+12105002914" className="hover:text-brand-300 transition">(210) 500-2914</a></li>
               <li><a href="mailto:info@proactiveclinic.com" className="hover:text-brand-300 transition">info@proactiveclinic.com</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">Compliance</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/legal/privacy" className="hover:text-brand-300 transition">Privacy Policy</Link></li>
+              <li><Link href="/legal/terms" className="hover:text-brand-300 transition">Terms of Use</Link></li>
+              <li><Link href="/legal/hipaa" className="hover:text-brand-300 transition">HIPAA Notice</Link></li>
+              <li><Link href="/legal/accessibility" className="hover:text-brand-300 transition">Accessibility</Link></li>
+              <li><Link href="/legal/cookies" className="hover:text-brand-300 transition">Cookie Policy</Link></li>
             </ul>
           </div>
         </div>
@@ -566,7 +582,7 @@ export function Footer({ L }: { L: LandingDict }) {
         </div>
 
         <div className="border-t border-white/10 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
-          <div>&copy; {new Date().getFullYear()} {L.clinicName}. {L.rights}</div>
+          <div>&copy; {new Date().getFullYear()} {L.clinicName}. {L.rights} · A Division of Proactive UMS Inc.</div>
           <div>{L.demoBuild}</div>
         </div>
       </div>

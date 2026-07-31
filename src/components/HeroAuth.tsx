@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const SLIDES = ["/hero-slide-1.jpg", "/hero-proactive.png", "/hero-slide-2.jpg", "/hero-slide-3.jpg"];
+const SLIDES = ["/hero-slide-1.jpg", "/hero-slide-2.jpg", "/hero-slide-3.jpg", "/hero-slide-4.jpg"];
 
 function useLang() {
   return useMemo<"es" | "en">(() => {
@@ -48,7 +48,20 @@ export default function HeroAuth({ heading, accent, tagline, subtitle, chips }: 
         {/* Blue readability scrim */}
         <div className="absolute inset-0 bg-gradient-to-r from-brand-950/90 via-brand-900/70 to-brand-900/30" />
         <div className="absolute inset-0 bg-gradient-to-t from-brand-950/60 to-transparent" />
+
+        {/* Clinic sign — part of the slide 1 (lobby) scene, kept clearly visible */}
+        <div
+          className="pointer-events-none absolute bottom-5 left-4 sm:left-6 lg:left-8 hidden md:block transition-opacity duration-[1200ms] ease-in-out"
+          style={{ opacity: slide === 0 ? 1 : 0 }}
+        >
+          <img
+            src="/clinic-sign.png"
+            alt="Proactive Clinic — Bandera Road, San Antonio, TX"
+            className="w-64 lg:w-80 rounded-xl shadow-2xl ring-1 ring-white/25 -rotate-2"
+          />
+        </div>
       </div>
+
 
       {/* Content */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">

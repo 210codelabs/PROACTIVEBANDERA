@@ -150,7 +150,7 @@ const en = {
     heroTitle: "Comprehensive Care,",
     heroAccent: "Personalized for You",
     heroDesc:
-      "Modern, patient-centered care powered by smart healthcare technology — from primary & preventive care to physical rehabilitation, pain management, and wellness & recovery, all under one roof in Miami.",
+      "Modern, patient-centered care powered by smart healthcare technology — from primary & preventive care to physical rehabilitation, pain management, and wellness & recovery, all under one roof in San Antonio.",
     scheduleVisit: "Schedule a Visit",
     ourServices: "Our Services",
     mostInsurances: "Most Insurances Accepted",
@@ -173,9 +173,9 @@ const en = {
     testTitle: "What Our Patients Say",
     testDesc: "Real stories from the people at the heart of everything we do.",
     reviews: [
-      { name: "Maria G.", location: "Miami, FL", text: "From the front desk to my therapist, everyone made me feel cared for. My recovery after surgery was faster than I ever expected." },
-      { name: "James R.", location: "Doral, FL", text: "The team actually listens. My pain management plan changed my quality of life, and the telehealth follow-ups are so convenient." },
-      { name: "Sofía P.", location: "Hialeah, FL", text: "Bilingual, kind, and truly modern. Booking is easy and the patient portal keeps everything in one place. Highly recommend." },
+      { name: "Maria G.", location: "San Antonio, TX", text: "From the front desk to my therapist, everyone made me feel cared for. My recovery after surgery was faster than I ever expected." },
+      { name: "James R.", location: "Schertz, TX", text: "The team actually listens. My pain management plan changed my quality of life, and the telehealth follow-ups are so convenient." },
+      { name: "Sofía P.", location: "New Braunfels, TX", text: "Bilingual, kind, and truly modern. Booking is easy and the patient portal keeps everything in one place. Highly recommend." },
     ],
     portalKicker: "Patient Portal",
     portalTitle: "Access Your Care Anytime",
@@ -208,7 +208,7 @@ const en = {
     insuranceDesc:
       "We accept Medicare, Medicaid, and most major insurance plans including Aetna, BlueCross BlueShield, United Healthcare, Cigna, and Anthem. Self-pay and HSA/FSA options also available.",
     footerDesc:
-      "Comprehensive physical medicine, rehabilitation, wound care, aesthetics, and primary care services in Miami, FL.",
+      "Comprehensive physical medicine, rehabilitation, wound care, aesthetics, and primary care services in San Antonio, TX.",
     footerServices: "Services",
     footerQuickLinks: "Quick Links",
     footerContact: "Contact",
@@ -410,7 +410,7 @@ const es = {
     heroTitle: "Atención integral,",
     heroAccent: "personalizada para ti",
     heroDesc:
-      "Atención moderna y centrada en el paciente, impulsada por tecnología de salud inteligente: desde atención primaria y preventiva hasta rehabilitación física, manejo del dolor y bienestar y recuperación, todo bajo un mismo techo en Miami.",
+      "Atención moderna y centrada en el paciente, impulsada por tecnología de salud inteligente: desde atención primaria y preventiva hasta rehabilitación física, manejo del dolor y bienestar y recuperación, todo bajo un mismo techo en San Antonio.",
     scheduleVisit: "Agendar una visita",
     ourServices: "Nuestros servicios",
     mostInsurances: "Aceptamos la mayoría de seguros",
@@ -433,9 +433,9 @@ const es = {
     testTitle: "Lo que dicen nuestros pacientes",
     testDesc: "Historias reales de las personas que son el corazón de todo lo que hacemos.",
     reviews: [
-      { name: "María G.", location: "Miami, FL", text: "Desde la recepción hasta mi terapeuta, todos me hicieron sentir cuidada. Mi recuperación tras la cirugía fue más rápida de lo que esperaba." },
-      { name: "James R.", location: "Doral, FL", text: "El equipo realmente escucha. Mi plan de manejo del dolor cambió mi calidad de vida, y los seguimientos por telesalud son muy convenientes." },
-      { name: "Sofía P.", location: "Hialeah, FL", text: "Bilingüe, amable y verdaderamente moderno. Agendar es fácil y el portal del paciente mantiene todo en un solo lugar. Muy recomendado." },
+      { name: "María G.", location: "San Antonio, TX", text: "Desde la recepción hasta mi terapeuta, todos me hicieron sentir cuidada. Mi recuperación tras la cirugía fue más rápida de lo que esperaba." },
+      { name: "James R.", location: "Schertz, TX", text: "El equipo realmente escucha. Mi plan de manejo del dolor cambió mi calidad de vida, y los seguimientos por telesalud son muy convenientes." },
+      { name: "Sofía P.", location: "New Braunfels, TX", text: "Bilingüe, amable y verdaderamente moderno. Agendar es fácil y el portal del paciente mantiene todo en un solo lugar. Muy recomendado." },
     ],
     portalKicker: "Portal del paciente",
     portalTitle: "Accede a tu atención en cualquier momento",
@@ -468,7 +468,7 @@ const es = {
     insuranceDesc:
       "Aceptamos Medicare, Medicaid y la mayoría de los seguros principales, incluidos Aetna, BlueCross BlueShield, United Healthcare, Cigna y Anthem. También ofrecemos opciones de pago propio y HSA/FSA.",
     footerDesc:
-      "Servicios integrales de medicina física, rehabilitación, cuidado de heridas, estética y atención primaria en Miami, FL.",
+      "Servicios integrales de medicina física, rehabilitación, cuidado de heridas, estética y atención primaria en San Antonio, TX.",
     footerServices: "Servicios",
     footerQuickLinks: "Enlaces rápidos",
     footerContact: "Contacto",

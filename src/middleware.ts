@@ -5,6 +5,7 @@ const DEFAULT_AUTH_SECRET = "proactive-dev-secret-change-me-in-production-please
 
 const PUBLIC_EXACT = ["/", "/login", "/landing"];
 const PUBLIC_PREFIX = [
+  "/legal",
   "/api/assistant",
   "/api/auth/login",
   "/api/admin/config/public",
