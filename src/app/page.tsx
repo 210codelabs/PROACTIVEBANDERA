@@ -86,7 +86,7 @@ function Header({ L }: { L: LandingDict }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center gap-4">
-            <img src="/pclinic-light.png" alt="Proactive Clinic" className="h-16 sm:h-[68px] w-auto object-contain" />
+            <img src="/pclinic-header.png" alt="Proactive Clinic" className="h-20 sm:h-24 w-auto object-contain" />
           </div>
           <nav className="hidden md:flex items-center gap-6 lg:gap-7 text-sm font-semibold text-slate-600">
             <a href="#services" className="hover:text-brand-700 transition">{L.navServices}</a>
@@ -537,8 +537,8 @@ export function Footer({ L }: { L: LandingDict }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8">
           <div className="space-y-3">
-            <div className="inline-flex bg-white rounded-xl p-2.5 shadow-sm">
-              <img src="/pclinic-dark.png" alt="Proactive Clinic" className="h-12 w-auto object-contain" />
+            <div className="inline-flex">
+              <img src="/pclinic-footer.png?v=2" alt="Proactive Clinic" className="h-16 sm:h-20 w-auto object-contain" />
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">{L.footerDesc}</p>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-brand-100 uppercase tracking-wide">
