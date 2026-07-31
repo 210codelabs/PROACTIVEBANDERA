@@ -211,10 +211,30 @@ function Services({ L }: { L: LandingDict }) {
                   <img src={SERVICE_IMAGES[i % SERVICE_IMAGES.length]} alt={s.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/45 via-transparent to-transparent" />
                   {i === 5 && (
-                    <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-white/95 rounded-md px-2 py-1 shadow ring-1 ring-black/5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <img src="/pclinic-light.png" alt="Proactive Clinic" className="h-4 sm:h-5 w-auto object-contain" />
-                    </div>
+                    <>
+                      {/* Video-call top bar with clinic logo on the "screen" */}
+                      <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-white/95 rounded-md px-2 py-1 shadow ring-1 ring-black/5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <img src="/pclinic-light.png" alt="Proactive Clinic" className="h-4 sm:h-5 w-auto object-contain" />
+                      </div>
+                      {/* LIVE recording indicator */}
+                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-red-600 text-white text-[10px] font-bold rounded px-1.5 py-0.5 shadow">
+                        <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                        LIVE
+                      </div>
+                      {/* Video-call control bar */}
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2.5 bg-slate-900/70 backdrop-blur rounded-full px-3 py-1.5">
+                        <span className="grid h-6 w-6 place-items-center rounded-full bg-white/15 text-white">
+                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14a3 3 0 003-3V6a3 3 0 10-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.92V21h2v-3.08A7 7 0 0019 11h-2z"/></svg>
+                        </span>
+                        <span className="grid h-6 w-6 place-items-center rounded-full bg-white/15 text-white">
+                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z"/></svg>
+                        </span>
+                        <span className="grid h-6 w-6 place-items-center rounded-full bg-red-600 text-white">
+                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.996.996 0 01-.29-.7c0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.27 11.27 0 00-2.66-1.85.998.998 0 01-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg>
+                        </span>
+                      </div>
+                    </>
                   )}
                   <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${a.bar}`} />
                 </div>
