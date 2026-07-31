@@ -513,7 +513,7 @@ function ContactAndHours({ L }: { L: LandingDict }) {
 
 export function Footer({ L }: { L: LandingDict }) {
   return (
-    <footer className="bg-brand-950 text-slate-300">
+    <footer className="bg-[#05080f] text-slate-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8">
           <div className="space-y-3">
