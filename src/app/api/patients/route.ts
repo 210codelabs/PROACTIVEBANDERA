@@ -24,6 +24,18 @@ const Body = z.object({
   insurerPlan: z.string().optional(),
   memberId: z.string().optional(),
   groupNumber: z.string().optional(),
+  // registration type
+  patientType: z.enum(["clinical", "legal"]).optional(),
+  // legal case (only when patientType === "legal")
+  attorneyId: z.string().optional(),
+  caseNumber: z.string().optional(),
+  caseType: z.string().optional(),
+  court: z.string().optional(),
+  dateOfInjury: z.string().optional(),
+  lawFirm: z.string().optional(),
+  claimNumber: z.string().optional(),
+  adjuster: z.string().optional(),
+  defendantInsurer: z.string().optional(),
 });
 
 function nextMrn() {
@@ -37,14 +49,40 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
 
-  const { dob, ...rest } = parsed.data;
+  const {
+    dob,
+    patientType = "clinical",
+    attorneyId, caseNumber, caseType, court, dateOfInjury, lawFirm, claimNumber, adjuster, defendantInsurer,
+    ...rest
+  } = parsed.data;
+
   const patient = await db.patient.create({
     data: {
       ...rest,
       dob: new Date(dob),
       mrn: nextMrn(),
+      patientType,
     },
   });
+
+  let legalCase = null;
+  if (patientType === "legal") {
+    legalCase = await db.legalCase.create({
+      data: {
+        patientId: patient.id,
+        attorneyId: attorneyId || null,
+        caseNumber: caseNumber || null,
+        caseType: caseType || "personal_injury",
+        court: court || null,
+        dateOfInjury: dateOfInjury ? new Date(dateOfInjury) : null,
+        lawFirm: lawFirm || null,
+        claimNumber: claimNumber || null,
+        adjuster: adjuster || null,
+        defendantInsurer: defendantInsurer || null,
+      },
+    });
+  }
+
   await db.auditLog.create({ data: { userId: user.id, action: "create", resource: "Patient", resourceId: patient.id } });
-  return NextResponse.json({ ok: true, patient });
+  return NextResponse.json({ ok: true, patient, legalCase });
 }

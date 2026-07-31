@@ -53,6 +53,32 @@ model Attorney {
   active     Boolean         @default(true)
   createdAt  DateTime        @default(now())
   requests   RecordRequest[]
+  legalCases LegalCase[]
+}
+
+model LegalCase {
+  id               String    @id @default(cuid()) @map("_id")
+  patientId        String
+  patient          Patient   @relation(fields: [patientId], references: [id])
+  attorneyId       String?
+  attorney         Attorney? @relation(fields: [attorneyId], references: [id])
+  caseNumber       String?
+  caseType         String    @default("personal_injury") // personal_injury | workers_comp | auto_accident | other
+  court            String?
+  dateOfInjury     DateTime?
+  lawFirm          String?
+  claimNumber      String?
+  adjuster         String?
+  defendantInsurer String?
+  status           String    @default("intake") // intake | treating | negotiating | settled | closed
+  lienAmountCents  Int?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([patientId])
+  @@index([attorneyId])
+  @@index([status])
 }
 
 model RecordRequest {
@@ -131,12 +157,16 @@ model Patient {
   ecRelation     String?
   ecPhone        String?
 
+  // registration type
+  patientType    String   @default("clinical") // clinical | legal
+
   // status
   status         String   @default("active") // active | inactive | deceased
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   allergies      Allergy[]
+  legalCases     LegalCase[]
   problems       Problem[]
   medications    Medication[]
   vitals         Vital[]

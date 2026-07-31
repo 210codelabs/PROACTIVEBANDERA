@@ -30,11 +30,15 @@ export default async function PatientSummary({ params }: { params: Promise<{ id:
   let encounters: any[] = [];
   let upcoming: any[] = [];
   let orders: any[] = [];
+  let legalCase: any = null;
   let dataUnavailable = false;
 
   try {
     patient = await db.patient.findUnique({ where: { id } });
     if (!patient) notFound();
+    if (patient.patientType === "legal") {
+      legalCase = await db.legalCase.findFirst({ where: { patientId: id }, include: { attorney: true }, orderBy: { createdAt: "desc" } }).catch(() => null);
+    }
 
     const results = await Promise.allSettled([
       db.allergy.findMany({ where: { patientId: id, status: "active" }, orderBy: { createdAt: "desc" } }),
@@ -68,6 +72,24 @@ export default async function PatientSummary({ params }: { params: Promise<{ id:
       {dataUnavailable && (
         <section className="card card-pad mb-4 border-amber-200 bg-amber-50 text-amber-900">
           Patient chart data is temporarily unavailable.
+        </section>
+      )}
+      {legalCase && (
+        <section className="card card-pad mb-4 border-amber-300 bg-amber-50/70">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="chip bg-amber-200 text-amber-900 ring-amber-300 font-semibold">Legal / Rehabilitation Case</span>
+              <span className="text-sm font-semibold text-slate-800 capitalize">{String(legalCase.caseType || "").replace(/_/g, " ")}</span>
+              <span className="chip bg-white text-slate-600 ring-slate-200 capitalize">{legalCase.status}</span>
+            </div>
+            <Link href={`/patients/${id}/legal`} className="text-sm font-semibold text-amber-800 hover:text-amber-900">Open case →</Link>
+          </div>
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div><div className="text-[11px] text-slate-500">Case / claim #</div><div className="font-medium text-slate-800">{legalCase.caseNumber || "—"}</div></div>
+            <div><div className="text-[11px] text-slate-500">Court</div><div className="font-medium text-slate-800">{legalCase.court || "—"}</div></div>
+            <div><div className="text-[11px] text-slate-500">Attorney / firm</div><div className="font-medium text-slate-800">{legalCase.attorney?.name || legalCase.lawFirm || "—"}{legalCase.attorney?.firm ? ` · ${legalCase.attorney.firm}` : ""}</div></div>
+            <div><div className="text-[11px] text-slate-500">Date of injury</div><div className="font-medium text-slate-800">{legalCase.dateOfInjury ? new Date(legalCase.dateOfInjury).toLocaleDateString() : "—"}</div></div>
+          </div>
         </section>
       )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
