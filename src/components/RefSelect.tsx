@@ -31,6 +31,8 @@ type Props = {
   showCode?: boolean;
   /** Which value feeds the `name` field: the display text or the code */
   emit?: "display" | "code";
+  /** Fired when the selection changes (for controlled parents) */
+  onChange?: (payload: { display: string; code: string; item: RefItem | null }) => void;
 };
 
 export default function RefSelect({
@@ -45,6 +47,7 @@ export default function RefSelect({
   allowCreate = true,
   showCode = true,
   emit = "display",
+  onChange,
 }: Props) {
   const [items, setItems] = useState<RefItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,12 +109,14 @@ export default function RefSelect({
 
   function pick(item: RefItem) {
     setSelected({ display: item.display, code: item.code ?? "" });
+    onChange?.({ display: item.display, code: item.code ?? "", item });
     setOpen(false);
     setQuery("");
   }
 
   function clearSelection() {
     setSelected({ display: "", code: "" });
+    onChange?.({ display: "", code: "", item: null });
   }
 
   async function saveNew() {

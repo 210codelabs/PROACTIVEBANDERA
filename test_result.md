@@ -103,6 +103,49 @@
 #====================================================================================================user_problem_statement: "Proactive Clinic EHR (imported ApexCare, rebranded). New backend features: AI assistant (OpenAI GPT-4o via Emergent LLM key) for patient FAQs, and patient-portal appointment request that saves to MongoDB via Prisma."
 
 backend:
+  - task: "RefData edit/deactivate + include-inactive (PATCH/DELETE /api/refdata/[id], GET all=1)"
+    implemented: true
+    working: true
+    file: "src/app/api/refdata/[id]/route.ts, src/app/api/refdata/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW for catalog admin screen. PATCH /api/refdata/:id updates display/code/active/sortOrder (401 no session, 404 bad id, 400 nothing to update). DELETE /api/refdata/:id soft-deactivates (active=false). GET /api/refdata?type=X&all=1 now includes inactive items and returns active field. Please test with a staff session: (A) create a value via POST, (B) PATCH its display -> reflected on GET, (C) DELETE it -> then GET all=1 shows active:false while normal GET excludes it, (D) PATCH active:true reactivates, (E) PATCH/DELETE without session -> 401."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_new_endpoints.py. All test cases passed: (A1) POST /api/refdata creates item with id ✅. (A2) PATCH /api/refdata/{id} updates display to 'QA Catalog Item EDITED' ✅, verified via GET ✅. (A3) DELETE /api/refdata/{id} soft-deletes (active=false) ✅, normal GET excludes deleted item ✅, GET with all=1 includes deleted item with active:false ✅. (A4) PATCH {active:true} reactivates item ✅, normal GET now includes reactivated item ✅. (A5) PATCH with empty body correctly returns 400 ✅, PATCH nonexistent id correctly returns 404 ✅. (A6) PATCH without session correctly blocked with 401 ✅, DELETE without session correctly blocked with 401 ✅. All CRUD operations, soft-delete lifecycle, include-inactive filtering, validation, and authentication working correctly."
+  - task: "Immunization create with CVX (POST /api/patients/[id]/immunizations)"
+    implemented: true
+    working: true
+    file: "src/app/api/patients/[id]/immunizations/route.ts"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW endpoint + tab/page. POST creates an Immunization for the patient (vaccine required -> 400 if missing; cvxCode/lot/site/notes optional; givenAt defaults to now). Please test: create with vaccine + cvxCode + givenAt and confirm persisted; missing vaccine -> 400; no session -> 401. Use an existing patient id (list via GET /api/patients or create one)."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_new_endpoints.py. All test cases passed: (B1) POST /api/patients/{patientId}/immunizations with {vaccine:'Influenza, seasonal, injectable', cvxCode:'141', givenAt:'2026-01-15'} returns 200 {ok:true, immunization:{...}} with cvxCode '141' persisted correctly ✅. Immunization created with id, patientId, vaccine, cvxCode, givenAt all stored correctly. (B2) POST with missing vaccine (empty body) correctly returns 400 with error 'vaccine required' ✅. (B3) POST without session correctly blocked with 401 ✅. Validation, data persistence, and authentication all working correctly."
+  - task: "Orders store medication form/route (POST /api/patients/[id]/orders)"
+    implemented: true
+    working: true
+    file: "src/app/api/patients/[id]/orders/route.ts"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Rx order now stores rxForm on the Order and mirrors a Medication with form+route (plus name/strength/sig). Please test: POST an rx order with itemName, rxStrength, rxForm, rxRoute, rxSig and confirm 200 {ok:true} and that the mirrored medication (GET patient meds or DB) has form/route set. Regression: non-rx order (type=lab) still works."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_new_endpoints.py. All test cases passed: (C1) POST /api/patients/{patientId}/orders with {type:'rx', itemName:'Lisinopril 10 mg Tablet', rxStrength:'10 mg', rxForm:'Tablet', rxRoute:'Oral (PO)', rxSig:'1 tab PO daily', rxQty:'30', rxRefills:0} returns 200 {ok:true, order:{...}} with order.rxForm='Tablet' persisted correctly ✅. (C2) Verified mirrored medication in MongoDB: Medication document created with name='Lisinopril 10 mg Tablet', form='Tablet', route='Oral (PO)', strength='10 mg', sig='1 tab PO daily' - all fields correct ✅. (C3) Regression test: POST lab order {type:'lab', itemName:'CBC w/ differential'} returns 200 {ok:true} ✅. Order creation, medication mirroring with form/route, and lab order regression all working correctly."
+
   - task: "Reference/master data catalog API (/api/refdata GET+POST)"
     implemented: true
     working: true
@@ -337,4 +380,6 @@ frontend:
 agent_communication:
     -agent: "main"
     -message: "Iteration 3: Frontend visual changes only (hero slide 1 image swap + clinic sign overlay, service card icon reposition) plus Miami->San Antonio copy cleanup in two API files. Verified via screenshots. Awaiting user decision on whether a formal frontend UI test run is needed."
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for NEW endpoints (RefData edit/deactivate, Immunizations, Orders medication form/route). All test cases passed with no critical issues. Created /app/backend_test_new_endpoints.py with comprehensive test coverage. Test results: (A) RefData edit/deactivate lifecycle: All 12 test cases passed - POST create ✅, PATCH update display ✅, GET verify ✅, DELETE soft-delete ✅, normal GET excludes ✅, GET all=1 includes with active:false ✅, PATCH reactivate ✅, normal GET includes reactivated ✅, PATCH empty body validation (400) ✅, PATCH nonexistent id (404) ✅, PATCH without session (401) ✅, DELETE without session (401) ✅. (B) Immunizations: All 3 test cases passed - POST with cvxCode persisted ✅, missing vaccine validation (400) ✅, no session blocked (401) ✅. (C) Orders medication form/route: All 3 test cases passed - POST rx order with rxForm/rxRoute ✅, medication mirror verified in MongoDB with form='Tablet' and route='Oral (PO)' ✅, lab order regression ✅. No issues found. Ready for main agent to summarize and finish."
 

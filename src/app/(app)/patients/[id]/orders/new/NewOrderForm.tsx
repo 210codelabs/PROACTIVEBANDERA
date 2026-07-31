@@ -2,11 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import PharmacyPicker, { type Pharmacy } from "@/components/orders/PharmacyPicker";
+import RefSelect from "@/components/RefSelect";
 
-const RX_PICKS = [
-  "Lisinopril", "Atorvastatin", "Metformin", "Amlodipine", "Levothyroxine",
-  "Albuterol HFA", "Hydrocodone-acetaminophen", "Gabapentin", "Cephalexin", "Amoxicillin",
-];
 const LAB_PICKS = ["CBC w/ differential", "CMP (Comp Metabolic Panel)", "Lipid panel", "HbA1c", "TSH", "UA w/ reflex culture", "Wound culture"];
 const IMG_PICKS = ["X-ray, knee, 3 views", "MRI lumbar spine w/o contrast", "X-ray, chest 2 views", "Ultrasound, soft tissue"];
 
@@ -15,6 +12,9 @@ export default function NewOrderForm({ patientId, initialType }: { patientId: st
   const [type, setType] = useState(initialType);
   const [name, setName] = useState("");
   const [strength, setStrength] = useState("");
+  const [form, setForm] = useState("");
+  const [route, setRoute] = useState("");
+  const [frequency, setFrequency] = useState("");
   const [sig, setSig] = useState("");
   const [qty, setQty] = useState("");
   const [refills, setRefills] = useState("0");
@@ -30,7 +30,11 @@ export default function NewOrderForm({ patientId, initialType }: { patientId: st
     const body: any = { type, itemName: name, priority, instructions, diagnosisCode: diag };
     if (type === "rx") {
       body.rxStrength = strength;
-      body.rxSig = sig;
+      body.rxForm = form;
+      body.rxRoute = route;
+      body.rxFrequency = frequency;
+      // Compose Sig from route + frequency when the clinician hasn't typed a custom one.
+      body.rxSig = sig || [route, frequency].filter(Boolean).join(" ").trim();
       body.rxQty = qty;
       body.rxRefills = Number(refills) || 0;
       if (pharmacy) body.pharmacyId = pharmacy.id;
@@ -46,7 +50,7 @@ export default function NewOrderForm({ patientId, initialType }: { patientId: st
     }
   }
 
-  const picks = type === "rx" ? RX_PICKS : type === "lab" ? LAB_PICKS : type === "imaging" ? IMG_PICKS : [];
+  const picks = type === "lab" ? LAB_PICKS : type === "imaging" ? IMG_PICKS : [];
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -58,25 +62,51 @@ export default function NewOrderForm({ patientId, initialType }: { patientId: st
         ))}
       </div>
 
-      <div>
-        <span className="label">{type === "rx" ? "Medication" : type === "lab" ? "Lab / Panel" : type === "imaging" ? "Study" : type === "referral" ? "Specialty" : "Procedure"}</span>
-        <input value={name} onChange={e => setName(e.target.value)} required className="input" />
-        {picks.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {picks.map(p => (
-              <button key={p} type="button" onClick={() => setName(p)} className="chip bg-slate-100 hover:bg-brand-100 ring-slate-200 hover:ring-brand-200 text-slate-700 hover:text-brand-800">{p}</button>
-            ))}
-          </div>
-        )}
-      </div>
+      {type === "rx" ? (
+        <RefSelect
+          type="medication"
+          label="Medication"
+          name="itemName"
+          showCode={false}
+          placeholder="Search medication or create new…"
+          onChange={({ display, item }) => {
+            const d = (item?.data ?? {}) as { name?: string; strength?: string; form?: string };
+            setName(d.name || display);
+            if (d.strength) setStrength(d.strength);
+            if (d.form) setForm(d.form);
+          }}
+        />
+      ) : (
+        <div>
+          <span className="label">{type === "lab" ? "Lab / Panel" : type === "imaging" ? "Study" : type === "referral" ? "Specialty" : "Procedure"}</span>
+          <input value={name} onChange={e => setName(e.target.value)} required className="input" />
+          {picks.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {picks.map(p => (
+                <button key={p} type="button" onClick={() => setName(p)} className="chip bg-slate-100 hover:bg-brand-100 ring-slate-200 hover:ring-brand-200 text-slate-700 hover:text-brand-800">{p}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {type === "rx" && (
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="Strength" value={strength} onChange={e => setStrength(e.target.value)} placeholder="20 mg" />
-          <Input label="Sig" value={sig} onChange={e => setSig(e.target.value)} placeholder="1 tab PO daily" />
-          <Input label="Quantity" value={qty} onChange={e => setQty(e.target.value)} placeholder="30" />
-          <Input label="Refills" value={refills} onChange={e => setRefills(e.target.value)} type="number" min="0" max="11" />
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Strength / Dose" value={strength} onChange={e => setStrength(e.target.value)} placeholder="20 mg" />
+            <RefSelect type="medForm" label="Form" name="rxForm" showCode={false} defaultValue={form}
+              onChange={({ display }) => setForm(display)} />
+            <RefSelect type="medRoute" label="Route" name="rxRoute" showCode={false}
+              onChange={({ display }) => setRoute(display)} />
+            <RefSelect type="medFrequency" label="Frequency" name="rxFrequency" showCode={false}
+              onChange={({ display }) => setFrequency(display)} />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Input label="Sig (optional override)" value={sig} onChange={e => setSig(e.target.value)} placeholder="Auto from route + frequency" />
+            <Input label="Quantity" value={qty} onChange={e => setQty(e.target.value)} placeholder="30" />
+            <Input label="Refills" value={refills} onChange={e => setRefills(e.target.value)} type="number" min="0" max="11" />
+          </div>
+        </>
       )}
 
       {type === "rx" && (
@@ -115,7 +145,9 @@ export default function NewOrderForm({ patientId, initialType }: { patientId: st
             <option value="routine">Routine</option><option value="urgent">Urgent</option><option value="stat">STAT</option>
           </select>
         </label>
-        <Input label="Linked Dx (ICD-10)" value={diag} onChange={e => setDiag(e.target.value)} placeholder="M54.5" />
+        <RefSelect type="diagnosis" label="Linked Dx (ICD-10)" name="diagnosisCode" emit="code" showCode
+          placeholder="Search diagnosis…"
+          onChange={({ code, display }) => setDiag(code || display)} />
       </div>
 
       <button disabled={loading || !name} className="btn-primary">{loading ? "Submitting…" : type === "rx" && pharmacy ? "Submit & Send to Pharmacy" : "Submit Order"}</button>
@@ -126,3 +158,4 @@ export default function NewOrderForm({ patientId, initialType }: { patientId: st
 function Input({ label, ...rest }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return <label className="block"><span className="label">{label}</span><input className="input" {...rest} /></label>;
 }
+

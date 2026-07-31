@@ -2,30 +2,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmtMoney } from "@/lib/utils";
+import RefSelect from "@/components/RefSelect";
 
-const COMMON_DX = [
-  { icd10: "Z00.00", description: "Encounter for general adult medical exam" },
-  { icd10: "I10", description: "Essential hypertension" },
-  { icd10: "E11.9", description: "Type 2 diabetes mellitus, w/o complications" },
-  { icd10: "M54.5", description: "Low back pain" },
-  { icd10: "L97.929", description: "Non-pressure chronic ulcer, lower leg" },
-  { icd10: "G89.4", description: "Chronic pain syndrome" },
-  { icd10: "M25.561", description: "Pain in right knee" },
-  { icd10: "L70.0", description: "Acne vulgaris" },
-];
-
-const COMMON_CPT = [
-  { cpt: "99213", description: "Office visit, established, low MDM (15 min)", feeCents: 11500 },
-  { cpt: "99214", description: "Office visit, established, moderate MDM (25 min)", feeCents: 17500 },
-  { cpt: "99215", description: "Office visit, established, high MDM (40 min)", feeCents: 25000 },
-  { cpt: "99203", description: "Office visit, new, low MDM", feeCents: 16000 },
-  { cpt: "99204", description: "Office visit, new, moderate MDM", feeCents: 22000 },
-  { cpt: "97110", description: "Therapeutic exercise — 15 min", feeCents: 4500 },
-  { cpt: "97140", description: "Manual therapy — 15 min", feeCents: 4500 },
-  { cpt: "97597", description: "Wound debridement, ≤20 cm²", feeCents: 13000 },
-  { cpt: "11900", description: "Injection, intralesional (e.g., Botox/filler test)", feeCents: 9500 },
-  { cpt: "G0463", description: "Hospital outpatient clinic visit", feeCents: 12000 },
-];
+// Suggested default fees (USD cents) for common codes; catalog picks without a
+// default start at $0 and the clinician can set the fee inline.
+const FEE_DEFAULTS: Record<string, number> = {
+  "99213": 11500, "99214": 17500, "99215": 25000, "99203": 16000, "99204": 22000,
+  "99202": 12000, "99205": 30000, "99211": 6500, "99212": 9000, "99396": 21000,
+  "97110": 4500, "97140": 4500, "97530": 5000, "97010": 2500, "97035": 3500,
+  "96372": 3800, "90471": 3000, "90472": 1800, "93000": 3500, "36415": 1200,
+  "80053": 2200, "85025": 2500, "G0283": 3000, "99490": 6200, "99457": 5100,
+};
 
 export default function EncounterEditor({ encounter }: { encounter: any }) {
   const router = useRouter();
@@ -102,6 +89,9 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
   function setUnits(i: number, u: number) {
     setCharges(charges.map((c, idx) => idx === i ? { ...c, units: u } : c));
   }
+  function setFee(i: number, dollars: number) {
+    setCharges(charges.map((c, idx) => idx === i ? { ...c, feeCents: Math.round((dollars || 0) * 100) } : c));
+  }
 
   const total = charges.reduce((s, c) => s + (c.feeCents * (c.units || 1)), 0);
 
@@ -149,14 +139,17 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
             ))}
             {!signed && (
               <div>
-                <span className="label mt-2">Add common</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {COMMON_DX.map(d => (
-                    <button key={d.icd10} type="button" onClick={() => addDx(d)} className="chip bg-slate-100 hover:bg-brand-100 ring-slate-200 hover:ring-brand-200 text-slate-700 hover:text-brand-800">
-                      <span className="font-mono">{d.icd10}</span> {d.description}
-                    </button>
-                  ))}
-                </div>
+                <span className="label mt-2">Add diagnosis</span>
+                <RefSelect
+                  type="diagnosis"
+                  label=""
+                  name="_dx"
+                  showCode
+                  placeholder="Search ICD-10 or create new…"
+                  onChange={({ code, display, item }) => {
+                    if (item) addDx({ icd10: code || display, description: display });
+                  }}
+                />
               </div>
             )}
           </div>
@@ -173,21 +166,31 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
               <div key={c.cpt + i} className="flex items-center gap-2 text-sm">
                 <span className="font-mono text-xs">{c.cpt}</span>
                 <span className="flex-1 truncate">{c.description}</span>
-                <input type="number" min="1" disabled={signed} value={c.units || 1} onChange={e => setUnits(i, Number(e.target.value) || 1)} className="w-12 text-center input py-0.5" />
-                <span className="text-xs text-slate-500 w-16 text-right">{fmtMoney(c.feeCents * (c.units || 1))}</span>
+                <input type="number" min="1" disabled={signed} value={c.units || 1} onChange={e => setUnits(i, Number(e.target.value) || 1)} className="w-12 text-center input py-0.5" title="Units" />
+                {signed ? (
+                  <span className="text-xs text-slate-500 w-16 text-right">{fmtMoney(c.feeCents * (c.units || 1))}</span>
+                ) : (
+                  <div className="flex items-center">
+                    <span className="text-xs text-slate-400">$</span>
+                    <input type="number" min="0" step="0.01" value={((c.feeCents || 0) / 100).toString()} onChange={e => setFee(i, Number(e.target.value))} className="w-16 text-right input py-0.5" title="Fee (per unit)" />
+                  </div>
+                )}
                 {!signed && <button onClick={() => removeCpt(i)} className="text-rose-500 hover:text-rose-700 text-xs">×</button>}
               </div>
             ))}
             {!signed && (
               <div>
-                <span className="label mt-2">Add common</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {COMMON_CPT.map(c => (
-                    <button key={c.cpt} type="button" onClick={() => addCpt(c)} className="chip bg-slate-100 hover:bg-brand-100 ring-slate-200 hover:ring-brand-200 text-slate-700 hover:text-brand-800">
-                      <span className="font-mono">{c.cpt}</span> {c.description.split(",")[0]} <span className="text-[10px]">{fmtMoney(c.feeCents)}</span>
-                    </button>
-                  ))}
-                </div>
+                <span className="label mt-2">Add CPT / HCPCS code</span>
+                <RefSelect
+                  type="billingCode"
+                  label=""
+                  name="_cpt"
+                  showCode
+                  placeholder="Search CPT/HCPCS or create new…"
+                  onChange={({ code, display, item }) => {
+                    if (item) addCpt({ cpt: code || "", description: display, feeCents: FEE_DEFAULTS[code || ""] ?? 0 });
+                  }}
+                />
               </div>
             )}
           </div>

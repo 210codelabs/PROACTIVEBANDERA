@@ -10,11 +10,13 @@ export async function GET(request: Request) {
     const type = searchParams.get("type")?.trim();
     const q = searchParams.get("q")?.trim() || "";
     const limit = Math.min(Number(searchParams.get("limit") || 100), 500);
+    const includeInactive = searchParams.get("all") === "1";
     if (!type) {
       return NextResponse.json({ error: "Missing 'type' parameter" }, { status: 400 });
     }
 
-    const where: Record<string, unknown> = { type, active: true };
+    const where: Record<string, unknown> = { type };
+    if (!includeInactive) where.active = true;
     if (q) {
       where.OR = [
         { display: { contains: q, mode: "insensitive" } },
@@ -26,7 +28,7 @@ export async function GET(request: Request) {
       where,
       orderBy: [{ sortOrder: "asc" }, { display: "asc" }],
       take: limit,
-      select: { id: true, type: true, code: true, display: true, system: true, data: true },
+      select: { id: true, type: true, code: true, display: true, system: true, data: true, active: true },
     });
 
     return NextResponse.json({ items });

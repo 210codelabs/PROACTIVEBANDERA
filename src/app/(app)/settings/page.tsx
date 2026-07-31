@@ -1,5 +1,6 @@
 import { requireSession, roleLabel } from "@/lib/auth";
 import { db } from "@/lib/db";
+import Link from "next/link";
 import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import { readAdminConfig } from "@/lib/admin/store";
@@ -49,6 +50,13 @@ export default async function Settings() {
           Settings data is temporarily unavailable. Showing fallback totals.
         </div>
       )}
+      <Link href="/settings/catalogs" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
+        <div>
+          <div className="font-semibold text-slate-900">Clinical Catalogs</div>
+          <div className="text-sm text-slate-500">Manage dropdown value sets (diagnoses, CPT, medications, vaccines, allergens, insurers, demographics…) used across the EHR. Add, edit, or deactivate values.</div>
+        </div>
+        <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Manage →</span>
+      </Link>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <section className="card lg:col-span-2">
           <header className="px-4 py-3 border-b border-slate-200 font-semibold">Practice Staff</header>
