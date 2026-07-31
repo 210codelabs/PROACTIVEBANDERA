@@ -104,5 +104,23 @@ try {
   console.error("[start] DB init warning (continuing):", err.message);
 }
 
+// Self-heal: drop the obsolete UNIQUE index on Encounter.appointmentId.
+// Walk-in encounters have no appointmentId; MongoDB's non-sparse unique index
+// only allows ONE document missing that field, so the 2nd walk-in fails with
+// "Unique constraint failed on Encounter_appointmentId_key" -> the New Encounter
+// page catches it and bounces back to the list ("flicker returns to list" bug).
+// The schema relation is now 1:N (no @unique), but `prisma db push` does not
+// reliably drop pre-existing Mongo indexes, so we drop it explicitly here.
+// Best-effort + idempotent: ignores "index not found" and any DB hiccup.
+try {
+  console.log("[start] self-heal: dropping stale Encounter_appointmentId_key index if present...");
+  execSync(
+    "node -e \"const {PrismaClient}=require('@prisma/client');const c=new PrismaClient();c.$runCommandRaw({dropIndexes:'Encounter',index:'Encounter_appointmentId_key'}).then(()=>console.log('dropped stale index')).catch(e=>console.log('index drop skipped:'+(e&&e.message||e))).finally(()=>c.$disconnect());\"",
+    { stdio: "inherit" }
+  );
+} catch (err) {
+  console.error("[start] index self-heal warning (continuing):", err.message);
+}
+
 console.log("[start] next start...");
 run("next start -H 0.0.0.0 -p 3000");
