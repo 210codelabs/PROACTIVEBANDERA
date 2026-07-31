@@ -1,0 +1,12 @@
+{
+  "name": "ApexCare EHR",
+  "description": "Comprehensive full-stack Electronic Health Records (EHR) and clinical operations platform for healthcare clinics.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
