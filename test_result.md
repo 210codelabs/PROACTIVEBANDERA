@@ -416,3 +416,29 @@ agent_communication:
     -agent: "testing"
     -message: "✅ Attorney Portal end-to-end backend testing completed successfully. ALL 17 test cases passed with no critical issues. Created /app/backend_test_attorney.py with comprehensive test coverage. Test results: Attorney authentication (login with correct/wrong credentials, missing fields) ✅, Attorney session management (GET requests with/without cookie) ✅, Record request creation (valid/missing MRN/missing lastName) ✅, Download gating (403 before approval) ✅, Staff authentication and authorization ✅, Staff records management (GET with/without cookie) ✅, Staff approval workflow (approve/invalid status/nonexistent ID) ✅, Attorney download after approval (200 with text/plain attachment containing MRN and lastName) ✅, Negative test (lastName mismatch safeguard returns 404) ✅. All authentication, authorization, validation, approval workflow, download gating, and security safeguards working correctly. Ready for main agent to summarize and finish."
 
+
+## ---- Iteration 4 (main agent) ----
+frontend:
+  - task: "Kiosk Mode slideshow: auto-play loop + flyer-style service ads + 'Click here to interact' button + menu"
+    implemented: true
+    working: "NA"
+    file: "src/app/kiosk/page.tsx, src/app/globals.css, public/promo-dot.png, public/flyer-rehab.jpg, public/flyer-pain.jpg, public/svc-6.jpg, public/flyer-primary.jpg"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Enhanced the Kiosk Mode slideshow per user request. NEW behavior: (1) Kiosk opens on a splash 'Start Kiosk Mode' (fullscreen requires a user gesture); after tapping it the slideshow auto-plays and loops indefinitely (8s per slide, progress bar + dots). (2) 7 slides: photo welcome (hero-slide-1.jpg), the uploaded DOT flyer shown AS-IS (kind 'flyer' -> /promo-dot.png), and 4 NEW coded flyer-style ads (kind 'flyerad') that replicate the DOT flyer design — Proactive Clinic logo top-left, 'PART OF THE PROACTIVE UMS ECOSYSTEM' badge top-right, two-tone title (brand-blue + rose), colored tagline pill, subtitle, description, hours box (Mon–Sun 9AM–8PM · Walk-ins Welcome), a 4-icon feature row, and a navy CTA footer with phone (210) 500-2914 · San Antonio, TX · proactiveclinics.com. Flyer ads: Physical Therapy (flyer-rehab.jpg), Pain Management (flyer-pain.jpg), Telehealth (svc-6.jpg), Primary Care (flyer-primary.jpg). Final slide is the HIPAA/Portal security ad. (3) A prominent 'Click here to interact' pill button is pinned at the bottom-center of the slideshow ONLY in kiosk mode (not on the landing hero). Clicking it pauses the slideshow and opens the kiosk menu (Check-in & HIPAA, Patient Portal, Resume presentation) plus a 'Services & offers' grid of 6 products and an Exit Kiosk Mode button. (4) Reserved bottom padding so the interact button never overlaps the flyer footers. Verified via screenshots: splash, auto slideshow, all 4 flyer ads, DOT flyer as-is, and the paused menu all render correctly. NEEDS end-to-end frontend UI test: auto-play + loop, dot navigation, 'Click here to interact' opens menu, Resume returns to slideshow, service cards navigate to admission/portal tabs, Exit returns to '/'. Route: /kiosk (public, no auth)."
+
+test_plan:
+  current_focus:
+    - "Kiosk Mode slideshow: auto-play loop + flyer-style service ads + 'Click here to interact' button + menu"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 4 FRONTEND: Please test the Kiosk Mode slideshow at /kiosk (public route, no login). Steps: (1) Load /kiosk -> a 'Start Kiosk Mode' splash appears; click it. (2) Confirm the slideshow auto-plays and advances through slides (8s each) and LOOPS back to the start. (3) Confirm the top-right progress dots navigate to specific slides when clicked (7 slides total: welcome photo, DOT flyer image, Physical Therapy, Pain Management, Telehealth, Primary Care, HIPAA/Portal ad). (4) Confirm a 'Click here to interact' button is visible pinned at the bottom-center and does NOT overlap the flyer footers. (5) Click 'Click here to interact' -> the slideshow pauses and a menu overlay appears with 'How can we help you today?', three primary buttons (Check-in & HIPAA, Patient Portal, Resume presentation), a 'Services & offers' grid of 6 cards, and an 'Exit Kiosk Mode' button. (6) Click 'Resume presentation' -> menu closes and slideshow resumes. (7) Open menu again, click a service card (e.g., 'Telehealth Visits') -> should switch to the Patient Portal tab; click 'Check-in & HIPAA' -> should switch to the Admission & HIPAA tab (a self check-in form). (8) The top-nav tabs (ProactiveKIOSK / Admission & HIPAA / Patient Portal) should switch panels. Do NOT test Exit (it clears sessions and navigates to '/'). Base URL http://localhost:3000. This is UI-only; no backend changes were made this iteration."
+
