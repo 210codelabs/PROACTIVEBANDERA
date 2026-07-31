@@ -73,12 +73,70 @@ model LegalCase {
   status           String    @default("intake") // intake | treating | negotiating | settled | closed
   lienAmountCents  Int?
   notes            String?
+  documents        CaseDocument[]
+  events           CaseEvent[]
+  offers           CaseOffer[]
+  deliverables     CaseDeliverable[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   @@index([patientId])
   @@index([attorneyId])
   @@index([status])
+}
+
+model CaseDocument {
+  id          String    @id @default(cuid()) @map("_id")
+  legalCaseId String
+  legalCase   LegalCase @relation(fields: [legalCaseId], references: [id])
+  name        String
+  category    String    @default("other") // intake | medical | billing | correspondence | court | other
+  mimeType    String
+  size        Int
+  dataBase64  String    // stored in MongoDB so uploads survive in production
+  uploadedBy  String?
+  createdAt   DateTime  @default(now())
+
+  @@index([legalCaseId])
+}
+
+model CaseEvent {
+  id          String    @id @default(cuid()) @map("_id")
+  legalCaseId String
+  legalCase   LegalCase @relation(fields: [legalCaseId], references: [id])
+  type        String    @default("note") // note | stage | notification | document | offer | deliverable
+  title       String
+  detail      String?
+  actor       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([legalCaseId])
+}
+
+model CaseOffer {
+  id          String    @id @default(cuid()) @map("_id")
+  legalCaseId String
+  legalCase   LegalCase @relation(fields: [legalCaseId], references: [id])
+  party       String    // clinic | attorney | insurer
+  kind        String    // offer | counter | acceptance
+  amountCents Int
+  note        String?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([legalCaseId])
+}
+
+model CaseDeliverable {
+  id          String    @id @default(cuid()) @map("_id")
+  legalCaseId String
+  legalCase   LegalCase @relation(fields: [legalCaseId], references: [id])
+  title       String
+  done        Boolean   @default(false)
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([legalCaseId])
 }
 
 model RecordRequest {

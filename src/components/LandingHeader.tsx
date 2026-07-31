@@ -44,6 +44,7 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
             <a href="#why" className={navLink}>{L.navWhy}</a>
             <a href="#testimonials" className={navLink}>{L.testKicker}</a>
             <a href="#contact" className={navLink}>{L.navContact}</a>
+            <a href="/attorney" className={navLink}>Attorney Portal</a>
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">

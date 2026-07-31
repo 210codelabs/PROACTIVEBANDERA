@@ -57,6 +57,13 @@ export default async function Settings() {
         </div>
         <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Manage →</span>
       </Link>
+      <Link href="/legal-cases" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
+        <div>
+          <div className="font-semibold text-slate-900">Legal Cases</div>
+          <div className="text-sm text-slate-500">Manage personal injury, auto accident and workers&apos; comp cases — tracking, documents, liens, offers and deliverables.</div>
+        </div>
+        <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Manage →</span>
+      </Link>
       <Link href="/settings/kiosk" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
         <div>
           <div className="font-semibold text-slate-900">Kiosk Slideshow</div>
