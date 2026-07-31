@@ -28,6 +28,96 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
   const [saving, setSaving] = useState(false);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
   const [signed, setSigned] = useState(encounter.status === "signed");
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiRx, setAiRx] = useState<any[]>([]);
+  const [aiSafety, setAiSafety] = useState("");
+
+  async function generateSoap() {
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const res = await fetch(`/api/encounters/${encounter.id}/ai-soap`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          instructions: aiInput,
+          draft: { chiefComplaint, subjective, ros, objective, examFindings: exam, assessment, plan },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setAiError(json.error || "Failed to generate the note.");
+        return;
+      }
+      const s = json.soap || {};
+      if (s.chiefComplaint) setCC(s.chiefComplaint);
+      if (s.subjective) setS(s.subjective);
+      if (s.ros) setROS(s.ros);
+      if (s.objective) setO(s.objective);
+      if (s.examFindings) setExam(s.examFindings);
+      if (s.assessment) setA(s.assessment);
+      if (s.plan) setP(s.plan);
+
+      if (Array.isArray(json.diagnoses) && json.diagnoses.length) {
+        setDiagnoses((prev) => {
+          const seen = new Set(prev.map((d) => d.icd10));
+          const merged = [...prev];
+          let hasPrimary = prev.some((d) => d.primary);
+          for (const d of json.diagnoses) {
+            if (d.icd10 && seen.has(d.icd10)) continue;
+            const makePrimary = d.primary && !hasPrimary;
+            merged.push({ icd10: d.icd10 || d.description, description: d.description, primary: makePrimary });
+            if (makePrimary) hasPrimary = true;
+            if (d.icd10) seen.add(d.icd10);
+          }
+          if (!merged.some((d) => d.primary) && merged.length) merged[0].primary = true;
+          return merged;
+        });
+      }
+
+      if (Array.isArray(json.charges) && json.charges.length) {
+        setCharges((prev) => {
+          const seen = new Set(prev.map((c) => c.cpt));
+          const merged = [...prev];
+          for (const c of json.charges) {
+            if (c.cpt && seen.has(c.cpt)) continue;
+            merged.push({
+              cpt: c.cpt,
+              description: c.description,
+              units: 1,
+              feeCents: c.feeSuggestedCents || 0,
+              feeMinCents: c.feeMinCents,
+              feeMaxCents: c.feeMaxCents,
+              rationale: c.rationale,
+              aiSuggested: true,
+            });
+            if (c.cpt) seen.add(c.cpt);
+          }
+          return merged;
+        });
+      }
+
+      setAiRx(Array.isArray(json.prescriptions) ? json.prescriptions : []);
+      setAiSafety(json.safetyNotes || "");
+    } catch (e) {
+      console.error(e);
+      setAiError("Network error. Please try again.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  function addRxToPlan() {
+    if (!aiRx.length) return;
+    const rxLines = aiRx.map(
+      (m) => `• ${m.name}${m.strength ? ` ${m.strength}` : ""}${m.form ? ` ${m.form}` : ""}${m.sig ? ` — ${m.sig}` : ""}${m.route ? ` ${m.route}` : ""}${m.frequency ? ` ${m.frequency}` : ""}`,
+    );
+    const block = `Prescriptions:\n${rxLines.join("\n")}`;
+    setP(plan ? `${plan}\n\n${block}` : block);
+  }
+
 
   async function importPrevious() {
     setLoadingPrevious(true);
@@ -111,6 +201,50 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
             </button>
           )}
         </div>
+        {!signed && (
+          <div className="card card-pad ring-1 ring-brand-200 bg-brand-50/40">
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 3v4M3 5h4M6 17v4m-2-2h4M13 3l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+              <h3 className="text-sm font-semibold text-brand-800">AI SOAP Assistant</h3>
+              <span className="chip bg-brand-100 text-brand-800 ring-brand-200 text-[10px]">beta</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1 mb-2">
+              Describe the visit in a few words. The assistant reads this patient&apos;s chart (problems, medications, allergies, vitals, prior visits) and drafts a compliant SOAP note with ICD-10 diagnoses, prescriptions and CPT codes for you to review and edit. Fee ranges are <strong>estimates</strong> — verify before billing.
+            </p>
+            <textarea
+              className="input text-[13px]"
+              rows={3}
+              value={aiInput}
+              onChange={e => setAiInput(e.target.value)}
+              placeholder="e.g., 45 y/o established patient, follow-up for low back pain, worse after lifting; wants a refill and a PT referral"
+            />
+            <div className="flex items-center gap-3 mt-2">
+              <button onClick={generateSoap} disabled={aiLoading} className="btn-primary">
+                {aiLoading ? "Generating…" : "Generate SOAP with AI"}
+              </button>
+              {aiError && <span className="text-xs text-rose-600">{aiError}</span>}
+            </div>
+            {aiSafety && (
+              <div className="mt-2 rounded-md bg-amber-50 ring-1 ring-amber-200 px-3 py-2 text-[12px] text-amber-800">
+                <strong>Safety note:</strong> {aiSafety}
+              </div>
+            )}
+            {aiRx.length > 0 && (
+              <div className="mt-2 rounded-md bg-white ring-1 ring-slate-200 px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-700">Suggested prescriptions ({aiRx.length})</span>
+                  <button onClick={addRxToPlan} className="text-xs font-semibold text-brand-600 hover:text-brand-800">Add to Plan →</button>
+                </div>
+                <ul className="mt-1 space-y-0.5 text-[12px] text-slate-600">
+                  {aiRx.map((m, i) => (
+                    <li key={i}>• {m.name}{m.strength ? ` ${m.strength}` : ""}{m.form ? ` ${m.form}` : ""}{m.sig ? ` — ${m.sig}` : ""}</li>
+                  ))}
+                </ul>
+                <p className="text-[10px] text-slate-400 mt-1">Review against allergies and confirm before prescribing.</p>
+              </div>
+            )}
+          </div>
+        )}
         <div className="card card-pad">
           <label className="label">Chief Complaint</label>
           <input className="input" value={chiefComplaint} onChange={e => setCC(e.target.value)} placeholder="e.g., Lower back pain x 2 weeks" disabled={signed} />
@@ -163,7 +297,8 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
           <div className="p-4 space-y-2">
             {charges.length === 0 && <div className="text-sm text-slate-500 italic">No CPT codes yet.</div>}
             {charges.map((c, i) => (
-              <div key={c.cpt + i} className="flex items-center gap-2 text-sm">
+              <div key={c.cpt + i} className="text-sm">
+                <div className="flex items-center gap-2">
                 <span className="font-mono text-xs">{c.cpt}</span>
                 <span className="flex-1 truncate">{c.description}</span>
                 <input type="number" min="1" disabled={signed} value={c.units || 1} onChange={e => setUnits(i, Number(e.target.value) || 1)} className="w-12 text-center input py-0.5" title="Units" />
@@ -176,6 +311,10 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
                   </div>
                 )}
                 {!signed && <button onClick={() => removeCpt(i)} className="text-rose-500 hover:text-rose-700 text-xs">×</button>}
+                </div>
+                {c.feeMinCents != null && (
+                  <div className="pl-1 mt-0.5 text-[10px] text-amber-600">est. {fmtMoney(c.feeMinCents)}–{fmtMoney(c.feeMaxCents)} · AI estimate — verify{c.rationale ? ` · ${c.rationale}` : ""}</div>
+                )}
               </div>
             ))}
             {!signed && (
