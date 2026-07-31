@@ -165,6 +165,9 @@ const en = {
     whyTitle: "Care That Goes Beyond the Visit",
     whyDesc:
       "We combine clinical excellence with genuine compassion to deliver healthcare that fits your life.",
+    teamKicker: "Our Team",
+    teamTitle: "Meet Your Care Team",
+    teamDesc: "A multidisciplinary team of providers dedicated to your wellness and recovery.",
     portalKicker: "Patient Portal",
     portalTitle: "Access Your Care Anytime",
     portalDesc:
@@ -413,6 +416,9 @@ const es = {
     whyTitle: "Atención que va más allá de la visita",
     whyDesc:
       "Combinamos excelencia clínica con compasión genuina para brindar una atención que se adapta a tu vida.",
+    teamKicker: "Nuestro Equipo",
+    teamTitle: "Conoce a tu Equipo de Atención",
+    teamDesc: "Un equipo multidisciplinario de proveedores dedicados a tu bienestar y recuperación.",
     portalKicker: "Portal del paciente",
     portalTitle: "Accede a tu atención en cualquier momento",
     portalDesc:

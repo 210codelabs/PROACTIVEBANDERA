@@ -32,6 +32,7 @@ export default async function HomePage() {
       <StatStrip L={L} />
       <Services L={L} />
       <WhyChooseUs L={L} />
+      <Team L={L} />
       <BookBand L={L} />
       <ContactAndHours L={L} />
       <Footer L={L} />
@@ -249,6 +250,47 @@ function WhyChooseUs({ L }: { L: LandingDict }) {
                 </div>
                 <h3 className="font-bold text-brand-900 mb-1.5">{r.title}</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">{r.description}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Team({ L }: { L: LandingDict }) {
+  const members = [
+    { name: "Andy Manzano", cred: "PD", specialty: "Practice Director", initials: "AM" },
+    { name: "Linh Tan", cred: "NP", specialty: "Primary Care / Aesthetics", initials: "LT" },
+    { name: "Devon Jones", cred: "DPT", specialty: "Physical Rehabilitation", initials: "DJ" },
+    { name: "Aaron Smith", cred: "MD", specialty: "Pain Management / Wound Care", initials: "AS" },
+  ];
+  return (
+    <section id="team" className="py-16 sm:py-24 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-2xl mx-auto mb-14">
+          <div className="inline-flex items-center gap-2 text-sm font-bold text-brand-700 uppercase tracking-wider mb-3">
+            <span className="h-1 w-6 rounded-full bg-emerald-500" />
+            {L.teamKicker}
+            <span className="h-1 w-6 rounded-full bg-red-500" />
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-brand-900">{L.teamTitle}</h2>
+          <p className="mt-4 text-slate-600 text-lg">{L.teamDesc}</p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {members.map((mem, i) => {
+            const a = ACCENTS[i % ACCENTS.length];
+            return (
+              <div key={mem.name} className="group rounded-2xl border border-slate-100 bg-white shadow-sm hover:shadow-xl transition overflow-hidden text-center">
+                <div className={`h-24 bg-gradient-to-r ${a.bar}`} />
+                <div className="px-6 pb-6 -mt-12">
+                  <div className={`mx-auto h-24 w-24 rounded-full ${a.circle} ring-4 ring-white grid place-items-center text-white text-2xl font-extrabold shadow-lg`}>
+                    {mem.initials}
+                  </div>
+                  <h3 className="mt-4 font-bold text-brand-900 text-lg">{mem.name}<span className="text-slate-400 font-semibold">, {mem.cred}</span></h3>
+                  <p className={`text-sm font-semibold ${a.text} mt-0.5`}>{mem.specialty}</p>
+                </div>
               </div>
             );
           })}
