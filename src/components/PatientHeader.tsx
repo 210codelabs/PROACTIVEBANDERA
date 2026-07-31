@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Patient } from "@prisma/client";
 import { ageFromDob, fmtPhone, initials } from "@/lib/utils";
+import ChartAssistant from "@/components/ChartAssistant";
 
 export default function PatientHeader({
   patient,
@@ -14,6 +15,7 @@ export default function PatientHeader({
   rightSlot?: React.ReactNode;
 }) {
   return (
+    <>
     <div className="bg-gradient-to-r from-brand-50 via-white to-emerald-50 border-b border-slate-200 px-6 py-4">
       <div className="flex items-start gap-4">
         <div className="h-14 w-14 rounded-xl bg-brand-600 grid place-items-center text-white font-bold text-lg">
@@ -55,6 +57,8 @@ export default function PatientHeader({
         </div>
       </div>
     </div>
+    <ChartAssistant patientId={patient.id} patientName={`${patient.firstName} ${patient.lastName}`} />
+    </>
   );
 }
 
