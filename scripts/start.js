@@ -83,6 +83,23 @@ try {
   } else {
     console.log(`[start] database has ${count} users -> skip seed`);
   }
+
+  // Reference/master-data catalog powers every clinical dropdown (allergies,
+  // medications, diagnoses, billing codes, demographics...). It is seeded by a
+  // separate idempotent script, so seed it whenever the catalog is empty — even
+  // if users already exist (e.g. first production boot seeded users but not
+  // RefData, which left every dropdown blank with only "Create new…").
+  const refOut = execSync(
+    "node -e \"const {PrismaClient}=require('@prisma/client');const c=new PrismaClient();c.refData.count().then(n=>{console.log('REFCOUNT:'+n);return c.$disconnect();}).catch(e=>{console.error(e);process.exit(1);})\"",
+    { encoding: "utf8" }
+  );
+  const refCount = parseInt((refOut.match(/REFCOUNT:(\d+)/) || [])[1] || "0", 10);
+  if (refCount === 0) {
+    console.log("[start] reference catalog empty -> seeding refdata");
+    run("node scripts/seed-refdata.mjs");
+  } else {
+    console.log(`[start] reference catalog has ${refCount} records -> skip refdata seed`);
+  }
 } catch (err) {
   console.error("[start] DB init warning (continuing):", err.message);
 }
