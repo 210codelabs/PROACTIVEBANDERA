@@ -100,4 +100,68 @@
 
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
-#====================================================================================================
+#====================================================================================================user_problem_statement: "Proactive Clinic EHR (imported ApexCare, rebranded). New backend features: AI assistant (OpenAI GPT-4o via Emergent LLM key) for patient FAQs, and patient-portal appointment request that saves to MongoDB via Prisma."
+
+backend:
+  - task: "Patient portal appointment request (create, saves to DB)"
+    implemented: true
+    working: true
+    file: "src/app/api/portal/appointments/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "POST /api/portal/appointments creates an Appointment (status 'requested') for the logged-in patient. Requires portal session cookie. Auto-assigns first active provider, computes endsAt from service duration. Validated future date/time. Verified 200 + DB doc via curl."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test.py. All test cases passed: (1) Valid future appointment returns 200 with {ok:true, appointment:{status:'requested'}} and persists to DB. (2) Past date validation returns 400. (3) Missing date/time validation returns 400. (4) Unauthenticated request correctly blocked with 401. Authentication, validation, and data persistence all working correctly."
+
+  - task: "Portal AI assistant with GPT-4o (FAQ), rules for scheduling"
+    implemented: true
+    working: true
+    file: "src/app/api/portal/assistant/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "Free-form/FAQ messages routed to OpenAI GPT-4o via emergentintegrations (EMERGENT_LLM_KEY). Scheduling/reschedule/cancel/lookup remain rule-based. System prompt injects clinic facts from admin config (rebranded to Proactive Clinic). Bilingual EN/ES, refuses medical/dosage advice. Falls back to rule-based FAQ on LLM error. Verified 200 with correct branding via curl."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test.py. All test cases passed: (1) FAQ question returns 200 with helpful reply correctly mentioning 'Proactive Clinic' (no 'ApexCare' branding issues), GPT-4o integration working. (2) Scheduling command returns 200 with action object {type:'schedule'}, rule-based scheduling logic working. (3) Safety test: medical/dosage question correctly refused with advice to 'consult healthcare provider', no specific medication/dosage given. Authentication, GPT-4o integration, branding, and safety guardrails all working correctly."
+
+  - task: "Portal auth login (MRN + DOB) and Staff auth login (email+password)"
+    implemented: true
+    working: true
+    file: "src/app/api/portal/auth/login/route.ts, src/app/api/auth/login/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "Used by the new hero tabbed auth card. Portal: PC-100000 / 1958-04-12. Staff: andy.manzano@proactiveclinic.com / apex123. Cookies proactive_portal_session / proactive_session. Verified 200."
+        -working: true
+        -agent: "testing"
+        -comment: "Portal auth tested as part of backend_test.py setup. POST /api/portal/auth/login with {mrn:'PC-100000', dob:'1958-04-12'} returns 200 with proactive_portal_session cookie. Cookie successfully used for authenticated requests to /api/portal/appointments and /api/portal/assistant. Authentication working correctly."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Please test the two new backend endpoints. AUTH: (1) Portal session via POST /api/portal/auth/login {mrn:'PC-100000', dob:'1958-04-12'} -> keep cookie. (2) Staff session via POST /api/auth/login {email:'andy.manzano@proactiveclinic.com', password:'apex123'}. TESTS: (a) POST /api/portal/appointments with portal cookie and body {date: <future YYYY-MM-DD>, time:'14:30', location:'telehealth', reason:'test'} should return 200 {ok:true, appointment:{...status:'requested'}} and persist. Also test validation: past date -> 400, missing date/time -> 400, no cookie -> should be blocked (401/redirect). (b) POST /api/portal/assistant with portal cookie: free-form FAQ like {message:'What are your hours?'} -> 200 with a helpful reply mentioning Proactive Clinic (NOT ApexCare); a scheduling command {message:'schedule PT on 2026-09-01 at 3:00 PM'} -> rule-based action; a medical/dosage question -> should refuse to prescribe. Base URL: use internal http://localhost:3000. Do NOT test frontend."
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully. All tests passed with no critical issues. Created /app/backend_test.py with comprehensive test coverage. Test results: (1) Appointment request endpoint: All validation working (future date ✅, past date rejection ✅, missing fields rejection ✅, auth blocking ✅). (2) AI assistant endpoint: GPT-4o integration working ✅, correct branding (Proactive Clinic, no ApexCare) ✅, rule-based scheduling ✅, safety guardrails (refuses medical advice) ✅. (3) Portal auth: Cookie-based authentication working ✅. No issues found. Ready for main agent to summarize and finish."

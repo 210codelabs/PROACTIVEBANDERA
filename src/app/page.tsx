@@ -1,5 +1,6 @@
 import Link from "next/link";
 import LandingLoginForm from "./LandingLoginForm";
+import HeroAuth from "@/components/HeroAuth";
 import { getT } from "@/lib/i18n/server";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -28,8 +29,13 @@ export default async function HomePage() {
   return (
     <main className="min-h-screen bg-white text-slate-900">
       <Header L={L} />
-      <Hero L={L} />
-      <StatStrip L={L} />
+      <HeroAuth
+        heading={L.heroTitle}
+        accent={L.heroAccent}
+        tagline={L.heroTagline}
+        subtitle={L.heroDesc}
+        chips={["Hablamos Español", L.homeVisits, L.mostInsurances]}
+      />
       <Services L={L} />
       <WhyChooseUs L={L} />
       <Team L={L} />
@@ -79,25 +85,26 @@ function Header({ L }: { L: LandingDict }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center gap-4">
-            <img src="/pclinic-light.png" alt="Proactive Clinic" className="h-14 sm:h-16 w-auto object-contain" />
-            <span className="hidden xl:inline-flex items-center gap-1.5 rounded-full bg-brand-50 border border-brand-100 px-3 py-1 text-[11px] font-semibold text-brand-800 uppercase tracking-wide">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              {L.ecosystem}
-            </span>
+            <img src="/pclinic-light.png" alt="Proactive Clinic" className="h-16 sm:h-[68px] w-auto object-contain" />
           </div>
-          <nav className="hidden md:flex items-center gap-7 text-sm font-semibold text-slate-600">
+          <nav className="hidden md:flex items-center gap-6 lg:gap-7 text-sm font-semibold text-slate-600">
             <a href="#services" className="hover:text-brand-700 transition">{L.navServices}</a>
             <a href="#why" className="hover:text-brand-700 transition">{L.navWhy}</a>
             <a href="#team" className="hover:text-brand-700 transition">{L.teamKicker}</a>
-            <Link href="/portal/login" className="hover:text-brand-700 transition">{L.navPortal}</Link>
+            <a href="#testimonials" className="hover:text-brand-700 transition">{L.testKicker}</a>
             <a href="#contact" className="hover:text-brand-700 transition">{L.navContact}</a>
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <a href="tel:+13055550148" className="hidden lg:inline-flex items-center gap-2 text-sm font-bold text-brand-800">
+              <svg className="h-4 w-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+              (305) 555-0148
+            </a>
             <LanguageSwitcher className="mr-1" />
-            <Link href="/login" className="hidden sm:inline-flex text-sm font-semibold text-slate-600 hover:text-brand-700 transition px-3 py-1.5">
-              {L.staffLogin}
-            </Link>
-            <Link href="/portal/login" className="btn-primary text-sm">{L.patientPortal}</Link>
+            <a href="#contact" className="inline-flex items-center gap-2 rounded-full bg-brand-700 hover:bg-brand-800 text-white text-sm font-bold px-4 sm:px-5 py-2.5 shadow-sm transition">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              <span className="hidden sm:inline">{L.scheduleVisit}</span>
+              <span className="sm:hidden">Book</span>
+            </a>
           </div>
         </div>
       </div>
@@ -154,7 +161,7 @@ function Hero({ L }: { L: LandingDict }) {
 function StatStrip({ L }: { L: LandingDict }) {
   const stats = [
     { value: `${L.services.length}`, label: L.servicesKicker, icon: "M4 6h16M4 12h16M4 18h10" },
-    { value: "EN / ES", label: L.language ?? "Bilingual", icon: "M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9L18 6.5m0 0l3 6M18 6.5l-3 6" },
+    { value: "EN / ES", label: "Bilingual", icon: "M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9L18 6.5m0 0l3 6M18 6.5l-3 6" },
     { value: "✓", label: L.homeVisits, icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { value: "✓", label: L.mostInsurances, icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944 11.955 11.955 0 013.382 5.984 12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
   ];

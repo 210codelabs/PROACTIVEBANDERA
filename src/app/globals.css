@@ -243,3 +243,10 @@ table.data tbody tr:hover { @apply bg-slate-50; }
 /* Landing hero rotating "Now Accepting" seal */
 @keyframes spin-slow { to { transform: rotate(360deg); } }
 .animate-spin-slow { animation: spin-slow 16s linear infinite; }
+
+/* Hero auth card borderless inputs (ring provided by wrapper) */
+@layer components {
+  .hero-input {
+    @apply w-full bg-transparent border-0 outline-none py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-0;
+  }
+}

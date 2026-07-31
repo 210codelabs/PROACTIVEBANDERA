@@ -3,6 +3,9 @@ import { addMinutes, isValid, parse, parseISO } from "date-fns";
 import { db } from "@/lib/db";
 import { requirePortalSession } from "@/lib/portalAuth";
 import { readAdminConfig } from "@/lib/admin/store";
+import { createChat, UserMessage, validateApiKey } from "emergentintegrations";
+
+export const runtime = "nodejs";
 
 type Lang = "es" | "en";
 
@@ -442,6 +445,56 @@ async function faqReply(message: string, lang: Lang) {
   };
 }
 
+async function llmReply(message: string, lang: Lang, patientId: string): Promise<{ reply: string; action: AssistantAction }> {
+  try {
+    const apiKey = validateApiKey(process.env.EMERGENT_LLM_KEY);
+    const config = await readAdminConfig();
+    const services = await db.serviceType.findMany({ where: { active: true }, orderBy: { name: "asc" }, take: 30, select: { name: true } });
+    const serviceList = services.map((s) => s.name).join(", ") || "Primary Care, Physical Rehabilitation, Pain Management, Wellness & Recovery, Chronic Condition Monitoring, Telehealth";
+
+    const systemMessage = [
+      "You are the AI assistant for Proactive Clinic, a multi-specialty medical clinic in Miami, FL.",
+      "Answer patient FAQs clearly, warmly, and concisely (2-4 sentences).",
+      `Reply in ${lang === "es" ? "Spanish" : "English"} to match the patient, but you understand both English and Spanish.`,
+      "You are NOT a doctor: never diagnose, prescribe, or give specific medical/dosage advice. For medical concerns, advise the patient to consult their provider; for emergencies, tell them to call 911 or go to the nearest ER.",
+      "Do not reveal other patients' data. Keep answers about the clinic, services, portal, visits, insurance, hours, and general wellness info.",
+      "If the patient wants to book, reschedule, or cancel an appointment, tell them they can do it right here by typing for example: 'schedule PT on 2026-06-01 at 3:00 PM', 'reschedule to 2026-06-03 at 10:30 AM', or 'cancel my appointment' — or use the Appointments tab to request a visit.",
+      "",
+      "CLINIC FACTS:",
+      `- Name: ${config?.org?.orgName || "Proactive Clinic"}`,
+      `- Phone: ${config?.branding?.supportPhone || "(305) 555-0148"}`,
+      `- Email: ${config?.branding?.supportEmail || "info@proactiveclinic.com"}`,
+      `- Website: ${config?.org?.website || "proactiveclinics.com"}`,
+      "- Address: 800 NW 57th Ave, Suite 200, Miami, FL 33126",
+      "- Hours: Monday–Friday 8:00 AM – 6:00 PM, Saturday 9:00 AM – 1:00 PM, Sunday closed.",
+      "- Languages: English and Spanish (bilingual staff).",
+      `- Services offered: ${serviceList}.`,
+      "- Most major insurances accepted; home visits and telehealth available.",
+    ].join("\n");
+
+    const chat = createChat({
+      apiKey,
+      sessionId: `portal-${patientId}`,
+      systemMessage,
+      provider: (process.env.PORTAL_MODEL_PROVIDER as "openai" | "anthropic" | "gemini") || "openai",
+      model: process.env.PORTAL_MODEL_ID || "gpt-4o",
+      params: { temperature: 0.3, max_tokens: 400 },
+    });
+
+    const reply = await chat.sendMessage(new UserMessage({ text: message }));
+    const text = (reply || "").trim();
+    if (!text) throw new Error("Empty LLM reply");
+    return { reply: text, action: { type: "faq", status: "ok", note: "LLM (gpt-4o)" } };
+  } catch (error) {
+    // Fall back to the deterministic rule-based FAQ handler.
+    const fallback = await faqReply(message, lang);
+    return {
+      reply: fallback.reply,
+      action: { type: "faq", status: fallback.action.status, note: `LLM fallback: ${error instanceof Error ? error.message : "error"}` },
+    };
+  }
+}
+
 export async function POST(req: Request) {
   const session = await requirePortalSession();
   const body = await req.json().catch(() => ({}));
@@ -474,6 +527,6 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   }
 
-  const result = await faqReply(message, lang);
+  const result = await llmReply(message, lang, session.patientId);
   return NextResponse.json(result);
 }

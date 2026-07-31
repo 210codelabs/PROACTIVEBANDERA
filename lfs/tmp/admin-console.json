@@ -1,12 +1,12 @@
 {
   "branding": {
-    "appName": "ApexCare",
+    "appName": "Proactive Clinic",
     "slogan": "Connected care for clinic, home, and virtual visits",
-    "logoUrl": "/logoehr.png",
-    "primaryColor": "#0f8a85",
+    "logoUrl": "/pclinic-light.png",
+    "primaryColor": "#17418c",
     "secondaryColor": "#0b1e35",
-    "accentColor": "#14b8a6",
-    "supportEmail": "support@apexcare.health",
+    "accentColor": "#1872f0",
+    "supportEmail": "support@proactiveclinic.com",
     "supportPhone": "+1 (305) 555-0148"
   },
   "landing": {
@@ -32,9 +32,9 @@
     ]
   },
   "org": {
-    "orgName": "ApexCare Health",
-    "legalName": "ApexCare Health Services, Inc.",
-    "website": "https://www.apexcare.health",
+    "orgName": "Proactive Clinic Health",
+    "legalName": "Proactive Clinic Health Services, Inc.",
+    "website": "https://www.proactiveclinic.com",
     "defaultTimezone": "America/New_York",
     "dateFormat": "MM/dd/yyyy",
     "intakeMode": "hybrid",
