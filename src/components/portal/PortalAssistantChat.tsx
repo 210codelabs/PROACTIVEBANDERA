@@ -8,18 +8,18 @@ type Message = {
   text: string;
 };
 
-const STARTER_PROMPTS = [
-  "Show my next appointment",
-  "Muestrame mi proxima cita",
-  "Schedule on 2026-06-01 at 3:00 PM for physical therapy",
-  "Agenda una cita el 2026-06-01 a las 3:00 PM para terapia fisica",
-  "Reschedule my appointment to 2026-06-03 at 10:30 AM",
-  "Reagenda mi cita para 2026-06-03 a las 10:30 AM",
-  "Cancel my appointment",
-  "Cancela mi cita",
-  "What is the practice support phone number?",
-  "Cual es el telefono de soporte de la clinica?",
-];
+const SUGGESTIONS = {
+  en: [
+    "What are your hours?",
+    "What services do you offer?",
+    "Do you accept my insurance?",
+  ],
+  es: [
+    "¿Cuáles son sus horarios?",
+    "¿Qué servicios ofrecen?",
+    "¿Aceptan mi seguro?",
+  ],
+};
 
 function t(lang: "es" | "en", en: string, es: string) {
   return lang === "es" ? es : en;

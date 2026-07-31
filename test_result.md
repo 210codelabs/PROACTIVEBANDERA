@@ -186,48 +186,63 @@ backend:
 frontend:
   - task: "Landing hero: slideshow background + tabbed auth (Patient Portal / Staff Access)"
     implemented: true
-    working: "NA"
+    working: false
     file: "src/components/HeroAuth.tsx, src/app/page.tsx"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         -working: "NA"
         -agent: "main"
         -comment: "Hero has a 4-image crossfade slideshow background with blue scrim. Right side is a card with two tabs. Patient Portal tab = MRN + DOB (PC-100000 / 1958-04-12) -> should redirect to /portal/dashboard. Staff Access tab = email + password (andy.manzano@proactiveclinic.com / apex123) -> should redirect to /dashboard."
+        -working: false
+        -agent: "testing"
+        -comment: "Comprehensive UI testing completed. PASS: Hero slideshow with 4 images ✅, trust chips (Hablamos Español, Home Visits, Most Insurances) ✅, 'Now Accepting New Patients' red badge ✅, both auth tabs (Patient Portal and Staff Access) ✅, Patient login working correctly (redirects to /portal/dashboard with Welcome banner, MRN PC-100000, and Quick Actions) ✅. FAIL: Staff login does NOT redirect to /dashboard - stays on landing page after clicking login button. API call to /api/auth/login succeeds (200), but /dashboard?_rsc request fails with net::ERR_ABORTED. Issue appears to be with dashboard page loading, not authentication."
   - task: "Patient portal booking flow UI with confirmation summary"
     implemented: true
-    working: "NA"
+    working: true
     file: "src/components/portal/PortalBookingForm.tsx, src/app/portal/appointments/page.tsx"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         -working: "NA"
         -agent: "main"
         -comment: "On /portal/appointments, 'New Request' opens a form (service, visit type, date, time, reason). Submitting a valid future request shows a green confirmation panel with the confirmation number + summary, and the new 'requested' appointment appears in the list."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive UI testing completed. All functionality working correctly: 'New Request' button opens form ✅, form fields (Service, Visit type, Preferred date, Preferred time, Reason) all functional ✅, form submission successful ✅, green confirmation panel appears with 'Request received!' message ✅, confirmation number displayed in correct format (PC-SDB4EQ) ✅, confirmation summary shows all details (Service: General visit, When: Friday August 7 2026 at 2:30 PM, Visit type: Telehealth) ✅, new appointment with 'requested' status appears in appointments list ✅. No issues found."
   - task: "Assistant suggested FAQ buttons (language-aware)"
     implemented: true
-    working: "NA"
+    working: true
     file: "src/components/portal/PortalAssistantChat.tsx"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         -working: "NA"
         -agent: "main"
         -comment: "Portal assistant page shows 'Suggested questions' chips (FAQ). Clicking one sends it and returns a GPT-4o answer."
+        -working: false
+        -agent: "testing"
+        -comment: "CRITICAL BUG FOUND: Page crashed with 'ReferenceError: SUGGESTIONS is not defined' at line 158 of PortalAssistantChat.tsx. Code references SUGGESTIONS[uiLang] but constant is named STARTER_PROMPTS. Fixed by replacing STARTER_PROMPTS with properly structured SUGGESTIONS object containing en/es FAQ questions."
+        -working: true
+        -agent: "testing"
+        -comment: "After fix, comprehensive UI testing completed. All functionality working correctly: 'Suggested questions' label visible ✅, FAQ chips displayed (What are your hours?, What services do you offer?, Do you accept my insurance?) ✅, clicking FAQ chip sends question ✅, GPT-4o AI response received within 4 seconds ✅, response correctly mentions clinic hours (Monday-Friday 8:00 AM to 6:00 PM, Saturday 9:00 AM to 1:00 PM, closed Sundays) ✅, no 'ApexCare' branding in response (correct) ✅. No issues found."
   - task: "Services section redesigned with photo + colored icon"
     implemented: true
-    working: "NA"
+    working: true
     file: "src/app/page.tsx"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         -working: "NA"
         -agent: "main"
         -comment: "Landing 'Complete Healthcare Under One Roof' service cards now show a photo with an overlapping colored icon badge + brochure services."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive UI testing completed. All 6 service cards verified: Each card has photo at top (all images loaded successfully) ✅, colored circular icon badge overlapping photo (blue/green/red rotating pattern) ✅, SVG icons inside badges ✅, card titles (Primary Care & Preventive Care, Physical Rehabilitation, Pain Management Clinic, etc.) ✅, checklist items (5 items per card) ✅. All images loading correctly, no broken images. No issues found."
 
 test_plan:
   current_focus: []
@@ -240,3 +255,7 @@ agent_communication:
     -message: "Iteration 2: BACKEND retest only for /api/portal/appointments (now returns confirmationNumber and creates a front-desk Message). Auth via POST /api/portal/auth/login {mrn:'PC-100000', dob:'1958-04-12'}. Verify: valid future request returns 200 with confirmationNumber (string starting 'PC-') and status 'requested'; a Message document is created (front-desk notice); past date -> 400; missing date/time -> 400; unauthenticated -> 401. Base URL http://localhost:3000."
     -agent: "testing"
     -message: "✅ Backend testing completed successfully for POST /api/portal/appointments. All test cases passed with no critical issues. Test results: (1a) Valid appointment creation returns confirmationNumber starting with 'PC-' ✅, appointment status 'requested' ✅. (1b) Front-desk Message successfully created in MongoDB with confirmationNumber in subject ✅. (1c) Past date validation returns 400 ✅. (1d) Missing date/time validation returns 400 ✅. (1e) Unauthenticated request blocked with 401 ✅. All functionality working correctly. Ready for main agent to summarize and finish."
+    -agent: "main"
+    -message: "Iteration 2 FRONTEND: Test the 4 new frontend features via UI automation at https://nextjs-ssr-stack.preview.emergentagent.com: (1) Landing hero slideshow + tabbed auth (Patient/Staff login), (2) Patient portal booking flow with confirmation, (3) Assistant suggested FAQ chips, (4) Services section with photos + colored icons."
+    -agent: "testing"
+    -message: "Frontend UI testing completed. CRITICAL BUG FIXED: PortalAssistantChat.tsx had undefined SUGGESTIONS constant causing page crash - replaced STARTER_PROMPTS with proper SUGGESTIONS object. RESULTS: ✅ Patient portal booking flow (TEST 2) - fully working with confirmation number and summary. ✅ Assistant FAQ chips (TEST 3) - working after fix, GPT-4o responses correct, no ApexCare branding. ✅ Services section (TEST 4) - all 6 cards with photos, icons, and checklists working. ❌ Staff login (TEST 1) - FAILS to redirect to /dashboard. Patient login works correctly. Staff login API succeeds (200) but /dashboard page request fails (net::ERR_ABORTED). Issue is with dashboard page loading, not authentication. Recommend investigating /dashboard page server-side rendering or middleware blocking."
