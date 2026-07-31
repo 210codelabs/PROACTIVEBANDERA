@@ -3,6 +3,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmtMoney } from "@/lib/utils";
 import RefSelect from "@/components/RefSelect";
+import DictateButton from "@/components/DictateButton";
+
+function appendText(prev: string, t: string) {
+  return prev ? `${prev.trimEnd()} ${t}` : t;
+}
 
 // Suggested default fees (USD cents) for common codes; catalog picks without a
 // default start at $0 and the clinician can set the fee inline.
@@ -222,6 +227,7 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
               <button onClick={generateSoap} disabled={aiLoading} className="btn-primary">
                 {aiLoading ? "Generating…" : "Generate SOAP with AI"}
               </button>
+              <DictateButton onText={(t) => setAiInput((p) => appendText(p, t))} disabled={aiLoading} />
               {aiError && <span className="text-xs text-rose-600">{aiError}</span>}
             </div>
             {aiSafety && (
@@ -246,7 +252,10 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
           </div>
         )}
         <div className="card card-pad">
-          <label className="label">Chief Complaint</label>
+          <div className="flex items-center justify-between">
+            <label className="label">Chief Complaint</label>
+            {!signed && <DictateButton onText={(t) => setCC((p) => appendText(p, t))} />}
+          </div>
           <input className="input" value={chiefComplaint} onChange={e => setCC(e.target.value)} placeholder="e.g., Lower back pain x 2 weeks" disabled={signed} />
         </div>
         <SoapBlock title="Subjective (S)" hint="HPI, history, patient report" value={subjective} onChange={setS} disabled={signed} />
@@ -364,9 +373,12 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
 function SoapBlock({ title, hint, value, onChange, disabled, rows = 6 }: { title: string; hint?: string; value: string; onChange: (v: string) => void; disabled?: boolean; rows?: number }) {
   return (
     <section className="card card-pad">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-center justify-between gap-2">
         <label className="label">{title}</label>
-        {hint && <span className="text-[11px] text-slate-400">{hint}</span>}
+        <div className="flex items-center gap-2">
+          {hint && <span className="text-[11px] text-slate-400 hidden sm:inline">{hint}</span>}
+          {!disabled && <DictateButton onText={(t) => onChange(appendText(value, t))} />}
+        </div>
       </div>
       <textarea
         className="input font-mono text-[13px] leading-relaxed"
