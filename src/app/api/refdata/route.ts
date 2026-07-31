@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { ensureRefDataSeeded } from "@/lib/refdata/ensureSeed";
 
 // GET /api/refdata?type=diagnosis&q=diab&limit=50
 // Returns active reference values for a given catalog type (optionally filtered by search).
 export async function GET(request: Request) {
   try {
+    // Self-heal: make sure the dropdown catalog exists (e.g. on a fresh DB).
+    try {
+      await ensureRefDataSeeded();
+    } catch (seedErr) {
+      console.error("refdata self-seed skipped:", seedErr);
+    }
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type")?.trim();
     const q = searchParams.get("q")?.trim() || "";
