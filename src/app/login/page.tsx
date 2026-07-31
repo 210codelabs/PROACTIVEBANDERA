@@ -16,8 +16,8 @@ export default async function LoginPage({
       <div className="flex flex-col lg:flex-row min-h-screen">
         <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-600 to-brand-800 text-white p-12 flex-col justify-between">
           <div>
-            <Link href="/" className="inline-flex bg-white rounded-2xl p-4 mb-10 shadow-lg">
-              <img src="/pclinic-dark.png" alt="Proactive Clinic" className="h-16 w-auto object-contain" />
+            <Link href="/" className="inline-flex mb-10">
+              <img src="/pclinic-footer.png?v=2" alt="Proactive Clinic" className="h-20 sm:h-24 w-auto object-contain" />
             </Link>
             <h2 className="text-3xl font-bold mb-4">{t("login.welcomeBack")}</h2>
             <p className="text-brand-100 text-lg leading-relaxed">
@@ -49,7 +49,7 @@ export default async function LoginPage({
             <div className="flex items-center justify-between">
               <div className="lg:hidden flex items-center gap-3">
                 <Link href="/" className="flex items-center gap-2">
-                  <img src="/pclinic-dark.png" alt="Proactive Clinic" className="h-11 w-auto object-contain" />
+                  <img src="/pclinic-header.png?v=2" alt="Proactive Clinic" className="h-14 w-auto object-contain" />
                 </Link>
               </div>
               <div className="ml-auto">

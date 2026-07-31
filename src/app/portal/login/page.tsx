@@ -20,7 +20,7 @@ export default async function PortalLoginPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-3">
-              <img src="/pclinic-light.png" alt="Proactive Clinic" className="h-14 sm:h-16 w-auto object-contain" />
+              <img src="/pclinic-header.png?v=2" alt="Proactive Clinic" className="h-16 sm:h-20 w-auto object-contain" />
             </Link>
             <div className="flex items-center gap-2">
               <LanguageSwitcher className="mr-1" />

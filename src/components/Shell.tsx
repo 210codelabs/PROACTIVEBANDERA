@@ -170,9 +170,9 @@ export default function Shell({
 
           <Link href="/dashboard" prefetch={false} className="flex items-center mr-0 sm:mr-2" title="Proactive Clinic">
             <img
-              src="/pclinic-light.png"
+              src="/pclinic-header.png?v=2"
               alt="Proactive Clinic"
-              className="h-10 w-auto max-w-[180px] sm:max-w-[260px] object-contain"
+              className="h-14 w-auto max-w-[220px] sm:max-w-[320px] object-contain"
               loading="lazy"
             />
           </Link>
