@@ -25,7 +25,7 @@ function readBackendEnv() {
 function buildDatabaseUrl() {
   const env = readBackendEnv();
   const mongo = process.env.MONGO_URL || env.MONGO_URL;
-  const dbName = process.env.DB_NAME || env.DB_NAME || "apexcare_ehr";
+  const dbName = process.env.DB_NAME || env.DB_NAME || "proactive_clinic";
   if (!mongo) return process.env.DATABASE_URL; // fall back to frontend/.env
 
   const qIdx = mongo.indexOf("?");
@@ -36,8 +36,11 @@ function buildDatabaseUrl() {
   const afterScheme = base.slice(base.indexOf("://") + 3);
   if (afterScheme.indexOf("/") === -1) base = `${base}/${dbName}`;
 
-  // A plain mongodb:// host (local dev) must be a replica set for Prisma.
-  if (base.startsWith("mongodb://") && !/replicaSet=/.test(query)) {
+  // Only a local single-node Mongo (dev/preview) needs an explicit replica set
+  // flag. Managed production clusters advertise their own replica set (or use
+  // mongodb+srv), so forcing rs0 there would break the connection.
+  const isLocal = /localhost|127\.0\.0\.1/.test(base);
+  if (isLocal && base.startsWith("mongodb://") && !/replicaSet=/.test(query)) {
     query = query ? `${query}&replicaSet=rs0` : "?replicaSet=rs0";
   }
   return base + query;
