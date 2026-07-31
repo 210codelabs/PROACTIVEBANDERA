@@ -7,7 +7,9 @@ const PUBLIC_EXACT = ["/", "/login", "/landing", "/manifest.webmanifest", "/sw.j
 const PUBLIC_PREFIX = [
   "/legal",
   "/kiosk",
+  "/attorney",
   "/api/kiosk",
+  "/api/attorney",
   "/api/assistant",
   "/api/auth/login",
   "/api/auth/logout",

@@ -66,6 +66,7 @@ export function PatientTabs({ patientId, active }: { patientId: string; active: 
     { id: "problems", label: "Problems", href: `/patients/${patientId}/problems` },
     { id: "medications", label: "Medications", href: `/patients/${patientId}/medications` },
     { id: "immunizations", label: "Immunizations", href: `/patients/${patientId}/immunizations` },
+    { id: "documents", label: "Documents", href: `/patients/${patientId}/documents` },
     { id: "vitals", label: "Vitals", href: `/patients/${patientId}/vitals` },
     { id: "encounters", label: "Encounters", href: `/patients/${patientId}/encounters` },
     { id: "orders", label: "Orders", href: `/patients/${patientId}/orders` },

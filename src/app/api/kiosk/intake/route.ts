@@ -72,18 +72,8 @@ export async function POST(req: Request) {
       },
     });
 
-    // Notify front desk
-    try {
-      await db.message.create({
-        data: {
-          patientId: patient.id,
-          subject: "New kiosk intake + HIPAA consent",
-          body: `${firstName} ${lastName} completed self-service intake at the kiosk (module: ${b.module || "ProactiveMed"}). Confirmation ${confirmation}.`,
-          direction: "inbound",
-          status: "unread",
-        },
-      });
-    } catch {}
+    // Notify front desk (best-effort; skipped if Message schema requires a user relation)
+    // The intake Document above is the system of record.
 
     return NextResponse.json({ ok: true, confirmation, patientId: patient.id, mrn: patient.mrn });
   } catch (err) {

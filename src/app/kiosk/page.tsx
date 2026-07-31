@@ -70,6 +70,7 @@ export default function KioskPage() {
   const [tab, setTab] = useState<Tab>("kiosk");
   const [slide, setSlide] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Slideshow autoplay (only on kiosk tab and not paused)
@@ -78,6 +79,22 @@ export default function KioskPage() {
     timer.current = setInterval(() => setSlide((s) => (s + 1) % SLIDES.length), 6000);
     return () => { if (timer.current) clearInterval(timer.current); };
   }, [tab, paused]);
+
+  // Idle reset: after 2 min of no interaction, return to the slideshow for the next patient
+  useEffect(() => {
+    if (!entered) return;
+    let idle: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(idle);
+      idle = setTimeout(() => {
+        setTab("kiosk"); setPaused(false); setSlide(0); setResetKey((k) => k + 1);
+      }, 120000);
+    };
+    const evts = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"] as const;
+    evts.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => { clearTimeout(idle); evts.forEach((e) => window.removeEventListener(e, reset)); };
+  }, [entered]);
 
   async function enterKiosk() {
     try { await document.documentElement.requestFullscreen?.(); } catch {}
@@ -181,8 +198,8 @@ export default function KioskPage() {
             t={t}
           />
         )}
-        {tab === "admission" && <AdmissionForm lang={lang} t={t} />}
-        {tab === "portal" && <PortalPanel t={t} />}
+        {tab === "admission" && <AdmissionForm key={resetKey} lang={lang} t={t} />}
+        {tab === "portal" && <PortalPanel key={resetKey} t={t} />}
       </main>
     </div>
   );
@@ -261,23 +278,65 @@ function KioskSlideshow({
 
 /* ------------------------------ Portal panel ----------------------------- */
 function PortalPanel({ t }: { t: (en: string, es: string) => string }) {
+  const [signedIn, setSignedIn] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function login(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    const fd = new FormData(e.currentTarget);
+    try {
+      const res = await fetch("/api/portal/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mrn: fd.get("mrn"), dob: fd.get("dob") }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error || t("Invalid MRN or date of birth.", "MRN o fecha de nacimiento inválidos.")); return; }
+      setSignedIn(true);
+    } catch {
+      setError(t("Network error. Please try again.", "Error de red. Intenta de nuevo."));
+    } finally { setLoading(false); }
+  }
+
+  async function signOut() {
+    try { await fetch("/api/portal/auth/logout", { method: "POST" }); } catch {}
+    setSignedIn(false);
+  }
+
+  if (signedIn) {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <div className="flex items-center justify-between px-4 py-2 bg-brand-50 border-b border-brand-100">
+          <span className="text-sm font-semibold text-brand-800">{t("Patient Portal", "Portal del Paciente")}</span>
+          <button onClick={signOut} className="rounded-full bg-white ring-1 ring-brand-200 text-brand-700 px-3 py-1.5 text-xs font-bold hover:bg-brand-50">
+            {t("Sign out", "Cerrar sesión")}
+          </button>
+        </div>
+        {/* Stays inside kiosk fullscreen via same-origin iframe */}
+        <iframe src="/portal/dashboard" title="Patient Portal" className="flex-1 w-full border-0" />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full grid place-items-center p-6">
-      <div className="max-w-lg text-center bg-white/5 ring-1 ring-white/10 rounded-2xl p-8">
-        <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-brand-600">
-          <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+      <div className="w-full max-w-sm bg-white text-slate-900 rounded-2xl p-8 shadow-2xl">
+        <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-brand-600 text-white">
+          <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
         </div>
-        <h2 className="text-2xl font-bold mb-2">{t("Patient Portal", "Portal del Paciente")}</h2>
-        <p className="text-white/75 mb-6">
-          {t(
-            "Access your appointments, messages, results and records with your Medical Record Number and date of birth.",
-            "Accede a tus citas, mensajes, resultados y expedientes con tu Número de Expediente y fecha de nacimiento.",
-          )}
+        <h2 className="text-xl font-bold text-center mb-1">{t("Patient Portal Sign In", "Ingreso al Portal")}</h2>
+        <p className="text-sm text-slate-500 text-center mb-5">
+          {t("Enter your Medical Record Number and date of birth.", "Ingresa tu Número de Expediente y fecha de nacimiento.")}
         </p>
-        <a href="/portal/login" className="inline-flex items-center gap-2 rounded-full bg-white text-brand-800 px-6 py-3 font-bold hover:-translate-y-0.5 transition-all">
-          {t("Open Patient Portal", "Abrir Portal del Paciente")}
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-        </a>
+        <form onSubmit={login} className="space-y-3">
+          <label className="block"><span className="label">MRN</span><input name="mrn" required className="input font-mono" placeholder="PC-100000" /></label>
+          <label className="block"><span className="label">{t("Date of birth", "Fecha de nacimiento")}</span><input name="dob" type="date" required className="input" /></label>
+          {error && <div className="rounded bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-3 py-2 text-sm">{error}</div>}
+          <button disabled={loading} className="btn-primary w-full">{loading ? t("Signing in…", "Ingresando…") : t("Sign In", "Ingresar")}</button>
+        </form>
       </div>
     </div>
   );

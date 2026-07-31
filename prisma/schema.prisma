@@ -42,6 +42,36 @@ model RefData {
 }
 
 // -------------------------------------------------------------
+// Attorney portal: authorized attorneys request & download records
+// -------------------------------------------------------------
+model Attorney {
+  id         String          @id @default(cuid()) @map("_id")
+  name       String
+  firm       String?
+  email      String          @unique
+  accessCode String
+  active     Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  requests   RecordRequest[]
+}
+
+model RecordRequest {
+  id              String    @id @default(cuid()) @map("_id")
+  attorneyId      String
+  attorney        Attorney  @relation(fields: [attorneyId], references: [id])
+  patientMrn      String
+  patientLastName String
+  reason          String?
+  status          String    @default("pending") // pending | approved | denied
+  decision        String?
+  createdAt       DateTime  @default(now())
+  decidedAt       DateTime?
+
+  @@index([attorneyId])
+  @@index([status])
+}
+
+// -------------------------------------------------------------
 // Auth & Staff
 // -------------------------------------------------------------
 model User {

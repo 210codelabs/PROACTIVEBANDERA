@@ -12,5 +12,10 @@ Login page: /login  (staff). All EHR routes under /(app) and protected /api/* re
 
 ## Patient Portal login
 - MRN: PC-100000  DOB: 1958-04-12  (Eleanor Adams)
-Portal login also available from the landing hero "Patient Portal" tab.
+Portal login also available from the landing hero "Patient Portal" tab and inside Kiosk Mode (/kiosk).
+
+## Attorney Portal login (/attorney)
+- Email: attorney@example.com   Access code: PROLAW2025   (Jordan Vega, Vega & Associates)
+Attorneys submit record requests; staff approve them at /records-requests (EHR). Approved requests are downloadable from the attorney portal.
+
 
