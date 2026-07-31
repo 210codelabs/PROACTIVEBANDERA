@@ -5,6 +5,12 @@ import { db } from "@/lib/db";
 export default async function NewEnc({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireSession();
+
+  // Decide the destination inside try/catch, then redirect OUTSIDE of it.
+  // next/navigation's redirect() works by throwing NEXT_REDIRECT; if it is
+  // called inside the try, the catch swallows it and bounces the user back to
+  // the encounters list (the reported "flicker returns to list" bug).
+  let target: string;
   try {
     // Quick-create an open encounter and redirect to it.
     const providerId = user.role === "provider" ? user.id : (await db.user.findFirst({ where: { role: "provider", active: true } }))?.id;
@@ -17,8 +23,9 @@ export default async function NewEnc({ params }: { params: Promise<{ id: string 
         status: "open",
       },
     });
-    redirect(`/encounters/${enc.id}`);
+    target = `/encounters/${enc.id}`;
   } catch {
-    redirect(`/patients/${id}/encounters?error=unavailable`);
+    target = `/patients/${id}/encounters?error=unavailable`;
   }
+  redirect(target);
 }

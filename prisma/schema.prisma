@@ -259,7 +259,7 @@ model Appointment {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  encounter      Encounter?
+  encounter      Encounter[]
 }
 
 // -------------------------------------------------------------
@@ -271,7 +271,7 @@ model Encounter {
   patient        Patient    @relation(fields: [patientId], references: [id])
   providerId     String
   provider       User       @relation("EncounterProvider", fields: [providerId], references: [id])
-  appointmentId  String?    @unique
+  appointmentId  String?
   appointment    Appointment? @relation(fields: [appointmentId], references: [id])
   visitType      String?    // office | telehealth | home | follow-up | new
   chiefComplaint String?
