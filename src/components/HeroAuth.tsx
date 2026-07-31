@@ -48,18 +48,6 @@ export default function HeroAuth({ heading, accent, tagline, subtitle, chips }: 
         {/* Blue readability scrim */}
         <div className="absolute inset-0 bg-gradient-to-r from-brand-950/90 via-brand-900/70 to-brand-900/30" />
         <div className="absolute inset-0 bg-gradient-to-t from-brand-950/60 to-transparent" />
-
-        {/* Clinic sign — part of the slide 1 (lobby) scene, kept clearly visible */}
-        <div
-          className="pointer-events-none absolute bottom-5 left-4 sm:left-6 lg:left-8 hidden md:block transition-opacity duration-[1200ms] ease-in-out"
-          style={{ opacity: slide === 0 ? 1 : 0 }}
-        >
-          <img
-            src="/clinic-sign.png"
-            alt="Proactive Clinic — Bandera Road, San Antonio, TX"
-            className="w-64 lg:w-80 rounded-xl shadow-2xl ring-1 ring-white/25 -rotate-2"
-          />
-        </div>
       </div>
 
 
