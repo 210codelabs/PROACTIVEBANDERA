@@ -346,7 +346,7 @@ function PortalPanel({ t }: { t: (en: string, es: string) => string }) {
 function AdmissionForm({ lang, t }: { lang: "es" | "en"; t: (en: string, es: string) => string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState<{ confirmation: string; mrn: string } | null>(null);
+  const [done, setDone] = useState<{ confirmation: string; mrn: string; name: string; module: string } | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -362,7 +362,12 @@ function AdmissionForm({ lang, t }: { lang: "es" | "en"; t: (en: string, es: str
       });
       const json = await res.json();
       if (!res.ok) { setError(json.error || "Error"); return; }
-      setDone({ confirmation: json.confirmation, mrn: json.mrn });
+      setDone({
+        confirmation: json.confirmation,
+        mrn: json.mrn,
+        name: `${(body.firstName as string) || ""} ${(body.lastName as string) || ""}`.trim(),
+        module: (body.module as string) || "ProactiveMed",
+      });
     } catch {
       setError(t("Network error. Please try again.", "Error de red. Intenta de nuevo."));
     } finally { setLoading(false); }
@@ -385,10 +390,41 @@ function AdmissionForm({ lang, t }: { lang: "es" | "en"; t: (en: string, es: str
             <span className="text-xl font-mono font-bold text-brand-700">{done.confirmation}</span>
             <span className="text-xs text-slate-500">MRN: {done.mrn}</span>
           </div>
-          <div className="mt-6">
+          <div className="mt-6 flex items-center justify-center gap-4">
+            <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-full bg-brand-700 hover:bg-brand-800 text-white px-5 py-2.5 text-sm font-bold transition">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M6 9V4h12v5M6 18H4a2 2 0 01-2-2v-4a2 2 0 012-2h16a2 2 0 012 2v4a2 2 0 01-2 2h-2M6 14h12v6H6v-6z" /></svg>
+              {t("Print receipt", "Imprimir comprobante")}
+            </button>
             <button onClick={() => setDone(null)} className="text-sm font-semibold text-brand-700 hover:text-brand-900 underline">
               {t("New check-in", "Nueva admisión")}
             </button>
+          </div>
+        </div>
+
+        {/* Print-only confirmation slip */}
+        <div className="kiosk-receipt hidden text-slate-900">
+          <div style={{ maxWidth: 420, margin: "0 auto", fontFamily: "sans-serif" }}>
+            <img src="/pclinic-header.png?v=2" alt="Proactive Clinic" style={{ height: 56, marginBottom: 12 }} />
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: "6px 0" }}>{t("Check-in Confirmation", "Comprobante de Admisión")}</h2>
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>
+              Proactive Clinic · A Division of Proactive UMS Inc.<br />
+              8103 Bandera Rd, Suite 102, San Antonio, TX 78250 · (210) 500-2914
+            </div>
+            <hr />
+            <table style={{ width: "100%", fontSize: 13, marginTop: 10 }}>
+              <tbody>
+                <tr><td style={{ color: "#64748b", padding: "4px 0" }}>{t("Patient", "Paciente")}</td><td style={{ textAlign: "right", fontWeight: 600 }}>{done.name || "—"}</td></tr>
+                <tr><td style={{ color: "#64748b", padding: "4px 0" }}>MRN</td><td style={{ textAlign: "right", fontFamily: "monospace" }}>{done.mrn}</td></tr>
+                <tr><td style={{ color: "#64748b", padding: "4px 0" }}>{t("Confirmation", "Confirmación")}</td><td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 700 }}>{done.confirmation}</td></tr>
+                <tr><td style={{ color: "#64748b", padding: "4px 0" }}>{t("Module", "Módulo")}</td><td style={{ textAlign: "right" }}>{done.module}</td></tr>
+                <tr><td style={{ color: "#64748b", padding: "4px 0" }}>{t("Date", "Fecha")}</td><td style={{ textAlign: "right" }}>{new Date().toLocaleString()}</td></tr>
+              </tbody>
+            </table>
+            <hr style={{ marginTop: 10 }} />
+            <p style={{ fontSize: 11, color: "#64748b", marginTop: 10 }}>
+              {t("HIPAA acknowledgement recorded. Please take a seat — a team member will call you shortly.",
+                 "Consentimiento HIPAA registrado. Toma asiento — un miembro del equipo te llamará en breve.")}
+            </p>
           </div>
         </div>
       </div>

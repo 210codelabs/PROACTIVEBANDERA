@@ -73,3 +73,9 @@ Imported the existing **ApexCare EHR** (full Next.js 15 + Prisma + MongoDB app, 
 - **Kiosk idle reset**: 2-minute inactivity returns kiosk to the slideshow and remounts the intake/portal forms (fresh for next patient).
 - **In-kiosk Patient Portal login**: Patient Portal tab now signs in with MRN+DOB via /api/portal/auth/login and embeds /portal/dashboard in a same-origin iframe — stays in fullscreen; sign-out returns to the login form.
 - **Attorney Portal** (/attorney, public page; own JWT session cookie proactive_attorney_session): attorneys log in (email+access code), submit patient record requests, and download an authorized records bundle once approved. Staff approve/deny at /records-requests (EHR, linked from Settings). Download is gated on approval + patient lastName/MRN match. New Prisma models Attorney + RecordRequest. Seeded attorney: attorney@example.com / PROLAW2025. Backend tested 17/17 pass.
+
+## Iteration 6 (Records PDF, Attorney Admin, Kiosk receipt, Request notifications)
+- **Records PDF Export**: attorney download endpoint now returns a branded PDF (pdf-lib) with a navy header band, embedded Proactive Clinic logo, clinic address, and sections (Patient / Problems / Medications / Allergies / Documents) with pagination. Verified application/pdf. Gated on approval + MRN/last-name match.
+- **Attorney Admin** (/attorneys, staff; linked from Settings): create attorney logins, show/hide & reset access codes, activate/deactivate. APIs GET/POST /api/attorneys, PATCH /api/attorneys/[id].
+- **Kiosk Print Receipt**: kiosk check-in success screen has a "Print receipt" button; a print-only slip (logo, patient, MRN, confirmation, module, date, HIPAA note) prints via window.print() with @media print CSS in globals.css.
+- **Request Notifications**: EHR top-bar bell (RecordRequestBell) polls GET /api/records-requests/count every 30s and shows a red pending-count badge linking to /records-requests.

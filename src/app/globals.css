@@ -250,3 +250,10 @@ table.data tbody tr:hover { @apply bg-slate-50; }
     @apply w-full bg-transparent border-0 outline-none py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-0;
   }
 }
+
+/* Kiosk print receipt: show only the receipt slip when printing */
+@media print {
+  body * { visibility: hidden !important; }
+  .kiosk-receipt, .kiosk-receipt * { visibility: visible !important; }
+  .kiosk-receipt { display: block !important; position: fixed; left: 0; top: 0; width: 100%; padding: 24px; }
+}
