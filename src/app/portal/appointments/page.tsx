@@ -1,18 +1,23 @@
 import PortalShell from "@/components/portal/PortalShell";
+import PortalBookingForm from "@/components/portal/PortalBookingForm";
 import { db } from "@/lib/db";
 import { requirePortalSession } from "@/lib/portalAuth";
 
 export default async function PortalAppointmentsPage() {
   const session = await requirePortalSession();
   let appointments: Array<{ id: string; startsAt: Date; serviceType: { name: string } | null; reason: string | null; provider: { firstName: string; lastName: string }; location: string | null; status: string }> = [];
+  let services: Array<{ id: string; name: string; category: string }> = [];
   let dataUnavailable = false;
 
   try {
-    appointments = await db.appointment.findMany({
-      where: { patientId: session.patientId },
-      include: { provider: true, serviceType: true },
-      orderBy: { startsAt: "desc" },
-    });
+    [appointments, services] = await Promise.all([
+      db.appointment.findMany({
+        where: { patientId: session.patientId },
+        include: { provider: true, serviceType: true },
+        orderBy: { startsAt: "desc" },
+      }),
+      db.serviceType.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, category: true } }),
+    ]);
   } catch {
     dataUnavailable = true;
   }
@@ -20,6 +25,7 @@ export default async function PortalAppointmentsPage() {
   return (
     <PortalShell session={session} active="/portal/appointments">
       {dataUnavailable && <div className="card card-pad mb-3 border-amber-200 bg-amber-50 text-amber-900">Appointments are temporarily unavailable.</div>}
+      <PortalBookingForm services={services} />
       <section className="card">
         <header className="px-4 py-3 border-b border-slate-200 font-semibold text-sm sm:text-base">Your Appointments</header>
         {appointments.length === 0 ? (
