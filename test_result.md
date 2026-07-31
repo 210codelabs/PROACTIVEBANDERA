@@ -442,3 +442,49 @@ agent_communication:
     -agent: "main"
     -message: "Iteration 4 FRONTEND: Please test the Kiosk Mode slideshow at /kiosk (public route, no login). Steps: (1) Load /kiosk -> a 'Start Kiosk Mode' splash appears; click it. (2) Confirm the slideshow auto-plays and advances through slides (8s each) and LOOPS back to the start. (3) Confirm the top-right progress dots navigate to specific slides when clicked (7 slides total: welcome photo, DOT flyer image, Physical Therapy, Pain Management, Telehealth, Primary Care, HIPAA/Portal ad). (4) Confirm a 'Click here to interact' button is visible pinned at the bottom-center and does NOT overlap the flyer footers. (5) Click 'Click here to interact' -> the slideshow pauses and a menu overlay appears with 'How can we help you today?', three primary buttons (Check-in & HIPAA, Patient Portal, Resume presentation), a 'Services & offers' grid of 6 cards, and an 'Exit Kiosk Mode' button. (6) Click 'Resume presentation' -> menu closes and slideshow resumes. (7) Open menu again, click a service card (e.g., 'Telehealth Visits') -> should switch to the Patient Portal tab; click 'Check-in & HIPAA' -> should switch to the Admission & HIPAA tab (a self check-in form). (8) The top-nav tabs (ProactiveKIOSK / Admission & HIPAA / Patient Portal) should switch panels. Do NOT test Exit (it clears sessions and navigates to '/'). Base URL http://localhost:3000. This is UI-only; no backend changes were made this iteration."
 
+
+
+## ---- Iteration 5 (main agent) ----
+backend:
+  - task: "Kiosk slide config API (GET public + PUT staff) — /api/kiosk/slides"
+    implemented: true
+    working: true
+    file: "src/app/api/kiosk/slides/route.ts, src/lib/kiosk/store.ts, src/lib/kiosk/config.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW endpoint to let staff control which kiosk promo slides show and in what order, persisted in AppSetting (key 'kiosk_slides', JSON array of {id,enabled} in display order). GET /api/kiosk/slides is PUBLIC (whitelisted under /api/kiosk in middleware) so the kiosk can read it without auth; returns {config:[{id,enabled}], catalog:[{id,label,kind}]}. Default when unset = all 9 slides enabled in order: welcome, dot, physical, pain, chiropractic, iv, telehealth, primary, security. PUT is STAFF-ONLY, enforced inside handler via getSession() (middleware treats /api/kiosk as public). Body {config:[{id,enabled}]}. normalizeConfig drops unknown ids, keeps stored order for known ids, appends missing catalog slides (enabled). Manually curl-verified GET public 200, PUT 401 unauth, staff PUT partial normalizes+persists, reset 200. Please retest cases A-E and leave config in default all-enabled state after."
+
+frontend:
+  - task: "Kiosk: 2 new flyer ads (Chiropractic, IV Therapy) + config-driven order/visibility + Settings editor"
+    implemented: true
+    working: "NA"
+    file: "src/app/kiosk/page.tsx, src/app/(app)/settings/kiosk/page.tsx, src/components/settings/KioskSlidesEditor.tsx, src/app/(app)/settings/page.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Added two new flyer-style ads in the DOT style: Chiropractic Care (public/flyer-chiro.jpg) and IV Vitamin Therapy (public/flyer-iv.jpg). Kiosk fetches /api/kiosk/slides on mount and renders only enabled slides in saved order (falls back to all 9). New staff Settings page /settings/kiosk (KioskSlidesEditor: per-slide show/hide toggle + up/down reorder + Save via PUT) and a 'Kiosk Slideshow' link card on the Settings index. Screenshots confirm both new ads render correctly and the interact button does not overlap footers."
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 5 BACKEND: Test /api/kiosk/slides. Cases: (A) GET (no auth) -> 200 with config (array of {id,enabled}) + catalog; default has 9 slides all enabled. (B) PUT (no auth) -> 401. (C) staff login (POST /api/auth/login {email:'andy.manzano@proactiveclinic.com',password:'apex123'} -> cookie proactive_session) then PUT {config:[{id:'chiropractic',enabled:true},{id:'welcome',enabled:false}]} -> 200 ok:true; GET reflects new order with chiropractic first, welcome disabled, and all other slides appended enabled. (D) PUT with body missing config or non-array -> 400. (E) PUT with an unknown id e.g. {config:[{id:'nope',enabled:true}]} -> 200 and response contains only the 9 real slides (unknown dropped). IMPORTANT: after testing, PUT the default all-enabled order back: welcome, dot, physical, pain, chiropractic, iv, telehealth, primary, security. Base URL http://localhost:3000."
+
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_kiosk_slides.py. ALL 6 test cases passed with no critical issues. Test results: (A) GET /api/kiosk/slides without auth returns 200 ✅. Response structure verified: has 'config' array ✅, has 'catalog' array ✅. Default config verified: 9 slides ✅, all enabled ✅, correct order (welcome, dot, physical, pain, chiropractic, iv, telehealth, primary, security) ✅. Catalog verified: 9 entries ✅, all have id/label/kind fields ✅. (B) PUT /api/kiosk/slides without auth correctly returns 401 Unauthorized ✅. (C) Staff login successful (andy.manzano@proactiveclinic.com/apex123) ✅. PUT with auth and body {config:[{id:'chiropractic',enabled:true},{id:'welcome',enabled:false}]} returns 200 {ok:true, config:[...]} ✅. Returned config verified: 9 entries ✅, chiropractic first ✅, chiropractic enabled ✅, welcome present but disabled ✅, all other 7 slides (dot, physical, pain, iv, telehealth, primary, security) present and enabled ✅. Follow-up GET verified persistence: config matches PUT response ✅. (D) PUT with invalid body: empty body {} returns 400 'config array required' ✅, body {config:'notarray'} returns 400 'config array required' ✅. (E) PUT with unknown id {config:[{id:'nope',enabled:true},{id:'iv',enabled:true}]} returns 200 ✅. Unknown 'nope' correctly dropped ✅. Config has exactly 9 entries (all real slides) ✅. iv is first (only valid one given) ✅. All 9 real slide ids present (welcome, dot, physical, pain, chiropractic, iv, telehealth, primary, security) ✅. CLEANUP: Default all-enabled order restored successfully ✅. Final GET verified: correct order ✅, all enabled ✅. NOTE: Testing required HTTPS URL (https://nextjs-ssr-stack.preview.emergentagent.com) because session cookie has secure:true flag. All authentication, authorization, validation, reordering, persistence, and normalization logic working correctly."
+
+agent_communication:
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for NEW Kiosk slide config API (/api/kiosk/slides). ALL 6 test cases passed with no critical issues. Created /app/backend_test_kiosk_slides.py with comprehensive test coverage. Test results: (A) GET without auth: Returns 200 with config and catalog, default has 9 slides all enabled in correct order ✅. (B) PUT without auth: Correctly blocked with 401 ✅. (C) PUT with staff auth and reorder: Returns 200 {ok:true}, chiropractic first, welcome disabled, all other 7 slides present and enabled, persistence verified via follow-up GET ✅. (D) PUT with invalid body: Both empty body {} and {config:'notarray'} correctly return 400 ✅. (E) PUT with unknown id: Returns 200, unknown 'nope' dropped, iv first, all 9 real slides present ✅. CLEANUP: Default config restored successfully ✅. NOTE: Testing required HTTPS URL because session cookie has secure:true flag. All functionality working correctly. Ready for main agent to summarize and finish."

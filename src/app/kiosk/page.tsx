@@ -13,7 +13,7 @@ function useLang() {
 /* ----------------------------- Slideshow data ---------------------------- */
 type Bi = [string, string]; // [en, es]
 type Feature = { icon: string; label: Bi; sub: Bi };
-type Slide =
+type SlideBody =
   | { kind: "photo"; img: string; kicker: Bi; title: Bi; text: Bi; bullets: Bi[] }
   | { kind: "flyer"; img: string; alt: string }
   | {
@@ -29,6 +29,7 @@ type Slide =
       cta: Bi;
     }
   | { kind: "ad"; accent: "blue" | "red" | "green" | "teal"; badge: Bi; title: Bi; subtitle: Bi; bullets: Bi[]; cta: Bi };
+type Slide = SlideBody & { id: string };
 
 /* Clinic-wide contact info (San Antonio) */
 const CLINIC = {
@@ -55,6 +56,7 @@ const IC = {
 
 const SLIDES: Slide[] = [
   {
+    id: "welcome",
     kind: "photo",
     img: "/hero-slide-1.jpg",
     kicker: ["WELCOME TO PROACTIVE CLINIC", "BIENVENIDO A PROACTIVE CLINIC"],
@@ -67,8 +69,9 @@ const SLIDES: Slide[] = [
       ["Telehealth & Follow-up", "Telesalud y seguimiento"],
     ],
   },
-  { kind: "flyer", img: "/promo-dot.png", alt: "DOT Medical Exams — Same Day. Certified. Bilingual." },
+  { id: "dot", kind: "flyer", img: "/promo-dot.png", alt: "DOT Medical Exams — Same Day. Certified. Bilingual." },
   {
+    id: "physical",
     kind: "flyerad",
     accent: "teal",
     photo: "/flyer-rehab.jpg",
@@ -89,6 +92,7 @@ const SLIDES: Slide[] = [
     cta: ["START YOUR RECOVERY TODAY", "COMIENZA TU RECUPERACIÓN HOY"],
   },
   {
+    id: "pain",
     kind: "flyerad",
     accent: "red",
     photo: "/flyer-pain.jpg",
@@ -109,6 +113,49 @@ const SLIDES: Slide[] = [
     cta: ["BOOK A PAIN CONSULT TODAY", "AGENDA UNA CONSULTA HOY"],
   },
   {
+    id: "chiropractic",
+    kind: "flyerad",
+    accent: "green",
+    photo: "/flyer-chiro.jpg",
+    titleA: ["CHIROPRACTIC", "CUIDADO"],
+    titleB: ["CARE", "QUIROPRÁCTICO"],
+    tagline: ["ALIGN & RECOVER", "ALINEA Y RECUPERA"],
+    subtitle: ["Gentle spinal adjustments by licensed chiropractors", "Ajustes suaves de columna por quiroprácticos licenciados"],
+    desc: [
+      "Relieve back, neck and joint pain and restore mobility with hands-on chiropractic care tailored to you.",
+      "Alivia el dolor de espalda, cuello y articulaciones y recupera movilidad con cuidado quiropráctico personalizado.",
+    ],
+    features: [
+      { icon: IC.spark, label: ["Spinal Adjustments", "Ajustes de columna"], sub: ["Restore alignment", "Recupera alineación"] },
+      { icon: IC.bolt, label: ["Joint & Posture", "Articulaciones y postura"], sub: ["Move freely", "Muévete libre"] },
+      { icon: IC.shield, label: ["Drug-Free Relief", "Alivio sin fármacos"], sub: ["Natural approach", "Enfoque natural"] },
+      { icon: IC.lang, label: ["Bilingual Care", "Atención bilingüe"], sub: ["English & Spanish", "Inglés y Español"] },
+    ],
+    cta: ["BOOK AN ADJUSTMENT TODAY", "AGENDA TU AJUSTE HOY"],
+  },
+  {
+    id: "iv",
+    kind: "flyerad",
+    accent: "teal",
+    photo: "/flyer-iv.jpg",
+    titleA: ["IV VITAMIN", "TERAPIA IV"],
+    titleB: ["THERAPY", "DE VITAMINAS"],
+    tagline: ["HYDRATE & RECHARGE", "HIDRATA Y RECARGA"],
+    subtitle: ["Vitamin & hydration drips for energy and recovery", "Sueros de vitaminas e hidratación para energía y recuperación"],
+    desc: [
+      "Feel your best with physician-supervised IV drips — hydration, immunity, energy and recovery blends.",
+      "Siéntete mejor con sueros IV supervisados por un médico — hidratación, inmunidad, energía y recuperación.",
+    ],
+    features: [
+      { icon: IC.heart, label: ["Hydration Boost", "Impulso de hidratación"], sub: ["Fast relief", "Alivio rápido"] },
+      { icon: IC.shield, label: ["Immunity Blends", "Fórmulas inmunes"], sub: ["Stay strong", "Mantente fuerte"] },
+      { icon: IC.bolt, label: ["Energy & Recovery", "Energía y recuperación"], sub: ["Bounce back", "Recupérate"] },
+      { icon: IC.clip, label: ["Physician-Supervised", "Supervisión médica"], sub: ["Safe & clean", "Seguro y limpio"] },
+    ],
+    cta: ["TRY AN IV DRIP TODAY", "PRUEBA UN SUERO IV HOY"],
+  },
+  {
+    id: "telehealth",
     kind: "flyerad",
     accent: "blue",
     photo: "/svc-6.jpg",
@@ -129,6 +176,7 @@ const SLIDES: Slide[] = [
     cta: ["SCHEDULE A VIRTUAL VISIT", "AGENDA UNA VISITA VIRTUAL"],
   },
   {
+    id: "primary",
     kind: "flyerad",
     accent: "green",
     photo: "/flyer-primary.jpg",
@@ -149,6 +197,7 @@ const SLIDES: Slide[] = [
     cta: ["BOOK YOUR CHECK-UP TODAY", "AGENDA TU CHEQUEO HOY"],
   },
   {
+    id: "security",
     kind: "ad",
     accent: "blue",
     badge: ["YOUR DATA, PROTECTED", "TUS DATOS, PROTEGIDOS"],
@@ -184,14 +233,39 @@ export default function KioskPage() {
   const [slide, setSlide] = useState(0);
   const [paused, setPaused] = useState(false);
   const [resetKey, setResetKey] = useState(0);
+  const [slides, setSlides] = useState<Slide[]>(SLIDES);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Load the staff-configured slide order/visibility (falls back to all slides).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/kiosk/slides");
+        if (!res.ok) return;
+        const json = await res.json();
+        const cfg: Array<{ id: string; enabled: boolean }> = Array.isArray(json.config) ? json.config : [];
+        const byId = new Map(SLIDES.map((s) => [s.id, s]));
+        const ordered = cfg
+          .filter((c) => c && c.enabled && byId.has(c.id))
+          .map((c) => byId.get(c.id) as Slide);
+        if (!cancelled && ordered.length > 0) {
+          setSlides(ordered);
+          setSlide(0);
+        }
+      } catch {
+        /* keep default SLIDES */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Slideshow autoplay (only on kiosk tab and not paused)
   useEffect(() => {
     if (tab !== "kiosk" || paused) return;
-    timer.current = setInterval(() => setSlide((s) => (s + 1) % SLIDES.length), 8000);
+    timer.current = setInterval(() => setSlide((s) => (s + 1) % slides.length), 8000);
     return () => { if (timer.current) clearInterval(timer.current); };
-  }, [tab, paused]);
+  }, [tab, paused, slides.length]);
 
   // Idle reset: after 2 min of no interaction, return to the slideshow for the next patient
   useEffect(() => {
@@ -255,7 +329,7 @@ export default function KioskPage() {
     );
   }
 
-  const cur = SLIDES[slide];
+  const cur = slides[slide] ?? slides[0];
   const tabBtn = (id: Tab, label: string) =>
     (
       <button
@@ -301,7 +375,7 @@ export default function KioskPage() {
           <KioskSlideshow
             slide={cur}
             index={slide}
-            total={SLIDES.length}
+            total={slides.length}
             lang={lang}
             paused={paused}
             onToggle={() => setPaused((p) => !p)}
