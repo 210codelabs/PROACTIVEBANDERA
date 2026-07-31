@@ -128,7 +128,7 @@ const DEFAULTS: AdminConfig = {
     secondaryColor: "#0b1e35",
     accentColor: "#14b8a6",
     supportEmail: "support@proactiveclinic.com",
-    supportPhone: "+1 (305) 555-0148",
+    supportPhone: "+1 (210) 500-2914",
   },
   landing: {
     heroTitle: "Modern Care, Human First.",

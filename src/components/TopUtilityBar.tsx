@@ -63,7 +63,7 @@ export default function TopUtilityBar({
         <div className="hidden md:flex items-center gap-4 text-slate-200">
           <InfoPill icon={<Icon.Clock />} text={clock} />
           <InfoPill icon={<Icon.Pin />} text={location} />
-          <InfoPill icon={<Icon.Phone />} text="(305) 555-0182" />
+          <InfoPill icon={<Icon.Phone />} text="(210) 500-2914" />
         </div>
         <div className="ml-auto">
           <MyAccountMenu
