@@ -103,6 +103,21 @@
 #====================================================================================================user_problem_statement: "Proactive Clinic EHR (imported ApexCare, rebranded). New backend features: AI assistant (OpenAI GPT-4o via Emergent LLM key) for patient FAQs, and patient-portal appointment request that saves to MongoDB via Prisma."
 
 backend:
+  - task: "Kiosk self check-in intake + HIPAA consent (POST /api/kiosk/intake)"
+    implemented: true
+    working: true
+    file: "src/app/api/kiosk/intake/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW public endpoint (no auth; whitelisted in middleware under /api/kiosk). POST creates or reuses a Patient (match by email, else firstName+lastName+dob, else create with generated MRN) and writes a Document (category 'consent', title 'HIPAA Consent & Kiosk Intake', body JSON incl module/reason/signature/confirmation) to the patient's chart, plus a best-effort front-desk Message. Returns {ok, confirmation:'PC-XXXXXX', patientId, mrn}. Please test: (A) valid POST {firstName,lastName,dob,sex:'M',phone,email,module:'ProactiveMed',reason,hipaaConsent:true,signature:'John Doe'} -> 200 with confirmation + mrn; verify a Document exists for that patient (GET patient documents if endpoint exists, else acceptable to trust response). (B) missing firstName/lastName/dob -> 400. (C) hipaaConsent falsy -> 400. (D) missing signature -> 400. (E) repeat POST with same email -> should reuse the same patient (same mrn) not create a duplicate. Endpoint is PUBLIC so no session needed."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_kiosk.py. All test cases passed: (A) Valid intake with unique email qa.kiosk.of11ws10@example.com returns 200 {ok:true, confirmation:'PC-F6826W', patientId:'cms8xoeyt0000vjamkfil6xh6', mrn:'PC-689871'} ✅. Confirmation format verified (matches ^PC-[A-Z0-9]{6}$) ✅. MRN format verified (matches ^PC-\d{6}$) ✅. (B) Document persistence: No GET /api/patients/[id]/documents endpoint exists in codebase, skipped verification as per test instructions - 200 response is sufficient evidence ✅. (C1) Missing firstName/lastName/dob correctly returns 400 with error 'First name, last name and date of birth are required.' ✅. (C2) hipaaConsent:false correctly returns 400 with error 'HIPAA acknowledgement is required.' ✅. (C3) Missing signature (empty string) correctly returns 400 with error 'An electronic signature is required.' ✅. (D) Idempotent patient reuse: Posting SAME payload with same email returns 200 with SAME mrn 'PC-689871' (patient reused, not duplicated) ✅. All validation, patient creation/reuse logic, and response formats working correctly."
+
   - task: "RefData edit/deactivate + include-inactive (PATCH/DELETE /api/refdata/[id], GET all=1)"
     implemented: true
     working: true
@@ -239,6 +254,8 @@ agent_communication:
     -message: "✅ Backend testing completed successfully. All tests passed with no critical issues. Created /app/backend_test.py with comprehensive test coverage. Test results: (1) Appointment request endpoint: All validation working (future date ✅, past date rejection ✅, missing fields rejection ✅, auth blocking ✅). (2) AI assistant endpoint: GPT-4o integration working ✅, correct branding (Proactive Clinic, no ApexCare) ✅, rule-based scheduling ✅, safety guardrails (refuses medical advice) ✅. (3) Portal auth: Cookie-based authentication working ✅. No issues found. Ready for main agent to summarize and finish."
     -agent: "testing"
     -message: "✅ Backend testing completed successfully for NEW reference/master-data feature. All tests passed with no critical issues. Created /app/backend_test_refdata.py with comprehensive test coverage. Test results: (1) GET /api/refdata: All test cases passed - diagnosis items with ICD-10 codes ✅, filtering with q=diab ✅, auth blocking (401) ✅, missing type validation (400) ✅, allergySeverity 4 items ✅. (2) POST /api/refdata: All test cases passed - create new allergen (201) ✅, retrieval verification ✅, auth blocking (401) ✅, missing display validation (400) ✅. (3) POST /api/patients: Demographics persistence working - race/ethnicity/maritalStatus/state/insurerName all persisted correctly ✅. No issues found. Ready for main agent to summarize and finish."
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for NEW kiosk intake endpoint (POST /api/kiosk/intake). All test cases passed with no critical issues. Created /app/backend_test_kiosk.py with comprehensive test coverage. Test results: (A) Valid intake with unique email returns 200 with correct response structure {ok:true, confirmation, patientId, mrn} ✅. Confirmation format verified (^PC-[A-Z0-9]{6}$) ✅. MRN format verified (^PC-\d{6}$) ✅. (B) Document persistence: No GET documents endpoint exists, skipped as per instructions ✅. (C) All validation tests passed: missing name/dob returns 400 ✅, hipaaConsent:false returns 400 ✅, missing signature returns 400 ✅. (D) Idempotent patient reuse: Same email returns same MRN (patient reused, not duplicated) ✅. All functionality working correctly. Ready for main agent to summarize and finish."
 
 ## ---- Iteration 2 (main agent) ----
 backend:

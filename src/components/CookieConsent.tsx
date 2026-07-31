@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const KEY = "pclinic_cookie_consent";
 
@@ -14,6 +15,7 @@ function useLang() {
 
 export default function CookieConsent() {
   const lang = useLang();
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export default function CookieConsent() {
     setShow(false);
   }
 
-  if (!show) return null;
+  if (!show || pathname?.startsWith("/kiosk")) return null;
 
   const t = (en: string, es: string) => (lang === "es" ? es : en);
 

@@ -60,6 +60,18 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
             <LanguageSwitcher className={`mr-1 ${scrolled ? "" : "text-white"}`} />
 
             <a
+              href="/kiosk"
+              className={`hidden sm:inline-flex items-center gap-2 rounded-full text-sm font-bold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 ${
+                scrolled
+                  ? "text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50"
+                  : "text-white ring-1 ring-white/50 hover:bg-white/10"
+              }`}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17.25V21m6-3.75V21M4.5 4.5h15a1.5 1.5 0 011.5 1.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 15V6a1.5 1.5 0 011.5-1.5z" /></svg>
+              Modo Kiosco
+            </a>
+
+            <a
               href="#contact"
               className={`inline-flex items-center gap-2 rounded-full text-sm font-bold px-4 sm:px-5 py-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 ${
                 scrolled

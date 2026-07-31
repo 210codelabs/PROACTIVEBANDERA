@@ -114,6 +114,8 @@ export default function FloatingAssistantWidget() {
     }
   }
 
+  if (pathname?.startsWith("/kiosk")) return null;
+
   return (
     <div className="fixed bottom-4 right-4 z-[60]">
       {open && (
