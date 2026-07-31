@@ -36,7 +36,7 @@ export default function PortalShell({
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <Link href="/" className="shrink-0" title="Proactive Clinic">
-              <img src="/proactive-logo.png" alt="Proactive Clinic" className="h-10 sm:h-12 w-auto object-contain" />
+              <img src="/pclinic-light.png" alt="Proactive Clinic" className="h-10 sm:h-12 w-auto object-contain" />
             </Link>
             <div className="min-w-0">
               <div className="text-base sm:text-lg font-bold text-brand-900 truncate">{t("portal.title")}</div>

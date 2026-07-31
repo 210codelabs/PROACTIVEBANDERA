@@ -123,7 +123,7 @@ const DEFAULTS: AdminConfig = {
   branding: {
     appName: "Proactive Clinic",
     slogan: "Connected care for clinic, home, and virtual visits",
-    logoUrl: "/proactive-logo.png",
+    logoUrl: "/pclinic-light.png",
     primaryColor: "#0f8a85",
     secondaryColor: "#0b1e35",
     accentColor: "#14b8a6",

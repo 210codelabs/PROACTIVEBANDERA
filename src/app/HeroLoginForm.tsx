@@ -148,7 +148,7 @@ function PatientForm({ router }: { router: ReturnType<typeof useRouter> }) {
 }
 
 function StaffForm({ router }: { router: ReturnType<typeof useRouter> }) {
-  const [email, setEmail] = useState("mariuska.aristica@proactiveclinic.com");
+  const [email, setEmail] = useState("andy.manzano@proactiveclinic.com");
   const [password, setPassword] = useState("apex123");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -234,7 +234,7 @@ function StaffForm({ router }: { router: ReturnType<typeof useRouter> }) {
 
       <div className="pt-3 border-t border-indigo-100">
         <p className="text-xs text-slate-500 text-center">
-          Demo: <code className="font-mono bg-slate-100 px-1 rounded">mariuska.aristica@proactiveclinic.com</code> / <code className="font-mono bg-slate-100 px-1 rounded">apex123</code>
+          Demo: <code className="font-mono bg-slate-100 px-1 rounded">andy.manzano@proactiveclinic.com</code> / <code className="font-mono bg-slate-100 px-1 rounded">apex123</code>
         </p>
       </div>
     </div>

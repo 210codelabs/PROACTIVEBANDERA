@@ -36,7 +36,7 @@ async function main() {
   // ---------------- Users ----------------
   const hash = await bcrypt.hash(PASSWORD, 10);
   const [drRivera, npTan, dptJones, mdSmith, nurseKim, frontLopez, billing, admin] = await Promise.all([
-    db.user.create({ data: { email: "mariuska.aristica@proactiveclinic.com", passwordHash: hash, firstName: "Mariuska", lastName: "Aristica", role: "provider", credential: "PD", specialty: "Practice Director", npi: "1234567890" } }),
+    db.user.create({ data: { email: "andy.manzano@proactiveclinic.com", passwordHash: hash, firstName: "Andy", lastName: "Manzano", role: "provider", credential: "PD", specialty: "Practice Director", npi: "1234567890" } }),
     db.user.create({ data: { email: "np.tan@proactiveclinic.com", passwordHash: hash, firstName: "Linh", lastName: "Tan", role: "provider", credential: "NP", specialty: "Primary Care / Aesthetics", npi: "9876543210" } }),
     db.user.create({ data: { email: "dpt.jones@proactiveclinic.com", passwordHash: hash, firstName: "Devon", lastName: "Jones", role: "provider", credential: "DPT", specialty: "Physical Therapy", npi: "5556667770" } }),
     db.user.create({ data: { email: "md.smith@proactiveclinic.com", passwordHash: hash, firstName: "Aaron", lastName: "Smith", role: "provider", credential: "MD", specialty: "Wound Care / Pain Management", npi: "1112223334" } }),
@@ -439,7 +439,7 @@ async function main() {
   }
   console.log(`  ✓ ${saleDrafts.length} point-of-sale transactions`);
 
-  console.log("\nDone. Login: mariuska.aristica@proactiveclinic.com / apex123\n");
+  console.log("\nDone. Login: andy.manzano@proactiveclinic.com / apex123\n");
 }
 
 main()

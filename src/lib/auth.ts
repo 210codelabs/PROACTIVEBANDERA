@@ -29,10 +29,10 @@ function getSecret(): Uint8Array {
 }
 
 const DEMO_USERS: Record<string, Omit<SessionUser, "id">> = {
-  "mariuska.aristica@proactiveclinic.com": {
-    email: "mariuska.aristica@proactiveclinic.com",
-    firstName: "Mariuska",
-    lastName: "Aristica",
+  "andy.manzano@proactiveclinic.com": {
+    email: "andy.manzano@proactiveclinic.com",
+    firstName: "Andy",
+    lastName: "Manzano",
     role: "provider",
     credential: "PD",
   },

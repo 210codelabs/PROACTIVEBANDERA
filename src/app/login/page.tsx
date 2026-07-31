@@ -17,7 +17,7 @@ export default async function LoginPage({
         <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-600 to-brand-800 text-white p-12 flex-col justify-between">
           <div>
             <Link href="/" className="inline-flex bg-white rounded-2xl p-4 mb-10 shadow-lg">
-              <img src="/proactive-logo.png" alt="Proactive Clinic" className="h-16 w-auto object-contain" />
+              <img src="/pclinic-dark.png" alt="Proactive Clinic" className="h-16 w-auto object-contain" />
             </Link>
             <h2 className="text-3xl font-bold mb-4">{t("login.welcomeBack")}</h2>
             <p className="text-brand-100 text-lg leading-relaxed">
@@ -49,7 +49,7 @@ export default async function LoginPage({
             <div className="flex items-center justify-between">
               <div className="lg:hidden flex items-center gap-3">
                 <Link href="/" className="flex items-center gap-2">
-                  <img src="/proactive-logo.png" alt="Proactive Clinic" className="h-11 w-auto object-contain" />
+                  <img src="/pclinic-dark.png" alt="Proactive Clinic" className="h-11 w-auto object-contain" />
                 </Link>
               </div>
               <div className="ml-auto">
@@ -69,7 +69,7 @@ export default async function LoginPage({
             <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs text-slate-600 space-y-2">
               <div className="font-semibold text-slate-700">{t("login.demoAccounts")} <code className="font-mono bg-white px-1 rounded">apex123</code>)</div>
               <ul className="space-y-1 text-[11px] leading-tight">
-                <li><code className="font-mono">mariuska.aristica@proactiveclinic.com</code> — Practice Director</li>
+                <li><code className="font-mono">andy.manzano@proactiveclinic.com</code> — Practice Director</li>
                 <li><code className="font-mono">np.tan@proactiveclinic.com</code> — NP, Primary Care</li>
                 <li><code className="font-mono">dpt.jones@proactiveclinic.com</code> — DPT, Physical Therapy</li>
                 <li><code className="font-mono">md.smith@proactiveclinic.com</code> — MD, Wound Care</li>

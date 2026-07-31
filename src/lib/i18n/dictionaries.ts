@@ -149,7 +149,7 @@ const en = {
     heroTitle: "Comprehensive Care,",
     heroAccent: "Personalized for You",
     heroDesc:
-      "From physical therapy and wound care to aesthetic medicine and primary care, Proactive Clinic delivers evidence-based treatments in a warm, modern environment in the heart of Miami.",
+      "Modern, patient-centered care powered by smart healthcare technology — from primary & preventive care to physical rehabilitation, pain management, and wellness & recovery, all under one roof in Miami.",
     scheduleVisit: "Schedule a Visit",
     ourServices: "Our Services",
     mostInsurances: "Most Insurances Accepted",
@@ -205,49 +205,47 @@ const en = {
     demoBuild: "Demo build — not for clinical use.",
     services: [
       {
-        title: "Physical Therapy",
+        title: "Primary Care & Preventive Care",
         description:
-          "Expert rehabilitation for injuries, post-surgical recovery, chronic pain, and mobility improvement. Our licensed therapists create personalized treatment plans.",
-        items: ["Initial Evaluation", "Therapeutic Exercise", "Manual Therapy", "Post-Op Rehab", "Home Visits"],
+          "Your first point of contact for staying well — comprehensive primary and preventive care for the whole family, from annual physicals to everyday illness.",
+        items: ["Annual Physicals", "Preventive Screenings", "Acute Illness Visits", "Immunizations", "Health Counseling"],
       },
       {
-        title: "Wound Care",
+        title: "Physical Rehabilitation",
         description:
-          "Advanced wound management for chronic, acute, and complex wounds. Our specialists use evidence-based protocols to promote healing and prevent infection.",
-        items: ["Chronic Wound Treatment", "Diabetic Ulcer Care", "Debridement", "Infection Prevention", "Home Evaluations"],
+          "Restore strength, mobility, and function after injury or surgery with licensed therapists and personalized, evidence-based recovery plans.",
+        items: ["Post-Surgical Rehab", "Therapeutic Exercise", "Manual Therapy", "Mobility Training", "Home Visits"],
       },
       {
-        title: "Aesthetic Medicine",
+        title: "Pain Management Clinic",
         description:
-          "Non-surgical aesthetic treatments to enhance your natural beauty. From injectables to advanced laser therapies, our providers deliver natural-looking results.",
-        items: ["Botox & Fillers", "PRP Therapy", "Morpheus8", "Laser Hair Removal", "Skin Rejuvenation"],
+          "A dedicated pain program combining advanced therapies with compassionate care to reduce chronic and acute pain and improve quality of life.",
+        items: ["Chronic Pain Care", "Interventional Therapies", "Medication Management", "Physical Modalities", "Personalized Plans"],
       },
       {
-        title: "Primary Care",
+        title: "Wellness & Recovery Programs",
         description:
-          "Comprehensive primary care services for the whole family. From annual physicals to acute illness management, we are your first point of care.",
-        items: ["Annual Physicals", "Acute Visits", "Chronic Disease Management", "Lab Work & EKG", "Preventive Care"],
+          "Holistic wellness and recovery programs designed to support long-term health, healing, and vitality through patient-centered care.",
+        items: ["Weight Management", "IV Hydration & Wellness", "Nutrition Coaching", "Recovery Therapy", "Lifestyle Programs"],
       },
       {
-        title: "In-House Pharmacy",
+        title: "Chronic Condition Monitoring",
         description:
-          "Skip the extra trip. Our on-site dispensary fills prescriptions while you wait, with access to compounded medications and home delivery.",
-        items: ["Same-Day Filling", "Compounding", "Home Delivery", "Medication Management", "Immunizations"],
+          "Proactive, technology-enabled monitoring for conditions like diabetes and hypertension, keeping you on track between visits.",
+        items: ["Diabetes Management", "Blood Pressure Monitoring", "Lab Tracking", "Care Coordination", "Remote Check-ins"],
       },
       {
-        title: "Diagnostics & Labs",
+        title: "Telehealth & Follow-Up Support",
         description:
-          "On-site laboratory services and diagnostic testing for fast results. Blood work, EKG, point-of-care testing, and more — all under one roof.",
-        items: ["Blood Work (CBC, CMP, A1c)", "EKG / ECG", "Rapid Testing", "Lipid Panels", "Referral Coordination"],
+          "Convenient virtual visits and dedicated follow-up support so your care continues wherever you are — your team is a click or call away.",
+        items: ["Virtual Visits", "Follow-Up Care", "Secure Messaging", "Prescription Refills", "Care Navigation"],
       },
     ],
     reasons: [
-      { title: "Multidisciplinary Team", description: "Our providers include MDs, NPs, DPTs, and RNs working together to coordinate your care across specialties." },
-      { title: "Bilingual Staff", description: "Our team speaks English and Spanish to serve Miami's diverse community with comfort and clarity." },
-      { title: "In-House Pharmacy & Lab", description: "Get prescriptions filled and lab results back without leaving the clinic. One stop, complete care." },
-      { title: "Home Visit Program", description: "For patients with limited mobility, we bring wound care, physical therapy, and primary care to your doorstep." },
-      { title: "Modern Facility", description: "State-of-the-art equipment in a warm, welcoming environment designed for your comfort." },
-      { title: "Digital Patient Portal", description: "Access your records, schedule appointments, and message your care team anytime through our secure portal." },
+      { title: "Compassionate, Personalized Care", description: "Every treatment plan is tailored to you and delivered with genuine warmth and respect by a team that truly listens." },
+      { title: "Technology-Enabled Clinical Support", description: "Smart healthcare technology powers faster, safer, more coordinated care at every step of your journey." },
+      { title: "Coordinated Treatment & Recovery Plans", description: "Your providers work together across specialties to keep your treatment and recovery seamless and connected." },
+      { title: "Trusted, Modern Healthcare Experience", description: "A modern, welcoming environment and a trusted care team focused on results and your peace of mind." },
     ],
   },
 } as const;
@@ -399,7 +397,7 @@ const es = {
     heroTitle: "Atención integral,",
     heroAccent: "personalizada para ti",
     heroDesc:
-      "Desde terapia física y cuidado de heridas hasta medicina estética y atención primaria, Proactive Clinic ofrece tratamientos basados en evidencia en un ambiente cálido y moderno en el corazón de Miami.",
+      "Atención moderna y centrada en el paciente, impulsada por tecnología de salud inteligente: desde atención primaria y preventiva hasta rehabilitación física, manejo del dolor y bienestar y recuperación, todo bajo un mismo techo en Miami.",
     scheduleVisit: "Agendar una visita",
     ourServices: "Nuestros servicios",
     mostInsurances: "Aceptamos la mayoría de seguros",
@@ -455,49 +453,47 @@ const es = {
     demoBuild: "Versión de demostración, no para uso clínico.",
     services: [
       {
-        title: "Terapia física",
+        title: "Atención Primaria y Preventiva",
         description:
-          "Rehabilitación experta para lesiones, recuperación posquirúrgica, dolor crónico y mejora de la movilidad. Nuestros terapeutas licenciados crean planes de tratamiento personalizados.",
-        items: ["Evaluación inicial", "Ejercicio terapéutico", "Terapia manual", "Rehabilitación posoperatoria", "Visitas a domicilio"],
+          "Tu primer punto de contacto para mantenerte sano: atención primaria y preventiva integral para toda la familia, desde exámenes físicos anuales hasta enfermedades cotidianas.",
+        items: ["Exámenes físicos anuales", "Tamizajes preventivos", "Visitas por enfermedad aguda", "Vacunación", "Consejería de salud"],
       },
       {
-        title: "Cuidado de heridas",
+        title: "Rehabilitación Física",
         description:
-          "Manejo avanzado de heridas crónicas, agudas y complejas. Nuestros especialistas usan protocolos basados en evidencia para favorecer la cicatrización y prevenir infecciones.",
-        items: ["Tratamiento de heridas crónicas", "Cuidado de úlceras diabéticas", "Desbridamiento", "Prevención de infecciones", "Evaluaciones a domicilio"],
+          "Recupera fuerza, movilidad y función tras una lesión o cirugía con terapeutas licenciados y planes de recuperación personalizados basados en evidencia.",
+        items: ["Rehabilitación posquirúrgica", "Ejercicio terapéutico", "Terapia manual", "Entrenamiento de movilidad", "Visitas a domicilio"],
       },
       {
-        title: "Medicina estética",
+        title: "Clínica de Manejo del Dolor",
         description:
-          "Tratamientos estéticos no quirúrgicos para realzar tu belleza natural. Desde inyectables hasta terapias láser avanzadas, nuestros proveedores logran resultados naturales.",
-        items: ["Bótox y rellenos", "Terapia PRP", "Morpheus8", "Depilación láser", "Rejuvenecimiento de la piel"],
+          "Un programa dedicado al dolor que combina terapias avanzadas con atención compasiva para reducir el dolor crónico y agudo y mejorar tu calidad de vida.",
+        items: ["Dolor crónico", "Terapias intervencionistas", "Manejo de medicamentos", "Modalidades físicas", "Planes personalizados"],
       },
       {
-        title: "Atención primaria",
+        title: "Programas de Bienestar y Recuperación",
         description:
-          "Servicios integrales de atención primaria para toda la familia. Desde exámenes anuales hasta el manejo de enfermedades agudas, somos tu primer punto de atención.",
-        items: ["Exámenes anuales", "Visitas agudas", "Manejo de enfermedades crónicas", "Laboratorio y EKG", "Atención preventiva"],
+          "Programas holísticos de bienestar y recuperación diseñados para apoyar la salud, la sanación y la vitalidad a largo plazo con atención centrada en el paciente.",
+        items: ["Manejo de peso", "Hidratación IV y bienestar", "Asesoría nutricional", "Terapia de recuperación", "Programas de estilo de vida"],
       },
       {
-        title: "Farmacia interna",
+        title: "Monitoreo de Condiciones Crónicas",
         description:
-          "Evita el viaje extra. Nuestra farmacia interna surte recetas mientras esperas, con acceso a medicamentos compuestos y entrega a domicilio.",
-        items: ["Surtido el mismo día", "Preparados magistrales", "Entrega a domicilio", "Gestión de medicamentos", "Vacunas"],
+          "Monitoreo proactivo y habilitado por tecnología para condiciones como diabetes e hipertensión, manteniéndote en control entre visitas.",
+        items: ["Manejo de diabetes", "Monitoreo de presión arterial", "Seguimiento de laboratorios", "Coordinación de cuidados", "Chequeos remotos"],
       },
       {
-        title: "Diagnóstico y laboratorio",
+        title: "Telesalud y Seguimiento",
         description:
-          "Servicios de laboratorio y pruebas diagnósticas en el sitio para resultados rápidos. Análisis de sangre, EKG, pruebas en el punto de atención y más, todo bajo un mismo techo.",
-        items: ["Análisis de sangre (CBC, CMP, A1c)", "EKG / ECG", "Pruebas rápidas", "Perfiles lipídicos", "Coordinación de referencias"],
+          "Consultas virtuales convenientes y seguimiento dedicado para que tu atención continúe donde estés: tu equipo está a un clic o una llamada de distancia.",
+        items: ["Visitas virtuales", "Atención de seguimiento", "Mensajería segura", "Recarga de recetas", "Navegación de cuidados"],
       },
     ],
     reasons: [
-      { title: "Equipo multidisciplinario", description: "Nuestros proveedores incluyen MD, NP, DPT y RN que trabajan juntos para coordinar tu atención entre especialidades." },
-      { title: "Personal bilingüe", description: "Nuestro equipo habla inglés y español para atender a la diversa comunidad de Miami con comodidad y claridad." },
-      { title: "Farmacia y laboratorio internos", description: "Surte tus recetas y obtén resultados de laboratorio sin salir de la clínica. Una sola parada, atención completa." },
-      { title: "Programa de visitas a domicilio", description: "Para pacientes con movilidad limitada, llevamos el cuidado de heridas, la terapia física y la atención primaria a tu hogar." },
-      { title: "Instalaciones modernas", description: "Equipo de última generación en un ambiente cálido y acogedor, diseñado para tu comodidad." },
-      { title: "Portal digital del paciente", description: "Accede a tus registros, agenda citas y envía mensajes a tu equipo de atención en cualquier momento a través de nuestro portal seguro." },
+      { title: "Atención Compasiva y Personalizada", description: "Cada plan de tratamiento se adapta a ti, con calidez y respeto genuinos por un equipo que de verdad te escucha." },
+      { title: "Soporte Clínico con Tecnología", description: "La tecnología de salud inteligente impulsa una atención más rápida, segura y coordinada en cada paso de tu camino." },
+      { title: "Planes Coordinados de Tratamiento y Recuperación", description: "Tus proveedores trabajan juntos entre especialidades para que tu tratamiento y recuperación sean fluidos y conectados." },
+      { title: "Experiencia de Salud Moderna y Confiable", description: "Un entorno moderno y acogedor y un equipo de confianza enfocado en resultados y en tu tranquilidad." },
     ],
   },
 } as const;
