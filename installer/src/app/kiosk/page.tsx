@@ -224,8 +224,52 @@ const PRODUCTS: Product[] = [
 
 type Tab = "kiosk" | "portal" | "admission";
 
+// Deployment branding for the kiosk (name/phone/city/web + logos), fetched once
+// from the public site config so a re-branded install fully re-skins the kiosk.
+const BRAND_DEFAULTS = {
+  name: "Proactive Clinic",
+  phone: "(210) 500-2914",
+  city: "San Antonio, TX",
+  web: "proactiveclinics.com",
+  division: "A Division of Proactive UMS Inc.",
+  address: "8103 Bandera Rd, Suite 102, San Antonio, TX 78250",
+  logoHeader: "/pclinic-header.png?v=2",
+  logoFooter: "/pclinic-footer.png?v=2",
+};
+type KioskBrand = typeof BRAND_DEFAULTS;
+let _brandCache: KioskBrand | null = null;
+let _brandPromise: Promise<KioskBrand> | null = null;
+function useBrand(): KioskBrand {
+  const [b, setB] = useState<KioskBrand>(_brandCache || BRAND_DEFAULTS);
+  useEffect(() => {
+    if (_brandCache) { setB(_brandCache); return; }
+    if (!_brandPromise) {
+      _brandPromise = fetch("/api/site-config/public")
+        .then((r) => r.json())
+        .then((j) => {
+          _brandCache = {
+            name: j?.identity?.clinicName || BRAND_DEFAULTS.name,
+            phone: j?.identity?.phone || BRAND_DEFAULTS.phone,
+            city: [j?.identity?.city, j?.identity?.state].filter(Boolean).join(", ") || BRAND_DEFAULTS.city,
+            web: (j?.identity?.website || "").replace(/^https?:\/\//, "") || BRAND_DEFAULTS.web,
+            division: j?.identity?.division || BRAND_DEFAULTS.division,
+            address: [j?.identity?.addressLine, [j?.identity?.city, j?.identity?.state].filter(Boolean).join(", "), j?.identity?.postalCode].filter(Boolean).join(", ") || BRAND_DEFAULTS.address,
+            logoHeader: j?.logos?.header || BRAND_DEFAULTS.logoHeader,
+            logoFooter: j?.logos?.footer || BRAND_DEFAULTS.logoFooter,
+          };
+          return _brandCache;
+        })
+        .catch(() => BRAND_DEFAULTS);
+    }
+    _brandPromise.then(setB);
+  }, []);
+  return b;
+}
+
+
 export default function KioskPage() {
   const lang = useLang();
+  const brand = useBrand();
   const t = (en: string, es: string) => (lang === "es" ? es : en);
 
   const [entered, setEntered] = useState(false);
@@ -306,7 +350,7 @@ export default function KioskPage() {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-brand-800 via-brand-900 to-brand-950 text-white p-6">
         <div className="text-center max-w-lg">
-          <img src="/pclinic-footer.png?v=2" alt="Proactive Clinic" className="h-20 sm:h-24 w-auto mx-auto mb-8 object-contain" />
+          <img src={brand.logoFooter} alt={brand.name} className="h-20 sm:h-24 w-auto mx-auto mb-8 object-contain" />
           <h1 className="text-3xl sm:text-4xl font-extrabold mb-3">{t("Welcome", "Bienvenido")}</h1>
           <p className="text-white/80 mb-8">
             {t(
@@ -348,7 +392,7 @@ export default function KioskPage() {
     <div className="fixed inset-0 z-[9999] flex flex-col bg-brand-950 text-white">
       {/* Top bar */}
       <header className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-brand-900/80 backdrop-blur border-b border-white/10">
-        <img src="/pclinic-footer.png?v=2" alt="Proactive Clinic" className="h-9 sm:h-11 w-auto object-contain" />
+        <img src={brand.logoFooter} alt={brand.name} className="h-9 sm:h-11 w-auto object-contain" />
         <nav className="hidden sm:flex items-center gap-1.5">
           {tabBtn("kiosk", "ProactiveKIOSK")}
           {tabBtn("admission", t("Admission & HIPAA", "Admisión & HIPAA"))}
@@ -401,6 +445,7 @@ function KioskSlideshow({
   t: (en: string, es: string) => string;
 }) {
   const li = lang === "es" ? 1 : 0;
+  const brand = useBrand();
   const ACCENT: Record<string, { grad: string; chip: string; dot: string }> = {
     blue: { grad: "from-brand-800 via-brand-900 to-brand-950", chip: "bg-brand-600", dot: "bg-emerald-300" },
     teal: { grad: "from-teal-700 via-brand-900 to-brand-950", chip: "bg-teal-500", dot: "bg-teal-200" },
@@ -502,7 +547,7 @@ function KioskSlideshow({
           <div className="min-h-full flex items-center justify-center p-6">
             <div className="w-full max-w-4xl">
               <div className="text-center mb-8">
-                <img src="/pclinic-footer.png?v=2" alt="Proactive Clinic" className="h-14 w-auto mx-auto mb-4 object-contain" />
+                <img src={brand.logoFooter} alt={brand.name} className="h-14 w-auto mx-auto mb-4 object-contain" />
                 <h3 className="text-3xl font-extrabold">{t("How can we help you today?", "¿Cómo podemos ayudarte hoy?")}</h3>
                 <p className="text-white/70 mt-1">{t("Choose an option or explore our services & offers.", "Elige una opción o explora nuestros servicios y ofertas.")}</p>
               </div>
@@ -561,6 +606,7 @@ function FlyerAd({
   };
   const pill = PILL[slide.accent];
   const iconbox = ICONBOX[slide.accent];
+  const brand = useBrand();
 
   return (
     <div className="absolute inset-0 flex items-start justify-center px-3 sm:px-6 pt-3 sm:pt-5 pb-24 bg-gradient-to-br from-brand-800 via-brand-900 to-brand-950">
@@ -571,7 +617,7 @@ function FlyerAd({
       <div key={index} className="fi relative w-full max-w-6xl h-full overflow-hidden rounded-3xl bg-white text-slate-900 shadow-2xl ring-1 ring-black/10 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 sm:px-10 pt-4 sm:pt-5 pb-2 shrink-0">
-          <img src="/pclinic-header.png?v=2" alt="Proactive Clinic" className="h-9 sm:h-14 w-auto object-contain" />
+          <img src={brand.logoHeader} alt={brand.name} className="h-9 sm:h-14 w-auto object-contain" />
           <div className="flex flex-col items-end leading-tight text-right">
             <span className="text-[9px] sm:text-[10px] font-bold tracking-[0.2em] text-slate-400">PART OF THE</span>
             <span className="text-xs sm:text-sm font-extrabold text-brand-700">
@@ -635,15 +681,15 @@ function FlyerAd({
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-xs sm:text-sm font-semibold">
             <span className="inline-flex items-center gap-1.5">
               <svg className="h-4 w-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-              {CLINIC.phone}
+              {brand.phone}
             </span>
             <span className="hidden sm:inline-flex items-center gap-1.5">
               <svg className="h-4 w-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              {CLINIC.city}
+              {brand.city}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <svg className="h-4 w-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 010 18M12 3a15 15 0 000 18" /></svg>
-              {CLINIC.web}
+              {brand.web}
             </span>
           </div>
         </div>
@@ -723,6 +769,7 @@ function AdmissionForm({ lang, t }: { lang: "es" | "en"; t: (en: string, es: str
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState<{ confirmation: string; mrn: string; name: string; module: string } | null>(null);
+  const brand = useBrand();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -780,11 +827,11 @@ function AdmissionForm({ lang, t }: { lang: "es" | "en"; t: (en: string, es: str
         {/* Print-only confirmation slip */}
         <div className="kiosk-receipt hidden text-slate-900">
           <div style={{ maxWidth: 420, margin: "0 auto", fontFamily: "sans-serif" }}>
-            <img src="/pclinic-header.png?v=2" alt="Proactive Clinic" style={{ height: 56, marginBottom: 12 }} />
+            <img src={brand.logoHeader} alt={brand.name} style={{ height: 56, marginBottom: 12 }} />
             <h2 style={{ fontSize: 18, fontWeight: 700, margin: "6px 0" }}>{t("Check-in Confirmation", "Comprobante de Admisión")}</h2>
             <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>
-              Proactive Clinic · A Division of Proactive UMS Inc.<br />
-              8103 Bandera Rd, Suite 102, San Antonio, TX 78250 · (210) 500-2914
+              {brand.name} · {brand.division}<br />
+              {brand.address} · {brand.phone}
             </div>
             <hr />
             <table style={{ width: "100%", fontSize: 13, marginTop: 10 }}>

@@ -132,6 +132,31 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
     }
   }
 
+  // Saved brand themes (server gallery) + specialty sample-data seeding.
+  const [presets, setPresets] = useState<Array<{ id: string; name: string; identity: SiteConfig["identity"]; colors: SiteConfig["colors"]; modules: SiteConfig["modules"] }>>([]);
+  const [specialty, setSpecialty] = useState("multispecialty");
+  useEffect(() => { fetch("/api/site-config/presets").then((r) => r.json()).then((j) => setPresets(j.presets || [])).catch(() => {}); }, []);
+  async function saveTheme() {
+    const name = window.prompt("Name this brand theme:");
+    if (!name) return;
+    await saveAll(false); // persist current config first so the snapshot matches
+    const r = await fetch("/api/site-config/presets", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) });
+    const j = await r.json(); if (r.ok) { setPresets(j.presets || []); setMsg("Theme saved."); }
+  }
+  function applyTheme(p: { identity: SiteConfig["identity"]; colors: SiteConfig["colors"]; modules: SiteConfig["modules"] }) {
+    setCfg((c) => ({ ...c, identity: { ...c.identity, ...p.identity }, colors: { ...c.colors, ...p.colors }, modules: { ...c.modules, ...p.modules } }));
+    setMsg("Theme applied. Review and Finish.");
+  }
+  async function deleteTheme(id: string) {
+    const r = await fetch("/api/site-config/presets", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ deleteId: id }) });
+    const j = await r.json(); if (r.ok) setPresets(j.presets || []);
+  }
+  async function seedSpecialty() {
+    setMsg("Seeding sample services…");
+    const r = await fetch("/api/site-config/seed-specialty", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ specialty }) });
+    const j = await r.json(); setMsg(r.ok ? `Seeded ${j.seeded} sample services.` : (j.error || "Seed failed"));
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <style dangerouslySetInnerHTML={{ __html: themeCss }} />
@@ -173,14 +198,27 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
 
           {step === 1 && (
             <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-100 px-3 py-2">
-              <span className="text-xs text-slate-500">Brand preset (colors + identity + modules) — reuse across clinics.</span>
-              <div className="flex gap-2">
-                <button type="button" className="chip bg-white ring-slate-200 text-slate-700 text-xs" onClick={exportPreset}>Export preset</button>
-                <label className="chip bg-white ring-slate-200 text-slate-700 text-xs cursor-pointer">Import preset
-                  <input type="file" accept="application/json,.json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importPreset(f); e.target.value = ""; }} />
-                </label>
+            <div className="rounded-lg bg-slate-100 px-3 py-2 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-slate-500">Brand themes (colors + identity + modules) — reuse across clinics.</span>
+                <div className="flex gap-2">
+                  <button type="button" className="chip bg-white ring-slate-200 text-slate-700 text-xs" onClick={saveTheme}>Save as theme</button>
+                  <button type="button" className="chip bg-white ring-slate-200 text-slate-700 text-xs" onClick={exportPreset}>Export</button>
+                  <label className="chip bg-white ring-slate-200 text-slate-700 text-xs cursor-pointer">Import
+                    <input type="file" accept="application/json,.json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importPreset(f); e.target.value = ""; }} />
+                  </label>
+                </div>
               </div>
+              {presets.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {presets.map((p) => (
+                    <span key={p.id} className="inline-flex items-center gap-1 rounded-full bg-white ring-1 ring-slate-200 pl-2 pr-1 py-0.5 text-xs">
+                      <button type="button" className="font-semibold text-slate-700 hover:text-brand-700" onClick={() => applyTheme(p)}>{p.name}</button>
+                      <button type="button" className="text-slate-400 hover:text-rose-500 px-1" onClick={() => deleteTheme(p.id)} title="Delete">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-4">
@@ -244,16 +282,31 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
           )}
 
           {step === 2 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {MODULE_META.map((m) => (
-                <label key={m.key} className={`flex items-start gap-3 p-3 rounded-lg ring-1 cursor-pointer transition ${cfg.modules[m.key] ? "ring-brand-300 bg-brand-50" : "ring-slate-200 bg-white"}`}>
-                  <input type="checkbox" checked={cfg.modules[m.key]} onChange={() => toggleModule(m.key)} className="mt-1 h-4 w-4" />
-                  <div>
-                    <div className="font-semibold text-slate-900">{m.label}</div>
-                    <div className="text-xs text-slate-500">{m.desc}</div>
-                  </div>
-                </label>
-              ))}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {MODULE_META.map((m) => (
+                  <label key={m.key} className={`flex items-start gap-3 p-3 rounded-lg ring-1 cursor-pointer transition ${cfg.modules[m.key] ? "ring-brand-300 bg-brand-50" : "ring-slate-200 bg-white"}`}>
+                    <input type="checkbox" checked={cfg.modules[m.key]} onChange={() => toggleModule(m.key)} className="mt-1 h-4 w-4" />
+                    <div>
+                      <div className="font-semibold text-slate-900">{m.label}</div>
+                      <div className="text-xs text-slate-500">{m.desc}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div className="rounded-lg bg-slate-100 p-3">
+                <div className="text-sm font-semibold text-slate-800">Sample data by specialty (optional)</div>
+                <p className="text-xs text-slate-500 mb-2">Seed a starter set of services/catalogs matching this clinic&apos;s specialty. Idempotent — safe to run again.</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select className="input h-9 w-auto" value={specialty} onChange={(e) => setSpecialty(e.target.value)}>
+                    <option value="multispecialty">Multi-specialty (default)</option>
+                    <option value="rehab">Physical Rehabilitation</option>
+                    <option value="primary">Primary Care</option>
+                    <option value="aesthetic">Aesthetic Medicine &amp; Wellness</option>
+                  </select>
+                  <button type="button" className="chip bg-brand-100 text-brand-800 ring-brand-200 text-xs" onClick={seedSpecialty}>Seed sample services</button>
+                </div>
+              </div>
             </div>
           )}
 
