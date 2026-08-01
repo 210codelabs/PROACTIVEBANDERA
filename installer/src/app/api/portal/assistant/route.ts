@@ -3,6 +3,7 @@ import { addMinutes, isValid, parse, parseISO } from "date-fns";
 import { db } from "@/lib/db";
 import { requirePortalSession } from "@/lib/portalAuth";
 import { readAdminConfig } from "@/lib/admin/store";
+import { getSiteConfig, fullAddress } from "@/lib/site/config";
 import { createChat, UserMessage, validateApiKey } from "emergentintegrations";
 
 export const runtime = "nodejs";
@@ -449,11 +450,12 @@ async function llmReply(message: string, lang: Lang, patientId: string): Promise
   try {
     const apiKey = validateApiKey(process.env.EMERGENT_LLM_KEY);
     const config = await readAdminConfig();
+    const site = await getSiteConfig();
     const services = await db.serviceType.findMany({ where: { active: true }, orderBy: { name: "asc" }, take: 30, select: { name: true } });
     const serviceList = services.map((s) => s.name).join(", ") || "Primary Care, Physical Rehabilitation, Pain Management, Wellness & Recovery, Chronic Condition Monitoring, Telehealth";
 
     const systemMessage = [
-      "You are the AI assistant for Proactive Clinic, a multi-specialty medical clinic in San Antonio, TX.",
+      `You are the AI assistant for ${site.identity.clinicName}${site.identity.city ? `, a multi-specialty medical clinic in ${site.identity.city}, ${site.identity.state}` : ""}.`,
       "Answer patient FAQs clearly, warmly, and concisely (2-4 sentences).",
       `Reply in ${lang === "es" ? "Spanish" : "English"} to match the patient, but you understand both English and Spanish.`,
       "You are NOT a doctor: never diagnose, prescribe, or give specific medical/dosage advice. For medical concerns, advise the patient to consult their provider; for emergencies, tell them to call 911 or go to the nearest ER.",
@@ -461,16 +463,16 @@ async function llmReply(message: string, lang: Lang, patientId: string): Promise
       "If the patient wants to book, reschedule, or cancel an appointment, tell them they can do it right here by typing for example: 'schedule PT on 2026-06-01 at 3:00 PM', 'reschedule to 2026-06-03 at 10:30 AM', or 'cancel my appointment' — or use the Appointments tab to request a visit.",
       "",
       "CLINIC FACTS:",
-      `- Name: ${config?.org?.orgName || "Proactive Clinic"}`,
-      `- Phone: ${config?.branding?.supportPhone || "(210) 500-2914"}`,
-      `- Email: ${config?.branding?.supportEmail || "info@proactiveclinic.com"}`,
-      `- Website: ${config?.org?.website || "proactiveclinics.com"}`,
-      "- Address: 8103 Bandera Rd, Suite 102, San Antonio, TX 78250",
+      `- Name: ${site.identity.clinicName}`,
+      `- Phone: ${site.identity.phone || config?.branding?.supportPhone || ""}`,
+      `- Email: ${site.identity.email || config?.branding?.supportEmail || ""}`,
+      `- Website: ${site.identity.website || config?.org?.website || ""}`,
+      `- Address: ${fullAddress(site)}`,
       "- Hours: Monday–Friday 8:00 AM – 6:00 PM, Saturday 9:00 AM – 1:00 PM, Sunday closed.",
       "- Languages: English and Spanish (bilingual staff).",
       `- Services offered: ${serviceList}.`,
       "- Most major insurances accepted; home visits and telehealth available.",
-      "- Proactive Clinic (ProactiveClinics) is a Division of Proactive UMS Inc.",
+      site.identity.division ? `- ${site.identity.clinicName} is ${site.identity.division}.` : "",
     ].join("\n");
 
     const chat = createChat({

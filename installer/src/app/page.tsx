@@ -3,7 +3,7 @@ import LandingLoginForm from "./LandingLoginForm";
 import HeroAuth from "@/components/HeroAuth";
 import LandingHeader from "@/components/LandingHeader";
 import { getT } from "@/lib/i18n/server";
-import { getSiteConfig } from "@/lib/site/config";
+import { getSiteConfig, type SiteConfig } from "@/lib/site/config";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
@@ -45,9 +45,9 @@ export default async function HomePage() {
       <Services L={L} />
       <WhyChooseUs L={L} />
       <Testimonials L={L} />
-      <BookBand L={L} />
-      <ContactAndHours L={L} />
-      <Footer L={L} />
+      <BookBand L={L} site={site} />
+      <ContactAndHours L={L} site={site} />
+      <Footer L={L} site={site} />
     </main>
   );
 }
@@ -375,11 +375,11 @@ function BookBand({ L }: { L: LandingDict }) {
           <div className="lg:justify-self-end space-y-4">
             <div className="flex items-center gap-3 text-brand-50">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z M3.6 9h16.8 M3.6 15h16.8 M12 3a15 15 0 010 18 15 15 0 010-18z" /></svg>
-              <span className="font-semibold">proactiveclinics.com</span>
+              <span className="font-semibold">{web}</span>
             </div>
             <div className="flex items-center gap-3 text-brand-50">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-              <span className="font-semibold">(210) 500-2914</span>
+              <span className="font-semibold">{phone}</span>
             </div>
             <a href="#contact" className="inline-flex items-center justify-center gap-2 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3.5 shadow-lg transition">
               {L.bookCta}
@@ -447,16 +447,20 @@ export function PortalAccess({ L, t }: { L: LandingDict; t: (k: string) => strin
   );
 }
 
-function ContactAndHours({ L }: { L: LandingDict }) {
+function ContactAndHours({ L, site }: { L: LandingDict; site?: SiteConfig }) {
+  const addr1 = site?.identity.addressLine || "8103 Bandera Rd, Suite 102";
+  const addr2 = site ? [site.identity.city, site.identity.state].filter(Boolean).join(", ") + " " + site.identity.postalCode : "San Antonio, TX 78250";
+  const phone = site?.identity.phone || "(210) 500-2914";
+  const telHref = `tel:${phone.replace(/[^0-9+]/g, "")}`;
   const cards = [
     {
       title: L.location, icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z",
       icon2: "M15 11a3 3 0 11-6 0 3 3 0 016 0z",
-      body: (<><p className="text-sm text-slate-600">8103 Bandera Rd, Suite 102</p><p className="text-sm text-slate-600">San Antonio, TX 78250</p></>),
+      body: (<><p className="text-sm text-slate-600">{addr1}</p><p className="text-sm text-slate-600">{addr2}</p></>),
     },
     {
       title: L.phone, icon: "M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z",
-      body: (<><a href="tel:+12105002914" className="text-sm text-brand-700 font-medium hover:underline">(210) 500-2914</a><p className="text-xs text-slate-500 mt-1">Se habla español</p></>),
+      body: (<><a href={telHref} className="text-sm text-brand-700 font-medium hover:underline">{phone}</a><p className="text-xs text-slate-500 mt-1">Se habla español</p></>),
     },
     {
       title: L.hours, icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
@@ -505,14 +509,22 @@ function ContactAndHours({ L }: { L: LandingDict }) {
   );
 }
 
-export function Footer({ L }: { L: LandingDict }) {
+export function Footer({ L, site }: { L: LandingDict; site?: SiteConfig }) {
+  const logo = site?.logos.footer || "/pclinic-footer.png?v=2";
+  const clinicName = site?.identity.clinicName || L.clinicName;
+  const addr1 = site?.identity.addressLine || "8103 Bandera Rd, Suite 102";
+  const addr2 = site ? [site.identity.city, site.identity.state].filter(Boolean).join(", ") + " " + site.identity.postalCode : "San Antonio, TX 78250";
+  const phone = site?.identity.phone || "(210) 500-2914";
+  const telHref = `tel:${phone.replace(/[^0-9+]/g, "")}`;
+  const email = site?.identity.email || "info@proactiveclinic.com";
+  const division = site?.identity.division || "A Division of Proactive UMS Inc.";
   return (
     <footer className="bg-[#05080f] text-slate-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8">
           <div className="space-y-3">
             <div className="inline-flex">
-              <img src="/pclinic-footer.png?v=2" alt="Proactive Clinic" className="h-16 sm:h-20 w-auto object-contain" />
+              <img src={logo} alt={clinicName} className="h-16 sm:h-20 w-auto object-contain" />
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">{L.footerDesc}</p>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-brand-100 uppercase tracking-wide">
@@ -540,10 +552,10 @@ export function Footer({ L }: { L: LandingDict }) {
           <div>
             <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">{L.footerContact}</h4>
             <ul className="space-y-2 text-sm">
-              <li>8103 Bandera Rd, Suite 102</li>
-              <li>San Antonio, TX 78250</li>
-              <li><a href="tel:+12105002914" className="hover:text-brand-300 transition">(210) 500-2914</a></li>
-              <li><a href="mailto:info@proactiveclinic.com" className="hover:text-brand-300 transition">info@proactiveclinic.com</a></li>
+              <li>{addr1}</li>
+              <li>{addr2}</li>
+              <li><a href={telHref} className="hover:text-brand-300 transition">{phone}</a></li>
+              <li><a href={`mailto:${email}`} className="hover:text-brand-300 transition">{email}</a></li>
             </ul>
           </div>
           <div>
@@ -576,7 +588,7 @@ export function Footer({ L }: { L: LandingDict }) {
         </div>
 
         <div className="border-t border-white/10 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
-          <div>&copy; {new Date().getFullYear()} {L.clinicName}. {L.rights} · A Division of Proactive UMS Inc.</div>
+          <div>&copy; {new Date().getFullYear()} {clinicName}. {L.rights} · {division}</div>
           <div>{L.demoBuild}</div>
         </div>
       </div>

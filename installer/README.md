@@ -12,6 +12,9 @@ logos, hero/kiosk slides — default / upload / AI-generated) and toggle modules
 > provides workflows that require your own legal, security and compliance review
 > before real clinical/PHI use.
 
+> 📘 **Full step-by-step platform guides (Emergent, Codex, OpenCode, VS Code,
+> Cursor, Docker, Vercel & more) are in [`INSTALL.md`](./INSTALL.md).**
+
 ---
 
 ## Quick start (1 command after env + install)

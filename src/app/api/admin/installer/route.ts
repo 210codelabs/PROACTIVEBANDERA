@@ -18,7 +18,7 @@ export async function GET() {
   try {
     if (existsSync(out)) rmSync(out);
     execSync(
-      `cd /app && zip -rq ${out} installer -x 'installer/node_modules/*' 'installer/.next/*' 'installer/.git/*' 'installer/*.log'`,
+      `cd /app && zip -rq ${out} installer -x 'installer/node_modules/*' 'installer/.next/*' 'installer/.git/*' 'installer/*.log' 'installer/.env'`,
       { stdio: "pipe", maxBuffer: 1024 * 1024 * 64 },
     );
     const buf = readFileSync(out);

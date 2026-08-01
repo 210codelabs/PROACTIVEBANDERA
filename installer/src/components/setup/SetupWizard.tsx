@@ -104,6 +104,34 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
     setMsg("Saved.");
   }
 
+  // Brand preset: portable JSON (identity + colors + modules) to clone a clinic's
+  // look & feel quickly. Logos/slides are per-deployment uploads, so they are not
+  // included (re-upload or AI-generate them after importing).
+  function exportPreset() {
+    const preset = { version: 1, identity: cfg.identity, colors: cfg.colors, modules: cfg.modules };
+    const blob = new Blob([JSON.stringify(preset, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(cfg.identity.clinicName || "clinic").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-brand-preset.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  async function importPreset(file: File) {
+    try {
+      const text = await file.text();
+      const p = JSON.parse(text);
+      setCfg((c) => ({
+        ...c,
+        identity: { ...c.identity, ...(p.identity || {}) },
+        colors: { ...c.colors, ...(p.colors || {}) },
+        modules: { ...c.modules, ...(p.modules || {}) },
+      }));
+      setMsg("Brand preset imported. Review and upload logos/slides, then Finish.");
+    } catch {
+      setMsg("Invalid preset file.");
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <style dangerouslySetInnerHTML={{ __html: themeCss }} />
@@ -144,6 +172,16 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
           )}
 
           {step === 1 && (
+            <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-100 px-3 py-2">
+              <span className="text-xs text-slate-500">Brand preset (colors + identity + modules) — reuse across clinics.</span>
+              <div className="flex gap-2">
+                <button type="button" className="chip bg-white ring-slate-200 text-slate-700 text-xs" onClick={exportPreset}>Export preset</button>
+                <label className="chip bg-white ring-slate-200 text-slate-700 text-xs cursor-pointer">Import preset
+                  <input type="file" accept="application/json,.json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importPreset(f); e.target.value = ""; }} />
+                </label>
+              </div>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="grid grid-cols-3 gap-3">
@@ -155,30 +193,32 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
                   <LogoUpload label="Header logo (color, for light backgrounds)" url={cfg.logos.header} onFile={(f) => uploadLogo("header", f)} bg="bg-white" />
                   <LogoUpload label="Footer logo (white, for dark backgrounds)" url={cfg.logos.footer} onFile={(f) => uploadLogo("footer", f)} bg="bg-slate-900" />
                 </div>
-                <div className="pt-2">
-                  <span className="label">Hero slides (optional)</span>
-                  <p className="text-xs text-slate-400 mb-2">Leave empty to use curated defaults. Upload your own, or generate with AI (needs EMERGENT_LLM_KEY).</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[0, 1, 2].map((i) => {
-                      const key = `hero-${i + 1}`;
-                      const url = cfg.slides.hero?.[i];
-                      return (
-                        <div key={key} className="rounded-lg ring-1 ring-slate-200 p-2 space-y-1.5">
-                          <div className="h-16 rounded bg-slate-100 grid place-items-center overflow-hidden">
-                            {url ? <img src={url} alt={key} className="h-full w-full object-cover" /> : <span className="text-[10px] text-slate-400">Default</span>}
+                {(["hero", "kiosk"] as const).map((kind) => (
+                  <div className="pt-2" key={kind}>
+                    <span className="label">{kind === "hero" ? "Hero slides (optional)" : "Kiosk slides (optional)"}</span>
+                    <p className="text-xs text-slate-400 mb-2">Leave empty to use curated defaults. Upload your own, or generate with AI (needs EMERGENT_LLM_KEY).</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[0, 1, 2].map((i) => {
+                        const key = `${kind}-${i + 1}`;
+                        const url = cfg.slides[kind]?.[i];
+                        return (
+                          <div key={key} className="rounded-lg ring-1 ring-slate-200 p-2 space-y-1.5">
+                            <div className="h-16 rounded bg-slate-100 grid place-items-center overflow-hidden">
+                              {url ? <img src={url} alt={key} className="h-full w-full object-cover" /> : <span className="text-[10px] text-slate-400">Default</span>}
+                            </div>
+                            <input className="input text-xs h-8" placeholder="AI prompt" value={prompts[key] || ""} onChange={(e) => setPrompts((p) => ({ ...p, [key]: e.target.value }))} />
+                            <div className="flex gap-1">
+                              <label className="chip bg-slate-100 text-slate-700 ring-slate-200 cursor-pointer text-[11px] flex-1 justify-center">Upload
+                                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSlide(kind, i, f); e.target.value = ""; }} />
+                              </label>
+                              <button type="button" className="chip bg-brand-100 text-brand-800 ring-brand-200 text-[11px] flex-1 justify-center disabled:opacity-50" disabled={genBusy === key} onClick={() => generateSlide(kind, i)}>{genBusy === key ? "…" : "AI"}</button>
+                            </div>
                           </div>
-                          <input className="input text-xs h-8" placeholder="AI prompt" value={prompts[key] || ""} onChange={(e) => setPrompts((p) => ({ ...p, [key]: e.target.value }))} />
-                          <div className="flex gap-1">
-                            <label className="chip bg-slate-100 text-slate-700 ring-slate-200 cursor-pointer text-[11px] flex-1 justify-center">Upload
-                              <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSlide("hero", i, f); e.target.value = ""; }} />
-                            </label>
-                            <button type="button" className="chip bg-brand-100 text-brand-800 ring-brand-200 text-[11px] flex-1 justify-center disabled:opacity-50" disabled={genBusy === key} onClick={() => generateSlide("hero", i)}>{genBusy === key ? "…" : "AI"}</button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
               {/* Live preview */}
               <div className="rounded-xl overflow-hidden ring-1 ring-slate-200">
@@ -199,6 +239,7 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
           )}
 

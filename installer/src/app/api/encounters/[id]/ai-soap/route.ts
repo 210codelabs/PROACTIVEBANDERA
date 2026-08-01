@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { getSiteConfig } from "@/lib/site/config";
 import { createChat, UserMessage, validateApiKey } from "emergentintegrations";
 
 export const runtime = "nodejs";
@@ -106,8 +107,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const chart = lines.join("\n");
 
+    const site = await getSiteConfig();
     const systemMessage = [
-      "You are a clinical documentation assistant for Proactive Clinic (San Antonio, TX). You help a licensed provider draft a COMPLIANT SOAP note for the current visit using the patient's chart and the provider's brief input.",
+      `You are a clinical documentation assistant for ${site.identity.clinicName}${site.identity.city ? ` (${site.identity.city}, ${site.identity.state})` : ""}. You help a licensed provider draft a COMPLIANT SOAP note for the current visit using the patient's chart and the provider's brief input.`,
       "Write the clinical note in ENGLISH (required for the superbill and insurers), regardless of the patient's preferred language.",
       "Be clinically sound, specific, and concise. Use the chart data (problems, medications, allergies, vitals, prior visits) and keep everything internally consistent and in logical/chronological order.",
       "SAFETY: Respect the patient's allergies (never suggest a medication that conflicts with a listed allergy; flag interactions). You produce a DRAFT for the provider to review, edit, and sign — you are not making final medical decisions.",

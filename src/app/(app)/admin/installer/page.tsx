@@ -22,7 +22,7 @@ export default async function InstallerPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="font-semibold text-slate-900">clinic-installer.zip</div>
-            <div className="text-sm text-slate-500">Full source (excludes node_modules / build / git). Includes README with 1-command setup and <code className="px-1 rounded bg-slate-100">.env.example</code>.</div>
+            <div className="text-sm text-slate-500">Full source (excludes node_modules / build / git). Includes <code className="px-1 rounded bg-slate-100">README.md</code>, a step-by-step <code className="px-1 rounded bg-slate-100">INSTALL.md</code> (Emergent, Codex, OpenCode, VS Code, Cursor, Docker, Vercel &amp; more) and <code className="px-1 rounded bg-slate-100">.env.example</code>.</div>
           </div>
           <a href="/api/admin/installer" className="btn-primary whitespace-nowrap" download>↓ Download .zip</a>
         </div>

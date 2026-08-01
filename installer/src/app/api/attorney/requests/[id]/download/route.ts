@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAttorneySession } from "@/lib/attorneyAuth";
+import { getSiteConfig, fullAddress } from "@/lib/site/config";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { readFileSync } from "fs";
 import path from "path";
@@ -27,15 +28,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   // ---- Build branded PDF ----
+  const site = await getSiteConfig();
+  const clinicName = site.identity.clinicName;
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`Proactive Clinic — Records ${patient.mrn}`);
-  pdf.setProducer("Proactive Clinic EHR");
+  pdf.setTitle(`${clinicName} — Records ${patient.mrn}`);
+  pdf.setProducer(`${clinicName} EHR`);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
   let logoImg: Awaited<ReturnType<typeof pdf.embedPng>> | null = null;
   try {
-    const bytes = readFileSync(path.join(process.cwd(), "public", "pclinic-header.png"));
+    // Prefer an uploaded header logo from the setup wizard; fall back to the file.
+    const asset = await db.brandAsset.findUnique({ where: { key: "logo-header" } });
+    const bytes = asset
+      ? Buffer.from(asset.dataBase64, "base64")
+      : readFileSync(path.join(process.cwd(), "public", "pclinic-header.png"));
     logoImg = await pdf.embedPng(bytes);
   } catch { logoImg = null; }
 
@@ -51,11 +58,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       page.drawRectangle({ x: M - 6, y: H - 30 - lh - 6, width: lw + 12, height: lh + 12, color: rgb(1, 1, 1) });
       page.drawImage(logoImg, { x: M, y: H - 30 - lh, width: lw, height: lh });
     } else {
-      page.drawText("Proactive Clinic", { x: M, y: H - 55, size: 20, font: bold, color: rgb(1, 1, 1) });
+      page.drawText(clinicName, { x: M, y: H - 55, size: 20, font: bold, color: rgb(1, 1, 1) });
     }
     page.drawText("AUTHORIZED MEDICAL RECORDS RELEASE", { x: W - M - 300, y: H - 42, size: 11, font: bold, color: rgb(1, 1, 1) });
-    page.drawText("A Division of Proactive UMS Inc.", { x: W - M - 300, y: H - 58, size: 8, font, color: rgb(0.8, 0.85, 0.95) });
-    page.drawText("8103 Bandera Rd, Suite 102, San Antonio, TX 78250", { x: W - M - 300, y: H - 70, size: 8, font, color: rgb(0.8, 0.85, 0.95) });
+    page.drawText(site.identity.division || "", { x: W - M - 300, y: H - 58, size: 8, font, color: rgb(0.8, 0.85, 0.95) });
+    page.drawText(fullAddress(site), { x: W - M - 300, y: H - 70, size: 8, font, color: rgb(0.8, 0.85, 0.95) });
     y = H - 116;
   }
   function footer() {

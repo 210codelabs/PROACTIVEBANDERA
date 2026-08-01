@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { getSiteConfig } from "@/lib/site/config";
 import { createChat, UserMessage, validateApiKey } from "emergentintegrations";
 
 export const runtime = "nodejs";
@@ -57,8 +58,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const chart = await buildChart(id);
     if (!chart) return NextResponse.json({ error: "Patient not found" }, { status: 404 });
 
+    const site = await getSiteConfig();
     const systemMessage = [
-      "You are the Clinical AI Assistant for Proactive Clinic (San Antonio, TX), used by AUTHORIZED CLINICAL STAFF (not the patient).",
+      `You are the Clinical AI Assistant for ${site.identity.clinicName}${site.identity.city ? ` (${site.identity.city}, ${site.identity.state})` : ""}, used by AUTHORIZED CLINICAL STAFF (not the patient).`,
       "You have access to THIS patient's chart (provided below). Help staff by summarizing history, explaining findings, drafting notes/plans/patient instructions, listing differential considerations, flagging drug interactions or allergy conflicts, and answering questions grounded in the chart.",
       "Be concise, clinically sound, and specific. Reply in the same language the staff member uses (English or Spanish).",
       "You are a DECISION-SUPPORT tool: the licensed provider makes all final medical decisions. Never fabricate data — if something is not in the chart, say it is not documented. Always respect the patient's listed allergies.",
