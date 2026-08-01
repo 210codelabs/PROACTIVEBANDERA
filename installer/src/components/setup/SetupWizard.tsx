@@ -156,6 +156,16 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
     const r = await fetch("/api/site-config/seed-specialty", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ specialty }) });
     const j = await r.json(); setMsg(r.ok ? `Seeded ${j.services} services, ${j.diagnoses} diagnoses, ${j.medications} medications.` : (j.error || "Seed failed"));
   }
+  async function renameTheme(id: string, current: string) {
+    const name = window.prompt("Rename theme:", current);
+    if (!name || name.trim() === current) return;
+    const r = await fetch("/api/site-config/presets", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ renameId: id, name: name.trim() }) });
+    const j = await r.json(); if (r.ok) setPresets(j.presets || []);
+  }
+  type SeedPack = { id: string; label: string; services: string[]; diagnoses: string[]; medications: string[] };
+  const [packs, setPacks] = useState<SeedPack[]>([]);
+  useEffect(() => { fetch("/api/site-config/seed-specialty").then((r) => r.json()).then((j) => setPacks(j.packs || [])).catch(() => {}); }, []);
+  const selectedPack = packs.find((p) => p.id === specialty);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -219,6 +229,7 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
                         <span className="h-3.5 w-3.5 rounded-full ring-1 ring-white" style={{ background: p.colors?.accent }} />
                       </span>
                       <button type="button" className="font-semibold text-slate-700 hover:text-brand-700" onClick={() => applyTheme(p)}>{p.name}</button>
+                      <button type="button" className="text-slate-400 hover:text-brand-600 px-0.5" onClick={() => renameTheme(p.id, p.name)} title="Rename">✎</button>
                       <button type="button" className="text-slate-400 hover:text-rose-500 px-1" onClick={() => deleteTheme(p.id)} title="Delete">×</button>
                     </span>
                   ))}
@@ -309,8 +320,15 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
                     <option value="primary">Primary Care</option>
                     <option value="aesthetic">Aesthetic Medicine &amp; Wellness</option>
                   </select>
-                  <button type="button" className="chip bg-brand-100 text-brand-800 ring-brand-200 text-xs" onClick={seedSpecialty}>Seed sample services</button>
+                  <button type="button" className="chip bg-brand-100 text-brand-800 ring-brand-200 text-xs" onClick={seedSpecialty}>Seed sample data</button>
                 </div>
+                {selectedPack && (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    <PreviewList title={`Services (${selectedPack.services.length})`} items={selectedPack.services} />
+                    <PreviewList title={`Diagnoses (${selectedPack.diagnoses.length})`} items={selectedPack.diagnoses} />
+                    <PreviewList title={`Medications (${selectedPack.medications.length})`} items={selectedPack.medications} />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -343,8 +361,18 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (<label className="block"><span className="label">{label}</span>{children}</label>);
+function PreviewList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-md bg-white ring-1 ring-slate-200 p-2">
+      <div className="font-semibold text-slate-700 mb-1">{title}</div>
+      <ul className="space-y-0.5 text-slate-500 list-disc list-inside">
+        {items.map((it, i) => (<li key={i} className="truncate" title={it}>{it}</li>))}
+      </ul>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {  return (<label className="block"><span className="label">{label}</span>{children}</label>);
 }
 
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {

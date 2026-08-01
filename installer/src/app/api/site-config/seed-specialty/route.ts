@@ -84,7 +84,13 @@ const PACKS: Record<string, Pack> = {
 
 export async function GET() {
   return NextResponse.json({
-    packs: Object.entries(PACKS).map(([id, p]) => ({ id, label: p.label, services: p.services.length, diagnoses: p.diagnoses.length, medications: p.medications.length })),
+    packs: Object.entries(PACKS).map(([id, p]) => ({
+      id,
+      label: p.label,
+      services: p.services.map((s) => s.name),
+      diagnoses: p.diagnoses.map((d) => `${d.code} — ${d.display}`),
+      medications: p.medications.map((m) => m.display),
+    })),
   });
 }
 

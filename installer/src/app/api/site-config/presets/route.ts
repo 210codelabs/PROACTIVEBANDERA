@@ -38,6 +38,12 @@ export async function POST(req: Request) {
     await save(items.filter((p) => p.id !== body.deleteId));
     return NextResponse.json({ ok: true, presets: await list() });
   }
+  if (body?.renameId) {
+    const name = String(body?.name || "").trim();
+    if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
+    await save(items.map((p) => (p.id === body.renameId ? { ...p, name } : p)));
+    return NextResponse.json({ ok: true, presets: await list() });
+  }
   const name = String(body?.name || "").trim();
   if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
   const c = await getSiteConfig();
