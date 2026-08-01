@@ -79,3 +79,12 @@ Imported the existing **ApexCare EHR** (full Next.js 15 + Prisma + MongoDB app, 
 - **Attorney Admin** (/attorneys, staff; linked from Settings): create attorney logins, show/hide & reset access codes, activate/deactivate. APIs GET/POST /api/attorneys, PATCH /api/attorneys/[id].
 - **Kiosk Print Receipt**: kiosk check-in success screen has a "Print receipt" button; a print-only slip (logo, patient, MRN, confirmation, module, date, HIPAA note) prints via window.print() with @media print CSS in globals.css.
 - **Request Notifications**: EHR top-bar bell (RecordRequestBell) polls GET /api/records-requests/count every 30s and shows a red pending-count badge linking to /records-requests.
+
+## White-label / Replicable Package (single-tenant)
+Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only setup.
+- Phase 1a (DONE): `/setup` wizard (admin-gated, re-editable from Settings). Steps: Identity (name/division/tagline/address/phone/email/website), Branding (primary/secondary/accent colors with live preview + header/footer logo upload), Modules (enable/disable EHR, Portal, Kiosk, Legal, Attorney Portal, Pharmacy/POS, AI Assistant), Review & Finish.
+  - Dynamic theming: Tailwind `brand-*` wired to CSS variables; `ThemeStyle` injects a palette generated from the chosen primary color at runtime → whole app re-themes from one color. Defaults reproduce Proactive blue.
+  - Config stored in AppSetting `site_config` (deep-merged over defaults). Logos/assets stored in Mongo `BrandAsset`, served publicly via `/api/branding/[key]`.
+- Phase 1b (TODO): hero + kiosk slide management — use curated defaults, upload, or AI-generate (Gemini Nano Banana via Emergent LLM Key).
+- Phase 2 (TODO): portable package — `.env.example`, README with 1-command setup, seed/setup script for Emergent/VSC/Cursor.
+- Wiring TODO: propagate `site_config` identity (address/phone/name) to footer, kiosk, PDFs, assistant prompts (currently many are hardcoded / in i18n dictionaries).
