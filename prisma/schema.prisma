@@ -17,6 +17,18 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 }
 
+// Uploaded branding assets (logos, hero/kiosk slides) stored in MongoDB so a
+// re-branded deployment keeps its images without external object storage.
+model BrandAsset {
+  id        String   @id @default(cuid()) @map("_id")
+  key       String   @unique // e.g. logo-header, logo-footer, hero-1, kiosk-2
+  mimeType  String
+  dataBase64 String
+  size      Int      @default(0)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
 // -------------------------------------------------------------
 // Reference / master data catalog (dropdown value sets)
 // One flexible table powers every clinical & demographic dropdown.

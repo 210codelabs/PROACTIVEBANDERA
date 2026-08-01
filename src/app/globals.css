@@ -13,6 +13,22 @@
   --teal-100: #dbedff;
   --teal-600: #1872f0;
   --teal-700: #17418c;
+
+  /* Brand palette as space-separated RGB triplets so Tailwind's
+     rgb(var(--brand-500) / <alpha-value>) works. These defaults reproduce the
+     original Proactive blue scale; the /setup wizard overrides them at runtime
+     (see ThemeStyle) to re-theme the whole app from a single primary color. */
+  --brand-50: 239 248 255;
+  --brand-100: 219 237 255;
+  --brand-200: 190 223 255;
+  --brand-300: 144 203 255;
+  --brand-400: 92 175 255;
+  --brand-500: 47 142 255;
+  --brand-600: 24 114 240;
+  --brand-700: 18 93 220;
+  --brand-800: 22 75 177;
+  --brand-900: 23 65 140;
+  --brand-950: 18 42 85;
 }
 
 @media (max-width: 639px) {
