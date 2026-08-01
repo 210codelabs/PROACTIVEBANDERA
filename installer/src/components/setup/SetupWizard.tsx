@@ -154,7 +154,7 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
   async function seedSpecialty() {
     setMsg("Seeding sample services…");
     const r = await fetch("/api/site-config/seed-specialty", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ specialty }) });
-    const j = await r.json(); setMsg(r.ok ? `Seeded ${j.seeded} sample services.` : (j.error || "Seed failed"));
+    const j = await r.json(); setMsg(r.ok ? `Seeded ${j.services} services, ${j.diagnoses} diagnoses, ${j.medications} medications.` : (j.error || "Seed failed"));
   }
 
   return (
@@ -212,7 +212,12 @@ export default function SetupWizard({ initial }: { initial: SiteConfig }) {
               {presets.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {presets.map((p) => (
-                    <span key={p.id} className="inline-flex items-center gap-1 rounded-full bg-white ring-1 ring-slate-200 pl-2 pr-1 py-0.5 text-xs">
+                    <span key={p.id} className="inline-flex items-center gap-1.5 rounded-full bg-white ring-1 ring-slate-200 pl-1.5 pr-1 py-0.5 text-xs">
+                      <span className="flex items-center -space-x-1" title="Theme colors">
+                        <span className="h-3.5 w-3.5 rounded-full ring-1 ring-white" style={{ background: p.colors?.primary }} />
+                        <span className="h-3.5 w-3.5 rounded-full ring-1 ring-white" style={{ background: p.colors?.secondary }} />
+                        <span className="h-3.5 w-3.5 rounded-full ring-1 ring-white" style={{ background: p.colors?.accent }} />
+                      </span>
                       <button type="button" className="font-semibold text-slate-700 hover:text-brand-700" onClick={() => applyTheme(p)}>{p.name}</button>
                       <button type="button" className="text-slate-400 hover:text-rose-500 px-1" onClick={() => deleteTheme(p.id)} title="Delete">×</button>
                     </span>
