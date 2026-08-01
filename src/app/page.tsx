@@ -3,7 +3,6 @@ import LandingLoginForm from "./LandingLoginForm";
 import HeroAuth from "@/components/HeroAuth";
 import LandingHeader from "@/components/LandingHeader";
 import { getT } from "@/lib/i18n/server";
-import { getSiteConfig } from "@/lib/site/config";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
@@ -30,11 +29,9 @@ const SERVICE_ICONS = [
 export default async function HomePage() {
   const { m } = await getT();
   const L = m.landing;
-  const site = await getSiteConfig();
-  const brand = { logoHeader: site.logos.header, logoFooter: site.logos.footer, clinicName: site.identity.clinicName };
   return (
     <main id="top" className="min-h-screen bg-white text-slate-900">
-      <LandingHeader L={L} brand={brand} />
+      <LandingHeader L={L} />
       <HeroAuth
         heading={L.heroTitle}
         accent={L.heroAccent}

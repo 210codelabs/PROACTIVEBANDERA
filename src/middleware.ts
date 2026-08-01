@@ -14,7 +14,6 @@ const PUBLIC_PREFIX = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/admin/config/public",
-  "/api/branding",
   "/_next",
   "/favicon.ico",
   "/icon-",

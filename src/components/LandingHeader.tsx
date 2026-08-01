@@ -6,11 +6,8 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 type LandingDict = Dictionary["landing"];
 
-export default function LandingHeader({ L, brand }: { L: LandingDict; brand?: { logoHeader: string; logoFooter: string; clinicName: string } }) {
+export default function LandingHeader({ L }: { L: LandingDict }) {
   const [scrolled, setScrolled] = useState(false);
-
-  const logoHeader = brand?.logoHeader || "/pclinic-header.png?v=2";
-  const logoFooter = brand?.logoFooter || "/pclinic-footer.png?v=2";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -36,8 +33,8 @@ export default function LandingHeader({ L, brand }: { L: LandingDict; brand?: { 
           <a href="#top" className="flex items-center gap-4">
             {/* Color logo on solid header, white logo over the hero */}
             <img
-              src={scrolled ? logoHeader : logoFooter}
-              alt={brand?.clinicName || "Proactive Clinic"}
+              src={scrolled ? "/pclinic-header.png?v=2" : "/pclinic-footer.png?v=2"}
+              alt="Proactive Clinic"
               className="h-12 sm:h-14 w-auto object-contain transition-all duration-300"
             />
           </a>

@@ -1,0 +1,15 @@
+FROM node:20-bookworm
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY prisma ./prisma/
+RUN npm install
+
+COPY . .
+
+COPY scripts/docker-entrypoint-dev.js ./scripts/docker-entrypoint-dev.js
+
+EXPOSE 3000
+
+CMD ["node", "scripts/docker-entrypoint-dev.js"]

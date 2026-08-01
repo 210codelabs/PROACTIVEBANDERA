@@ -50,13 +50,15 @@ export default async function Settings() {
           Settings data is temporarily unavailable. Showing fallback totals.
         </div>
       )}
-      <Link href="/setup" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
-        <div>
-          <div className="font-semibold text-slate-900">Branding &amp; Deployment Setup</div>
-          <div className="text-sm text-slate-500">Personalize this deployment&apos;s clinic name, address, phone, corporate division, color palette, logos and enabled modules. Re-run the guided setup anytime.</div>
-        </div>
-        <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Open setup →</span>
-      </Link>
+      {user.role === "admin" && (
+        <Link href="/admin/installer" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
+          <div>
+            <div className="font-semibold text-slate-900">Deployment Installer / Cloner</div>
+            <div className="text-sm text-slate-500">Download a separate, re-brandable copy of this platform (.zip) to spin up a new clinic on Emergent, VS Code or Cursor \u2014 with a guided branding wizard.</div>
+          </div>
+          <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Open \u2192</span>
+        </Link>
+      )}
       <Link href="/settings/catalogs" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
         <div>
           <div className="font-semibold text-slate-900">Clinical Catalogs</div>

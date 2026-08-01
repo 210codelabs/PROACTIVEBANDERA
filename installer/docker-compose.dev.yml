@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: apexcare-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: apexcare
+      POSTGRES_PASSWORD: apexcare_secret
+      POSTGRES_DB: apexcare_ehr
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apexcare -d apexcare_ehr"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: apexcare-app-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://apexcare:apexcare_secret@postgres:5432/apexcare_ehr
+      AUTH_SECRET: "apexcare-dev-secret-change-me-in-production-please-32chars+"
+      DB_HOST: postgres
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata_dev:

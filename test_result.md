@@ -633,3 +633,32 @@ agent_communication:
     -message: "Iteration 7 BACKEND: Test the NEW white-label setup endpoints. Details in the two tasks above. AUTH: admin admin@proactiveclinic.com/apex123 and provider andy.manzano@proactiveclinic.com/apex123, cookie proactive_session is secure:true so use HTTPS base URL https://nextjs-ssr-stack.preview.emergentagent.com. Verify admin-only gating (403 for provider), deep-merge on PUT (partial update preserves other fields), public asset serving (GET /api/branding/[key] works with NO session), and validation/404s. CLEANUP: restore site_config to defaults (or delete the AppSetting key 'site_config') and remove any BrandAsset you created. Do NOT test frontend."
     -agent: "testing"
     -message: "✅ Backend testing completed successfully for NEW white-label setup wizard endpoints (Iteration 7). ALL 10 test cases passed with no critical issues. Created /app/backend_test_site_config.py with comprehensive test coverage. Test results: (1) /api/site-config: Admin GET returns 200 with config containing all required fields (identity.clinicName, colors.primary, modules, setupComplete) ✅. Admin PUT with partial update returns 200 {ok:true, config} and DEEP MERGE verified (updated fields changed, other fields preserved: phone, city, division, colors.secondary, colors.accent all intact) ✅. Provider (non-admin) GET/PUT correctly blocked with 403 ✅. No session GET/PUT correctly blocked with 401 ✅. (2) /api/site-config/assets: Admin POST with valid PNG base64 returns 200 {ok:true, key, url} ✅. GET /api/branding/logo-header WITHOUT session (public endpoint) returns 200 with Content-Type image/png and raw bytes ✅. Admin POST missing dataBase64 returns 400 ✅. Provider POST returns 403 ✅. No session POST returns 401 ✅. GET nonexistent asset returns 404 ✅. CLEANUP COMPLETED: site_config AppSetting restored to defaults (clinicName='Proactive Clinic', colors.primary='#1872f0', setupComplete=false) ✅. BrandAsset 'logo-header' deleted from MongoDB (verified: BrandAsset collection now empty, GET /api/branding/logo-header returns 404) ✅. Clean state restored. All authentication, authorization, deep merge logic, validation, asset upload, and public serving working correctly. Ready for main agent to summarize and finish."
+
+## ---- Iteration 8 (main agent): Admin-only Installer/Cloner download (running app) ----
+backend:
+  - task: "Admin installer package download — GET /api/admin/installer"
+    implemented: true
+    working: true
+    file: "src/app/api/admin/installer/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW admin-only endpoint that zips the SEPARATE /app/installer white-label template and streams it. NOTE: the white-label wizard was intentionally REMOVED from the running app (so /api/site-config, /api/branding, /setup no longer exist here) and lives only inside the installer package. Please test GET /api/admin/installer: (A) admin admin@proactiveclinic.com/apex123 -> 200, Content-Type 'application/zip', Content-Disposition attachment filename clinic-installer.zip, non-empty body (a few MB); (B) provider andy.manzano@proactiveclinic.com/apex123 -> 403; (C) no session -> 401. Cookie proactive_session is secure so use HTTPS base URL https://nextjs-ssr-stack.preview.emergentagent.com. Also please CONFIRM the white-label endpoints are gone from the running app: GET /api/site-config and GET /api/branding/logo-header should now return 404 (route removed). Do NOT test frontend."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_installer.py. ALL 4 test cases passed with no critical issues. Test results: (1) Admin installer download: GET /api/admin/installer with admin session (admin@proactiveclinic.com/apex123) returns 200 ✅. Content-Type is 'application/zip' ✅. Content-Disposition contains 'attachment' and 'clinic-installer.zip' ✅. Response body is non-empty: 15785342 bytes (15.05 MB) ✅. Body starts with ZIP magic bytes 'PK' (valid ZIP file) ✅. (2) Provider (non-admin) authorization: GET /api/admin/installer with provider session (andy.manzano@proactiveclinic.com/apex123) correctly returns 403 with error message 'Admin access required' ✅. (3) No session authorization: GET /api/admin/installer without session correctly returns 401 with error message 'Unauthorized' ✅. (4) Regression - white-label routes removed: GET /api/site-config with admin session correctly returns 404 (route removed from running app) ✅. GET /api/branding/logo-header with admin session correctly returns 404 (route removed from running app) ✅. All authentication, authorization, file generation, response headers, and regression tests working correctly. White-label routes confirmed removed from running app (only exist in /app/installer package)."
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 8 BACKEND: Test GET /api/admin/installer (admin-only zip download of the separate installer template). Admin 200 application/zip; provider 403; no session 401. Also confirm the previously-added white-label routes were removed from the running app (GET /api/site-config -> 404, GET /api/branding/logo-header -> 404). Use HTTPS base URL. Do NOT test frontend."
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for Iteration 8: Admin installer download endpoint. ALL 4 test cases passed with no critical issues. Created /app/backend_test_installer.py with comprehensive test coverage. Test results: (1) Admin can download installer: Returns 200 with application/zip, Content-Disposition contains 'attachment' and 'clinic-installer.zip', body is 15.05 MB and starts with ZIP magic bytes 'PK' ✅. (2) Provider gets 403 with error 'Admin access required' ✅. (3) No session gets 401 with error 'Unauthorized' ✅. (4) White-label routes removed: Both /api/site-config and /api/branding/logo-header return 404 when accessed with authentication (confirming routes don't exist in running app, only in /app/installer package) ✅. All functionality working correctly. Ready for main agent to summarize and finish."
