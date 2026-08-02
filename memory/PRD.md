@@ -88,3 +88,13 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - Phase 1b (TODO): hero + kiosk slide management — use curated defaults, upload, or AI-generate (Gemini Nano Banana via Emergent LLM Key).
 - Phase 2 (TODO): portable package — `.env.example`, README with 1-command setup, seed/setup script for Emergent/VSC/Cursor.
 - Wiring TODO: propagate `site_config` identity (address/phone/name) to footer, kiosk, PDFs, assistant prompts (currently many are hardcoded / in i18n dictionaries).
+
+## Public Website Scheduling — "Book a Visit" (DONE, backend-tested)
+- Public page `/book` (no auth; whitelisted in middleware) with a choice screen:
+  - **New Patient**: basic info only, NO MRN field, disclaimer that MRN is created/activated in person at the clinic; priorityCheckin=false.
+  - **Current Patient**: requires MRN + DOB (verified against Patient record), richer service list, gets priorityCheckin=true.
+- Data model `AppointmentRequest` (prisma) with status pending|confirmed|declined + unique confirmation `PC-XXXXXX`.
+- API: `POST /api/appointments/request` (PUBLIC create + existing-patient verify), `GET` (staff list, ?status filter), `PATCH /api/appointments/request/[id]` (staff status update). Backend tested: 12/12 cases pass.
+- CTAs wired to `/book`: landing hero, booking band, insurance section, and header "Schedule a Visit" (were `#contact`).
+- Staff nav item "Appointment Requests" -> `/appointment-requests` (Confirm/Decline, priority flag).
+- Note: used `/book` (not `/schedule`) to avoid conflict with the existing authenticated staff calendar at `/schedule`.
