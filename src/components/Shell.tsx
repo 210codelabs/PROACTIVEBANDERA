@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SessionUser, roleLabel } from "@/lib/auth-types";
 import { initials } from "@/lib/utils";
 import GlobalSearch from "./GlobalSearch";
@@ -42,6 +42,51 @@ export default function Shell({
   const pathname = usePathname();
   const { t } = useI18n();
 
+  // Front-desk alerts: poll pending website requests, badge the nav item,
+  // and toast when a new one arrives.
+  const [pendingCount, setPendingCount] = useState(0);
+  const [alert, setAlert] = useState<string | null>(null);
+  const lastSeenRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let stop = false;
+    async function poll() {
+      try {
+        const r = await fetch("/api/appointments/request?status=pending", { cache: "no-store" });
+        if (!r.ok) return;
+        const j = await r.json();
+        const count: number = (j.requests || []).length;
+        if (stop) return;
+        setPendingCount(count);
+        const stored = lastSeenRef.current;
+        if (stored === null) {
+          // first load — seed from localStorage baseline, don't alert
+          const base = Number(localStorage.getItem("pc_pending_seen") || count);
+          lastSeenRef.current = base;
+          if (count > base) {
+            setAlert(`${count - base} new appointment request${count - base > 1 ? "s" : ""} waiting`);
+          }
+        } else if (count > stored) {
+          setAlert(`${count - stored} new appointment request${count - stored > 1 ? "s" : ""} received`);
+          lastSeenRef.current = count;
+          localStorage.setItem("pc_pending_seen", String(count));
+        } else {
+          lastSeenRef.current = count;
+          localStorage.setItem("pc_pending_seen", String(count));
+        }
+      } catch { /* ignore */ }
+    }
+    poll();
+    const id = setInterval(poll, 30000);
+    return () => { stop = true; clearInterval(id); };
+  }, []);
+
+  useEffect(() => {
+    if (!alert) return;
+    const id = setTimeout(() => setAlert(null), 8000);
+    return () => clearTimeout(id);
+  }, [alert]);
+
   const NAV: NavItem[] = [
     { label: t("nav.dashboard"), href: "/dashboard", icon: <Icon.Home /> },
     { label: t("nav.schedule"), href: "/schedule", icon: <Icon.Calendar /> },
@@ -76,7 +121,7 @@ export default function Shell({
   const groupedNav: NavSection[] = [
     {
       title: t("sections.clinical"),
-      items: NAV.filter((item) => ["/dashboard", "/schedule", "/patients", "/encounters", "/orders", "/modules"].includes(item.href)),
+      items: NAV.filter((item) => ["/dashboard", "/schedule", "/appointment-requests", "/patients", "/encounters", "/orders", "/modules"].includes(item.href)),
     },
     {
       title: t("sections.pharmacyRetail"),
@@ -122,7 +167,10 @@ export default function Shell({
                   className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition ${active ? "bg-brand-400/25 text-white" : "text-slate-100 hover:bg-brand-400/25 hover:text-white"}`}
                 >
                   <span className="text-slate-300">{item.icon}</span>
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.href === "/appointment-requests" && pendingCount > 0 && (
+                    <span className="ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold">{pendingCount}</span>
+                  )}
                 </Link>
                 {item.children && active && (
                   <div className="ml-8 mt-1 mb-1 space-y-0.5 border-l border-sky-800/60 pl-2">
@@ -152,6 +200,19 @@ export default function Shell({
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Front-desk alert toast */}
+      {alert && (
+        <div className="fixed bottom-5 right-5 z-[100] max-w-sm">
+          <a href="/appointment-requests" onClick={() => setAlert(null)}
+            className="flex items-start gap-3 rounded-xl bg-white shadow-2xl ring-1 ring-red-200 border-l-4 border-red-500 p-4 hover:ring-red-300 transition">
+            <span className="mt-0.5 h-8 w-8 shrink-0 rounded-full bg-red-100 text-red-600 grid place-items-center">🔔</span>
+            <span>
+              <span className="block text-sm font-semibold text-slate-900">New appointment request</span>
+              <span className="block text-sm text-slate-600">{alert}. Click to review.</span>
+            </span>
+          </a>
+        </div>
+      )}
       <div className="sticky top-0 z-30">
         <TopUtilityBar
           firstName={user.firstName}

@@ -62,6 +62,44 @@ export async function POST(req: Request) {
     },
   });
 
+  // Best-effort front-desk inbox notification (native Message).
+  try {
+    const recipient = await db.user.findFirst({
+      where: { active: true, role: { in: ["admin", "front-desk", "frontdesk", "staff"] } },
+      orderBy: { role: "asc" },
+    });
+    const sender = recipient ?? (await db.user.findFirst({ where: { active: true } }));
+    if (sender) {
+      const who = `${created.firstName} ${created.lastName}`;
+      const kind = created.patientType === "existing" ? "current patient" : "new patient";
+      await db.message.create({
+        data: {
+          fromUserId: sender.id,
+          toUserId: recipient?.id ?? null,
+          patientId: matchedPatientId,
+          subject: `New website appointment request — ${who} [${created.confirmation}]${priorityCheckin ? " ★PRIORITY" : ""}`,
+          body: [
+            `A new "Book a Visit" request was submitted from the website.`,
+            ``,
+            `Confirmation: ${created.confirmation}`,
+            `Patient: ${who} (${kind})`,
+            created.mrn ? `MRN: ${created.mrn}` : ``,
+            created.phone ? `Phone: ${created.phone}` : ``,
+            created.email ? `Email: ${created.email}` : ``,
+            created.serviceInterest ? `Service: ${created.serviceInterest}` : ``,
+            (created.preferredDate || created.preferredTime) ? `Preferred: ${created.preferredDate ?? ""} ${created.preferredTime ?? ""}`.trim() : ``,
+            priorityCheckin ? `★ Priority check-in (verified current patient)` : ``,
+            ``,
+            `Review it under Appointment Requests to confirm or schedule.`,
+          ].filter(Boolean).join("\n"),
+          read: false,
+        },
+      });
+    }
+  } catch {
+    // notification is non-fatal
+  }
+
   // Best-effort confirmation email (no-op if RESEND not configured).
   const lang = b?.lang === "es" ? "es" : "en";
   let emailStatus: string = "skipped";

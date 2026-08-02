@@ -780,3 +780,59 @@ agent_communication:
     -message: "✅ Backend testing completed successfully for NEW convert endpoint POST /api/appointments/request/[id]/convert. ALL 7 test cases passed with no critical issues. Created /app/backend_test_convert.py with comprehensive test coverage. Test results: (1) Create NEW-patient request and convert: Public POST returns 200 with emailStatus:'skipped' (no RESEND key) ✅, staff GET finds request ID ✅, POST convert returns 200 with all required fields (id, startsAt, endsAt, location, providerName, patientMrn) ✅, request status is 'confirmed' ✅, appointmentId and scheduledStartsAt set ✅. (2) Convert SAME request again: Correctly returns 409 'This request has already been scheduled.' ✅. (3) Convert without session: Correctly returns 401 'Unauthorized' ✅. (4) Convert without date/time: Create request without preferredDate/preferredTime ✅, convert with empty body correctly returns 400 'A valid date and time are required to schedule this appointment.' ✅. (5) Convert nonexistent ID: Correctly returns 404 'Request not found' ✅. (6) Create EXISTING-patient request and convert: Public POST with mrn:'PC-100000', dob:'1958-04-12' returns 200 ✅, convert returns 200 ✅, appointment patientMrn is 'PC-100000' (uses matched existing patient, does NOT create new patient) ✅. (7) CLEANUP: All test data deleted successfully via npx tsx cleanup script - 2 appointments deleted, 3 appointment requests deleted, 1 test patient deleted (ZZTest Convert) ✅. Eleanor Adams patient and her appointment remain intact ✅. NOTE: Testing required HTTPS URL because session cookie has secure:true flag. All authentication, authorization, validation, patient creation/matching, appointment creation, request status updates, and cleanup working correctly. Ready for main agent to summarize and finish."
     -agent: "testing"
     -message: "✅ FRONTEND UI testing completed successfully for public /book page (Iteration 9 & 10 features). ALL 4 test scenarios PASSED with no critical issues. Tested at https://nextjs-ssr-stack.preview.emergentagent.com/book. RESULTS: (1) Language Toggle EN/ES: Fully functional, header and choice cards switch correctly between English and Spanish ✅. (2) New Patient Flow: Yellow disclaimer visible (NO MRN needed), NO MRN input field in form, form submission successful, confirmation number format correct (PC-312930), NO priority chip shown ✅. (3) Current Patient Flow (Valid): MRN and DOB fields present, form submission with Eleanor Adams (PC-100000, 1958-04-12) successful, confirmation number format correct (PC-825287), priority chip IS shown ('★ Priority check-in as a current patient') ✅. (4) Current Patient Flow (Failed Verification): Wrong DOB (1999-01-01) correctly triggers error message 'We couldn't verify that MRN and date of birth', NO confirmation panel appears ✅. All bilingual functionality, form validation, MRN/DOB verification, and confirmation flows working correctly. Screenshots captured for all scenarios. Ready for main agent to summarize and finish."
+
+## ---- Iteration 11 (main agent): Front-Desk Alerts + Booking Analytics ----
+backend:
+  - task: "Booking analytics stats (GET /api/appointments/request/stats) — staff only"
+    implemented: true
+    working: true
+    file: "src/app/api/appointments/request/stats/route.ts"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW staff-only GET aggregates AppointmentRequest rows: {total, byStatus:{pending,confirmed,declined}, byType:{new,existing}, byService:[{service,count}] desc, scheduled (appointmentId set), priority (priorityCheckin true), last30, conversionRate (scheduled/total %)}. No session -> 401. Static 'stats' segment sits alongside dynamic '[id]' (Next prioritizes static). Sanity-tested via HTTP: staff 200 with correct aggregates; no auth 401."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_booking_analytics.py. ALL 3 test cases passed with no critical issues. Test results: (1) GET /api/appointments/request/stats without session correctly returns 401 Unauthorized ✅. (2) GET with staff session returns 200 with all required keys {total, byStatus, byType, byService, scheduled, priority, last30, conversionRate} ✅. All data types verified: total is number (4) ✅, byStatus has {pending:3, confirmed:1, declined:0} ✅, byType has {new:0, existing:4} ✅, byService is array with 3 items ✅, scheduled=0, priority=4, last30=4 ✅, conversionRate=0% (valid 0-100 range) ✅. Mathematical validations: byStatus.pending + byStatus.confirmed + byStatus.declined == total ✅, byType.new + byType.existing == total ✅. (3) Verified 'stats' path is NOT treated as [id] - returns stats object (not 404/single-request) ✅. All authentication, data structure, calculations, and routing working correctly."
+  - task: "Front-desk inbox Message created on public request (POST /api/appointments/request)"
+    implemented: true
+    working: true
+    file: "src/app/api/appointments/request/route.ts"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Public POST now creates a best-effort front-desk Message (recipient = first active admin/front-desk/staff user; sender falls back to any active user). Subject 'New website appointment request — <name> [PC-XXXXXX]' plus ' ★PRIORITY' for verified current patients; body includes MRN/phone/email/service/preferred. Non-fatal (wrapped in try/catch). Verified two messages created (one with ★PRIORITY). Does not change the POST response shape."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_booking_analytics.py. ALL 3 test cases passed with no critical issues. Test results: (1) NEW patient request: POST /api/appointments/request {patientType:'new', firstName:'MsgTest', lastName:'Alert', email:'mt@example.com', serviceInterest:'Primary Care'} returns 200 {ok:true, confirmation:'PC-208628', priorityCheckin:false, emailStatus:'skipped'} ✅. Message document successfully created in MongoDB with subject 'New website appointment request — MsgTest Alert [PC-208628]' ✅. Subject contains 'New website appointment request' ✅, contains 'MsgTest Alert' ✅, does NOT contain '★PRIORITY' for new patient (correct) ✅. (2) EXISTING patient request: POST {patientType:'existing', mrn:'PC-100000', dob:'1958-04-12', firstName:'Eleanor', lastName:'Adams', serviceInterest:'Physical Therapy'} returns 200 {ok:true, confirmation:'PC-549165', priorityCheckin:true, emailStatus:'skipped'} ✅. Message document successfully created in MongoDB with subject 'New website appointment request — Eleanor Adams [PC-549165] ★PRIORITY' ✅. Subject contains '★PRIORITY' for existing verified patient ✅. (3) CLEANUP: All test data deleted successfully - 2 AppointmentRequests deleted (PC-208628, PC-549165) ✅, 2 Messages deleted ✅, Eleanor Adams Patient record left intact (not deleted) ✅. All Message creation, priority flagging, and cleanup working correctly."
+
+frontend:
+  - task: "Front-desk alert badge + toast (Shell) and Booking Analytics dashboard"
+    implemented: true
+    working: "NA"
+    file: "src/components/Shell.tsx, src/components/BookingAnalytics.tsx, src/app/(app)/appointment-requests/page.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Shell polls GET /api/appointments/request?status=pending every 30s: shows a red count badge on the 'Appointment Requests' nav item and a bottom-right toast when the pending count increases beyond the last-seen baseline (persisted in localStorage 'pc_pending_seen'); toast links to /appointment-requests and auto-dismisses after 8s. Also fixed nav grouping so the Appointment Requests item actually appears in the Clinical sidebar section. Booking Analytics dashboard embedded at top of /appointment-requests: KPI cards (Total, Pending, Scheduled, Conversion %, Last 30 days), New-vs-Current split bar with priority count, Status bars, and Requests-by-service bar list. Screenshot verified: red '3' nav badge + full analytics dashboard render correctly."
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 11 BACKEND: Test two things (HTTPS base URL https://nextjs-ssr-stack.preview.emergentagent.com; staff login POST /api/auth/login {email:'andy.manzano@proactiveclinic.com', password:'apex123'} -> cookie proactive_session, secure:true). (1) GET /api/appointments/request/stats: no session -> 401; with staff session -> 200 with keys {total, byStatus:{pending,confirmed,declined}, byType:{new,existing}, byService:[{service,count}], scheduled, priority, last30, conversionRate}; byStatus counts should sum to total; byType counts should sum to total. Confirm it does NOT collide with the [id] route (i.e. 'stats' is treated as the stats endpoint, not an id). (2) Front-desk Message on public request: POST /api/appointments/request {patientType:'new', firstName:'MsgTest', lastName:'Alert', email:'mt@example.com', serviceInterest:'Primary Care'} -> 200; then verify a Message row exists whose subject contains 'New website appointment request' and 'MsgTest Alert' (you can check via any staff messages listing endpoint if available, otherwise via DB). Also POST an EXISTING verified request (mrn PC-100000, dob 1958-04-12) -> the created Message subject should contain '★PRIORITY'. CLEANUP: delete the test AppointmentRequests you create (firstName 'MsgTest' and the extra Eleanor Adams one you add) and their Messages so the demo stays clean; do NOT delete the Eleanor Adams patient. Do NOT test frontend."
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for Iteration 11 (Booking Analytics & Message Creation). ALL 6 test cases passed with no critical issues. Created /app/backend_test_booking_analytics.py with comprehensive test coverage. TEST GROUP 1 (Stats endpoint): (1.1) GET /api/appointments/request/stats without session correctly returns 401 ✅. (1.2) GET with staff session returns 200 with all required keys and correct data types ✅. Mathematical validations: byStatus sum == total ✅, byType sum == total ✅. (1.3) Verified 'stats' path is NOT treated as [id] - returns stats object (not 404) ✅. TEST GROUP 2 (Message creation): (2.1) NEW patient request creates Message with subject containing 'New website appointment request' and 'MsgTest Alert', NO ★PRIORITY flag ✅. (2.2) EXISTING patient request (PC-100000/1958-04-12) creates Message with '★PRIORITY' in subject ✅. CLEANUP: All test data deleted successfully - 2 AppointmentRequests, 2 Messages deleted, Eleanor Adams Patient record left intact ✅. All authentication, data structure, calculations, routing, Message creation, priority flagging, and cleanup working correctly. Ready for main agent to summarize and finish."
