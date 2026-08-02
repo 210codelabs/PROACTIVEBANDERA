@@ -68,7 +68,7 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
             </a>
 
             <a
-              href="#contact"
+              href="/book"
               className={`inline-flex items-center gap-2 rounded-full text-sm font-bold px-4 sm:px-5 py-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 ${
                 scrolled
                   ? "bg-brand-700 hover:bg-brand-800 text-white"

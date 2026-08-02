@@ -662,3 +662,60 @@ agent_communication:
     -message: "Iteration 8 BACKEND: Test GET /api/admin/installer (admin-only zip download of the separate installer template). Admin 200 application/zip; provider 403; no session 401. Also confirm the previously-added white-label routes were removed from the running app (GET /api/site-config -> 404, GET /api/branding/logo-header -> 404). Use HTTPS base URL. Do NOT test frontend."
     -agent: "testing"
     -message: "✅ Backend testing completed successfully for Iteration 8: Admin installer download endpoint. ALL 4 test cases passed with no critical issues. Created /app/backend_test_installer.py with comprehensive test coverage. Test results: (1) Admin can download installer: Returns 200 with application/zip, Content-Disposition contains 'attachment' and 'clinic-installer.zip', body is 15.05 MB and starts with ZIP magic bytes 'PK' ✅. (2) Provider gets 403 with error 'Admin access required' ✅. (3) No session gets 401 with error 'Unauthorized' ✅. (4) White-label routes removed: Both /api/site-config and /api/branding/logo-header return 404 when accessed with authentication (confirming routes don't exist in running app, only in /app/installer package) ✅. All functionality working correctly. Ready for main agent to summarize and finish."
+
+
+## ---- Iteration 9 (main agent): Public website scheduling (Book a Visit) ----
+backend:
+  - task: "Public appointment request create + existing-patient verify (POST /api/appointments/request)"
+    implemented: true
+    working: true
+    file: "src/app/api/appointments/request/route.ts, prisma/schema.prisma"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW public endpoint (whitelisted in middleware under /api/appointments/request). POST is PUBLIC (no session). Two flows: (NEW patient) patientType='new' requires firstName+lastName only, no MRN, priorityCheckin=false. (EXISTING patient) patientType='existing' requires mrn+dob; verifies against Patient record (mrn unique + dob ISO match); on match links matchedPatientId and sets priorityCheckin=true; on mismatch returns 404. Persists AppointmentRequest (status 'pending') with a unique confirmation number 'PC-XXXXXX'. Returns {ok:true, confirmation, priorityCheckin}. GET is STAFF-ONLY (getSession -> 401 if none), lists requests ordered by status/createdAt with optional ?status filter. Sanity-tested via direct HTTP: new -> 200 priorityCheckin false; missing name -> 400; existing PC-100000/1958-04-12 -> 200 priorityCheckin true; bad dob -> 404; GET no auth -> 401. Please retest all cases. Known existing patient for verify: MRN PC-100000, DOB 1958-04-12 (Eleanor Adams)."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_appointment_request.py. All test cases passed: POST /api/appointments/request (PUBLIC - no auth required): (1) NEW patient with valid data {patientType:'new', firstName:'Jane', lastName:'Doe', phone:'210-555-0100', email:'jane@example.com', serviceInterest:'Primary Care', preferredDate:'2026-07-15', preferredTime:'10:00'} returns 200 {ok:true, confirmation:'PC-338353', priorityCheckin:false} ✅. Confirmation format verified (matches ^PC-[0-9]{6}$) ✅. (2) NEW patient missing firstName/lastName correctly returns 400 with error 'First and last name are required.' ✅. (3) EXISTING patient with valid MRN/DOB {patientType:'existing', mrn:'PC-100000', dob:'1958-04-12', firstName:'Eleanor', lastName:'Adams', serviceInterest:'Follow-up Visit'} returns 200 {ok:true, confirmation:'PC-246038', priorityCheckin:true} ✅. (4) EXISTING patient with wrong DOB (1999-01-01) correctly returns 404 with error message ✅. (5) EXISTING patient with unknown MRN 'PC-000000' correctly returns 404 ✅. (6) EXISTING patient missing MRN/DOB correctly returns 400 with error 'MRN and date of birth are required for existing patients.' ✅. GET /api/appointments/request (STAFF-ONLY): (7) Without session correctly returns 401 'Unauthorized' ✅. (8) Staff login successful (andy.manzano@proactiveclinic.com/apex123) with cookie 'proactive_session' ✅. GET with staff session returns 200 {requests:[...]} with 4 requests ✅. Both created requests (PC-338353, PC-246038) found in list ✅. (9) GET with ?status=pending filter returns 200 with 4 pending requests, all have status 'pending' ✅. All authentication, authorization, validation, MRN/DOB verification, and status filtering working correctly."
+  - task: "Staff update appointment request status (PATCH /api/appointments/request/[id])"
+    implemented: true
+    working: true
+    file: "src/app/api/appointments/request/[id]/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "PATCH is STAFF-ONLY (getSession -> 401 if none). Body {status} must be one of pending|confirmed|declined (else 400). Updates the AppointmentRequest and returns {ok:true, request}. Please test: create a request via public POST, then as staff PATCH status:'confirmed' -> 200; invalid status -> 400; no session -> 401."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_appointment_request.py. All test cases passed: PATCH /api/appointments/request/[id] (STAFF-ONLY): (10) Without session correctly returns 401 'Unauthorized' ✅. (11) With staff session and {status:'confirmed'} returns 200 {ok:true, request:{status:'confirmed'}} ✅. Status successfully updated from 'pending' to 'confirmed' ✅. Request object returned with all fields including id, patientType, firstName, lastName, mrn, matchedPatientId, serviceInterest, priorityCheckin, status, confirmation, createdAt, updatedAt ✅. (12) With invalid status 'bogus' correctly returns 400 with error 'Invalid status' ✅. All authentication, authorization, validation, and status updates working correctly."
+
+frontend:
+  - task: "Public Book a Visit page + choice/New/Existing form; CTAs wired; staff review list"
+    implemented: true
+    working: "NA"
+    file: "src/app/book/page.tsx, src/components/ScheduleForm.tsx, src/app/(app)/appointment-requests/page.tsx, src/components/AppointmentRequestsList.tsx, src/app/page.tsx, src/components/LandingHeader.tsx, src/components/Shell.tsx, src/middleware.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Public /book page (no auth). ScheduleForm has choice screen -> New Patient (basic info, MRN disclaimer, no MRN field) or Current Patient (MRN+DOB + richer service list + priority note). On submit shows confirmation number panel (+ priority chip for existing). Landing hero/booking-band/insurance CTAs and header 'Schedule a Visit' button now link to /book (were '#contact'). Staff nav has new 'Appointment Requests' item -> /appointment-requests page listing submissions with Confirm/Decline actions and priority flag. Resolved a route conflict by using /book (not /schedule which is the staff calendar). Screenshot confirms choice screen renders."
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 9 BACKEND: Please test the NEW public website scheduling endpoints. (1) POST /api/appointments/request is PUBLIC (no session). NEW patient: {patientType:'new', firstName, lastName, phone?, email?, serviceInterest?, preferredDate?, preferredTime?, message?} -> 200 {ok:true, confirmation:'PC-...', priorityCheckin:false}; missing firstName/lastName -> 400. EXISTING patient: {patientType:'existing', mrn:'PC-100000', dob:'1958-04-12', firstName, lastName} -> 200 priorityCheckin:true; wrong dob or unknown mrn -> 404; missing mrn/dob -> 400. (2) GET /api/appointments/request is STAFF-ONLY: staff login POST /api/auth/login {email:'andy.manzano@proactiveclinic.com', password:'apex123'} (cookie proactive_session, secure:true so use HTTPS base URL https://nextjs-ssr-stack.preview.emergentagent.com) -> GET returns {requests:[...]}; no session -> 401; ?status=pending filter works. (3) PATCH /api/appointments/request/[id] STAFF-ONLY: create a request via public POST first, then PATCH {status:'confirmed'} -> 200 {ok:true, request:{status:'confirmed'}}; invalid status -> 400; no session -> 401. Do NOT test frontend."
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for NEW public website scheduling endpoints. ALL 12 test cases passed with no critical issues. Created /app/backend_test_appointment_request.py with comprehensive test coverage. Test results: POST /api/appointments/request (PUBLIC): (1) NEW patient valid -> 200 {ok:true, confirmation:'PC-338353', priorityCheckin:false} ✅, confirmation format verified (^PC-[0-9]{6}$) ✅. (2) NEW patient missing name -> 400 ✅. (3) EXISTING patient valid (PC-100000/1958-04-12) -> 200 {ok:true, confirmation:'PC-246038', priorityCheckin:true} ✅. (4) EXISTING patient wrong DOB -> 404 ✅. (5) EXISTING patient unknown MRN -> 404 ✅. (6) EXISTING patient missing MRN/DOB -> 400 ✅. GET /api/appointments/request (STAFF-ONLY): (7) Without session -> 401 ✅. (8) With staff session -> 200 {requests:[...]} with 4 requests, both created requests found ✅. (9) With ?status=pending filter -> 200, all items have status 'pending' ✅. PATCH /api/appointments/request/[id] (STAFF-ONLY): (10) Without session -> 401 ✅. (11) With staff session {status:'confirmed'} -> 200 {ok:true, request:{status:'confirmed'}} ✅. (12) Invalid status 'bogus' -> 400 ✅. NOTE: Testing required HTTPS URL because session cookie has secure:true flag. All functionality working correctly. Ready for main agent to summarize and finish."

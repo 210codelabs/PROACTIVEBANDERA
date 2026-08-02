@@ -23,6 +23,7 @@ const en = {
   nav: {
     dashboard: "Dashboard",
     schedule: "Schedule",
+    appointmentRequests: "Appointment Requests",
     patients: "Patients",
     encounters: "Encounters",
     orders: "Orders",
@@ -283,6 +284,7 @@ const es = {
   nav: {
     dashboard: "Panel",
     schedule: "Agenda",
+    appointmentRequests: "Solicitudes de cita",
     patients: "Pacientes",
     encounters: "Consultas",
     orders: "Órdenes",

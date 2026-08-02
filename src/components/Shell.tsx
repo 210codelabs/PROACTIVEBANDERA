@@ -45,6 +45,7 @@ export default function Shell({
   const NAV: NavItem[] = [
     { label: t("nav.dashboard"), href: "/dashboard", icon: <Icon.Home /> },
     { label: t("nav.schedule"), href: "/schedule", icon: <Icon.Calendar /> },
+    { label: t("nav.appointmentRequests"), href: "/appointment-requests", icon: <Icon.Inbox /> },
     { label: t("nav.patients"), href: "/patients", icon: <Icon.Users /> },
     { label: t("nav.encounters"), href: "/encounters", icon: <Icon.Clipboard /> },
     { label: t("nav.orders"), href: "/orders", icon: <Icon.Beaker /> },
@@ -335,6 +336,7 @@ const Icon = {
   Cog: () => svgPath("M12 8a4 4 0 100 8 4 4 0 000-8zM4 12h2M18 12h2M12 4v2M12 18v2M6 6l1.5 1.5M16.5 16.5L18 18M6 18l1.5-1.5M16.5 7.5L18 6"),
   Shield: () => svgPath("M12 3l7 3v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3zM9 12l2 2 4-4"),
   Bell: () => svgPath("M6 16V11a6 6 0 1112 0v5l1 2H5l1-2zM10 21a2 2 0 004 0"),
+  Inbox: () => svgPath("M4 13l2.5-8h11L20 13M4 13v6h16v-6M4 13h5l1 2h4l1-2h5"),
   Menu: () => svgPath("M3 6h18M3 12h18M3 18h18"),
   X: () => svgPath("M18 6L6 18M6 6l12 12"),
 };
