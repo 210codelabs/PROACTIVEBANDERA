@@ -36,6 +36,9 @@ model AppointmentRequest {
   priorityCheckin  Boolean  @default(false)
   status           String   @default("pending") // pending | confirmed | declined
   confirmation     String   @unique
+  appointmentId    String?  // set when front desk converts this into a real Appointment
+  scheduledStartsAt DateTime? // the scheduled time once converted
+  emailStatus      String?  // sent | failed | skipped
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

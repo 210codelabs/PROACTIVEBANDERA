@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { sendBookingConfirmation } from "@/lib/email";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function genConfirmation() {
@@ -59,7 +61,25 @@ export async function POST(req: Request) {
       confirmation,
     },
   });
-  return NextResponse.json({ ok: true, confirmation: created.confirmation, priorityCheckin });
+
+  // Best-effort confirmation email (no-op if RESEND not configured).
+  const lang = b?.lang === "es" ? "es" : "en";
+  let emailStatus: string = "skipped";
+  if (created.email) {
+    emailStatus = await sendBookingConfirmation({
+      to: created.email,
+      firstName: created.firstName,
+      confirmation: created.confirmation,
+      serviceInterest: created.serviceInterest,
+      preferredDate: created.preferredDate,
+      preferredTime: created.preferredTime,
+      priorityCheckin: created.priorityCheckin,
+      lang,
+    });
+    try { await db.appointmentRequest.update({ where: { id: created.id }, data: { emailStatus } }); } catch { /* non-fatal */ }
+  }
+
+  return NextResponse.json({ ok: true, confirmation: created.confirmation, priorityCheckin, emailStatus });
 }
 
 // GET (STAFF): list requests for the front desk.
