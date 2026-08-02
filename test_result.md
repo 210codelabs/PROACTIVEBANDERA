@@ -836,3 +836,45 @@ agent_communication:
     -message: "Iteration 11 BACKEND: Test two things (HTTPS base URL https://nextjs-ssr-stack.preview.emergentagent.com; staff login POST /api/auth/login {email:'andy.manzano@proactiveclinic.com', password:'apex123'} -> cookie proactive_session, secure:true). (1) GET /api/appointments/request/stats: no session -> 401; with staff session -> 200 with keys {total, byStatus:{pending,confirmed,declined}, byType:{new,existing}, byService:[{service,count}], scheduled, priority, last30, conversionRate}; byStatus counts should sum to total; byType counts should sum to total. Confirm it does NOT collide with the [id] route (i.e. 'stats' is treated as the stats endpoint, not an id). (2) Front-desk Message on public request: POST /api/appointments/request {patientType:'new', firstName:'MsgTest', lastName:'Alert', email:'mt@example.com', serviceInterest:'Primary Care'} -> 200; then verify a Message row exists whose subject contains 'New website appointment request' and 'MsgTest Alert' (you can check via any staff messages listing endpoint if available, otherwise via DB). Also POST an EXISTING verified request (mrn PC-100000, dob 1958-04-12) -> the created Message subject should contain '★PRIORITY'. CLEANUP: delete the test AppointmentRequests you create (firstName 'MsgTest' and the extra Eleanor Adams one you add) and their Messages so the demo stays clean; do NOT delete the Eleanor Adams patient. Do NOT test frontend."
     -agent: "testing"
     -message: "✅ Backend testing completed successfully for Iteration 11 (Booking Analytics & Message Creation). ALL 6 test cases passed with no critical issues. Created /app/backend_test_booking_analytics.py with comprehensive test coverage. TEST GROUP 1 (Stats endpoint): (1.1) GET /api/appointments/request/stats without session correctly returns 401 ✅. (1.2) GET with staff session returns 200 with all required keys and correct data types ✅. Mathematical validations: byStatus sum == total ✅, byType sum == total ✅. (1.3) Verified 'stats' path is NOT treated as [id] - returns stats object (not 404) ✅. TEST GROUP 2 (Message creation): (2.1) NEW patient request creates Message with subject containing 'New website appointment request' and 'MsgTest Alert', NO ★PRIORITY flag ✅. (2.2) EXISTING patient request (PC-100000/1958-04-12) creates Message with '★PRIORITY' in subject ✅. CLEANUP: All test data deleted successfully - 2 AppointmentRequests, 2 Messages deleted, Eleanor Adams Patient record left intact ✅. All authentication, data structure, calculations, routing, Message creation, priority flagging, and cleanup working correctly. Ready for main agent to summarize and finish."
+
+## ---- Iteration 12 (main agent): Patient search filters + sorting (EMR header) ----
+backend:
+  - task: "Enhanced patient search (GET /api/patients/search) — DOB search, case-insensitive, filters, sorting"
+    implemented: true
+    working: true
+    file: "src/app/api/patients/search/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Upgraded existing search. Now: case-insensitive (mode:'insensitive') contains match on firstName/lastName/mrn/email (phone plain contains). Adds DOB search when q is a date: YYYY-MM-DD (exact day range), MM/DD/YYYY, or YYYY (whole-year range). New optional filters: status (active|inactive|deceased) and sex (M|F|X) applied as AND. New sort param: name_asc(default)|name_desc|dob_asc|dob_desc|created_desc|mrn_asc. limit up to 50 (default 8). Returns extra fields sex/status/phone. Empty (no q AND no filters) -> [] (won't dump table). Requires session (requireSession -> 401 no session). Sanity-tested via HTTP: 'adams' case-insensitive ->1; MRN ->1; DOB 1958-04-12 ->1; year 1958 ->1; status=active&sort=dob_asc -> ordered oldest DOB first; empty -> []; no auth -> 401."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_patient_search.py. ALL 10 test cases passed with no critical issues. Test results: (1) GET without session correctly blocked with 401 Unauthorized ✅. (2) GET ?q=adams (lowercase) returns 200 with Eleanor Adams, case-insensitive match working ✅. All required fields present (id, mrn, firstName, lastName, dob, sex, status, phone) ✅. (3) GET ?q=PC-100000 returns 200 with Eleanor Adams ✅. (4) GET ?q=1958-04-12 returns 200 with Eleanor Adams (exact DOB day match working) ✅. (5) GET ?q=1958 returns 200 with Eleanor Adams (DOB year-range match working) ✅. (6) GET ?status=active&sort=dob_asc (no q) returns 200 with 8 results, all have status='active' ✅, results ordered by DOB ascending (oldest first: 1948-01-25, 1958-04-12, 1968-02-22...) ✅. (7) GET ?q=a&sort=name_desc returns 200 with 8 results, lastName values in descending order (Williams, Schmidt, Rodriguez...Martinez) ✅. (8) GET ?sex=F returns 200 with 6 results, all have sex='F' ✅. (9) GET with no q AND no filters returns 200 with empty results [] (does not dump whole table) ✅. (10) GET ?status=active&limit=3 returns 200 with exactly 3 results (limit respected) ✅. All authentication, case-insensitive search, DOB matching (exact day and year range), filtering (status, sex), sorting (name_desc, dob_asc), limit enforcement, and empty-query protection working correctly. READ-ONLY testing completed, no data created or modified."
+
+frontend:
+  - task: "Header GlobalSearch: filters (status, sex) + sorting panel, DOB search, ⌘K"
+    implemented: true
+    working: "NA"
+    file: "src/components/GlobalSearch.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Header search now has a funnel button (with active-filter count badge) that opens a panel with Status, Sex, and Sort-by selects plus a DOB tip and Clear filters. Debounced query re-runs on q/status/sex/sort change (limit 20). Results show last-name-first, a status chip for non-active, MRN + DOB, loading/empty states, and a 'first 20' footer. ⌘K focuses the box. Screenshot verified: results dropdown lists matching patients; filter panel renders with all three selects."
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 12 BACKEND: Test enhanced GET /api/patients/search (staff session required; HTTPS base URL; login andy.manzano@proactiveclinic.com/apex123 -> proactive_session). Cases: (1) no session -> 401. (2) q=adams (lowercase) -> returns Eleanor Adams (case-insensitive). (3) q=PC-100000 -> Eleanor Adams. (4) q=1958-04-12 -> Eleanor Adams (DOB exact). (5) q=1958 -> includes Eleanor Adams (DOB year range). (6) status=active&sort=dob_asc (no q) -> 200 results ordered by DOB ascending (oldest first); verify ordering. (7) sort=name_desc with q=a -> last names in descending order. (8) sex=F filter -> only F patients. (9) no q AND no filters -> results empty []. (10) limit respected (e.g. limit=3 -> <=3). Existing demo patients include Eleanor Adams (PC-100000, DOB 1958-04-12). Do NOT create or delete any patients. Do NOT test frontend."
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for enhanced patient search endpoint GET /api/patients/search. ALL 10 test cases passed with no critical issues. Created /app/backend_test_patient_search.py with comprehensive READ-ONLY test coverage. Test results: (1) Authentication: Without session correctly blocked with 401 ✅. (2) Case-insensitive search: ?q=adams returns Eleanor Adams with all required fields (id, mrn, firstName, lastName, dob, sex, status, phone) ✅. (3) MRN search: ?q=PC-100000 returns Eleanor Adams ✅. (4) Exact DOB search: ?q=1958-04-12 returns Eleanor Adams ✅. (5) Year-range DOB search: ?q=1958 includes Eleanor Adams ✅. (6) Status filter + DOB sort: ?status=active&sort=dob_asc returns 8 results, all active, ordered by DOB ascending (oldest first: 1948, 1958, 1968...) ✅. (7) Name sort descending: ?q=a&sort=name_desc returns results in Z->A order (Williams, Schmidt, Rodriguez...Martinez) ✅. (8) Sex filter: ?sex=F returns 6 results, all female ✅. (9) Empty query protection: No q AND no filters returns empty results [] (does not dump table) ✅. (10) Limit enforcement: ?status=active&limit=3 returns exactly 3 results ✅. All authentication, case-insensitive search, DOB matching (exact day and year range), filtering (status, sex), sorting (name_desc, dob_asc), limit enforcement, and empty-query protection working correctly. No data created or modified (READ-ONLY testing). Ready for main agent to summarize and finish."
