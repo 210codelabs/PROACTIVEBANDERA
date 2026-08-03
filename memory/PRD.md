@@ -98,3 +98,13 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - CTAs wired to `/book`: landing hero, booking band, insurance section, and header "Schedule a Visit" (were `#contact`).
 - Staff nav item "Appointment Requests" -> `/appointment-requests` (Confirm/Decline, priority flag).
 - Note: used `/book` (not `/schedule`) to avoid conflict with the existing authenticated staff calendar at `/schedule`.
+
+## Intake / Clinical Forms (Physical Recovery & Therapy) — added
+- Recreated & rebranded (Proactive Clinic, San Antonio) the supplied Flagler MRI templates into 5 forms:
+  new-patient-intake & current-patient-checkin (online + printable), first-office-visit, followup-visit,
+  procedure-report (printable clinical docs).
+- Single source of truth: src/lib/intake/forms.ts drives BOTH the online UI and the pdf-lib PDF generator (src/lib/intake/pdf.ts).
+- Public online intake at /intake (titled/numbered sections + descriptions per form, consent acknowledgements, typed e-signature); submissions create/match a Patient and store a Document (category intake / intake-followup).
+- Branded printable PDFs via GET /api/intake/forms/[slug]/pdf (logo, clinic header/footer, checkboxes, extremity tables, signature lines).
+- Staff page /intake-forms (nav "Intake Forms") to share online link and print PDFs.
+- Backend tested (Iteration 17): forms list, PDF generation for all 5 slugs, submit + validation — all passing.
