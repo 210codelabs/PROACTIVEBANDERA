@@ -21,6 +21,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       plan: b.plan ?? null,
       ros: b.ros ?? null,
       examFindings: b.examFindings ?? null,
+      familyHistory: b.familyHistory ?? null,
+      socialHistory: b.socialHistory ?? null,
+      qualityMeasures: b.qualityMeasures ?? null,
       ...(b.signed ? { status: "signed", signedAt: new Date() } : {}),
     },
   });

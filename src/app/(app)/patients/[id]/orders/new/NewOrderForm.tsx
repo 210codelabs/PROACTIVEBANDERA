@@ -7,7 +7,7 @@ import RefSelect from "@/components/RefSelect";
 const LAB_PICKS = ["CBC w/ differential", "CMP (Comp Metabolic Panel)", "Lipid panel", "HbA1c", "TSH", "UA w/ reflex culture", "Wound culture"];
 const IMG_PICKS = ["X-ray, knee, 3 views", "MRI lumbar spine w/o contrast", "X-ray, chest 2 views", "Ultrasound, soft tissue"];
 
-export default function NewOrderForm({ patientId, initialType }: { patientId: string; initialType: string }) {
+export default function NewOrderForm({ patientId, initialType, encounterId }: { patientId: string; initialType: string; encounterId?: string }) {
   const router = useRouter();
   const [type, setType] = useState(initialType);
   const [name, setName] = useState("");
@@ -28,6 +28,7 @@ export default function NewOrderForm({ patientId, initialType }: { patientId: st
     e.preventDefault();
     setLoading(true);
     const body: any = { type, itemName: name, priority, instructions, diagnosisCode: diag };
+    if (encounterId) body.encounterId = encounterId;
     if (type === "rx") {
       body.rxStrength = strength;
       body.rxForm = form;

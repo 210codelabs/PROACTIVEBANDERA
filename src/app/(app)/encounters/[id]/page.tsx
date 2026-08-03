@@ -14,7 +14,13 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
   const enc = await db.encounter.findUnique({
     where: { id },
     include: {
-      patient: { include: { allergies: { where: { status: "active" } }, problems: { where: { status: { in: ["active", "chronic"] } } } } },
+      patient: { include: {
+        allergies: { where: { status: "active" } },
+        problems: { where: { status: { in: ["active", "chronic"] } } },
+        medications: { where: { status: "active" }, orderBy: { createdAt: "desc" }, take: 30 },
+        vitals: { orderBy: { takenAt: "desc" }, take: 5 },
+        careTeam: { orderBy: { createdAt: "desc" } },
+      } },
       provider: true,
       diagnoses: true,
       charges: true,

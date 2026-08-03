@@ -419,11 +419,24 @@ model Encounter {
   plan           String?
   ros            String?    // review of systems
   examFindings   String?
+  familyHistory  String?
+  socialHistory  String?
+  qualityMeasures String?   // JSON array of checked measure keys
 
   notes          EncounterNote[]
   diagnoses      EncounterDiagnosis[]
   charges        EncounterCharge[]
   orders         Order[]
+}
+
+model DxFavorite {
+  id          String   @id @default(cuid()) @map("_id")
+  userId      String
+  icd10       String
+  description String
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }
 
 model EncounterNote {
