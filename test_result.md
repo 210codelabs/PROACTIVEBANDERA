@@ -995,3 +995,71 @@ backend:
 agent_communication:
     -agent: "testing"
     -message: "✅ Backend testing completed successfully for NEW Patient care-team endpoints (/api/patients/[id]/care-team). ALL 11 test cases passed with no critical issues. Created /app/backend_test_care_team.py with comprehensive test coverage. Test results: (1) GET without session: 401 ✅. (2) POST with valid body: 200 with correct member data (role:'Referring', npi:'1770589525', name:'Test Referral MD') ✅. (3) GET with session: 200 with members array including created member ✅. (4) POST duplicate npi: 409 (duplicate prevention working) ✅. (5) POST without name: 400 ✅. (6) POST to nonexistent patient: 404 ✅. (7a) DELETE with memberId: 200 ✅. (7b) DELETE without memberId: 400 ✅. (7c) DELETE nonexistent memberId: 404 ✅. (8a) POST without session: 401 ✅. (8b) DELETE without session: 401 ✅. CLEANUP: All care-team members removed from Eleanor Adams patient ✅. All authentication, authorization, validation, duplicate prevention, and CRUD operations working correctly. Ready for main agent to summarize and finish."
+
+## ---- Iteration 15 (main agent): SOAP editor expansion + Phase 1 configurable charting ----
+backend:
+  - task: "Encounter PATCH extended fields (familyHistory, socialHistory, qualityMeasures, noteFormat, simpleBody, encounterTypeId/Name)"
+    implemented: true
+    working: true
+    file: "src/app/api/encounters/[id]/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Encounter PATCH now persists new fields. Manually verified: PATCH noteFormat=simple + simpleBody persists; existing SOAP save still works. Sign & lock unchanged."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_charting.py. Extended encounter PATCH tests passed: (C.11) Created test encounter for patient Eleanor Adams (MRN PC-100000, ID cms87vx850017l4ocyz5zfz89), PATCH /api/encounters/{id} with {noteFormat:'simple', simpleBody:'test body', familyHistory:'NC', socialHistory:'non-smoker', qualityMeasures:'[\"med_rec\"]', encounterTypeId:<valid_id>, chiefComplaint:'', subjective:'', objective:'', assessment:'', plan:'', ros:'', examFindings:'', diagnoses:[], charges:[]} returns 200 {ok:true} ✅. Persistence verified via MongoDB: noteFormat='simple' ✅, simpleBody='test body' ✅, familyHistory='NC' ✅, socialHistory='non-smoker' ✅, qualityMeasures contains 'med_rec' ✅, encounterTypeId set correctly ✅. All extended fields (familyHistory, socialHistory, qualityMeasures, noteFormat, simpleBody, encounterTypeId) persist correctly to database. (C.12) New encounter created with default noteFormat='soap' ✅. Test encounters cleaned up successfully."
+
+  - task: "Chart note types + encounter types config APIs (/api/charting/note-types, /api/charting/encounter-types) — staff only, lazy-seeded"
+    implemented: true
+    working: true
+    file: "src/lib/charting.ts, src/app/api/charting/note-types/route.ts, src/app/api/charting/note-types/[id]/route.ts, src/app/api/charting/encounter-types/route.ts, src/app/api/charting/encounter-types/[id]/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "GET lazy-seeds defaults (SOAP default + Simple note; 7 encounter types incl. 99213 default). POST adds; PATCH updates incl. isDefault (unsets others via updateMany); DELETE soft-deletes (active=false) and blocks deleting the default (409). All require staff session (401). New encounter creation now applies default note format + default encounter type. Manually verified: lazy seed, set-default keeps exactly one default, new encounter gets defaults, no-auth 401."
+  - task: "My Dx List favorites + care team + NPPES (prior iterations) still intact"
+    implemented: true
+    working: true
+    file: "n/a"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "Encounter page loads 200 with expanded editor; dx-favorites and care-team unaffected."
+
+frontend:
+  - task: "Expanded SOAP editor (auto-save, pull-forward, ROS/exam quick-lists, vitals flowsheet, My Dx List, quality measures, Plan actions) + Charting Setup page + note-format/encounter-type on encounter"
+    implemented: true
+    working: "NA"
+    file: "src/app/(app)/encounters/[id]/EncounterEditor.tsx, src/components/settings/ChartingSettings.tsx, src/app/(app)/settings/charting/page.tsx, src/components/Shell.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "EncounterEditor keeps ALL prior features and adds: debounced auto-save w/ status, Chart pull-forward panel (problems/meds/allergies), Family/Social Hx fields, ROS one-click favorites, Vitals flowsheet + insert, Physical exam checklist quick-inserts, lab/imaging attach, My Dx List (star to save, one-click add), Quality-measure checkboxes, Plan quick-actions (e-Prescribe/Lab/Imaging/eReferral linking encounterId), Care Team card. New Encounter details bar (encounter-type dropdown + note-format toggle); Simple-note format renders a single body instead of S/O/A/P. New Charting Setup page (/settings/charting) to manage note types + encounter types with practice defaults; nav item added. Screenshots verified Charting Setup page + patient list render; encounter page loads 200."
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 15 BACKEND: Test the new configurable-charting APIs and extended encounter PATCH. HTTPS base URL; staff login andy.manzano@proactiveclinic.com/apex123 -> proactive_session. (A) GET /api/charting/note-types with session -> 200 {noteTypes:[...]} auto-seeded with a SOAP (isDefault true) and a Simple type; no session -> 401. (B) POST /api/charting/note-types {name:'PT SOAP', format:'soap'} -> 200; POST no name -> 400. (C) PATCH /api/charting/note-types/{id} {isDefault:true} -> 200 and then GET shows exactly ONE isDefault true. (D) DELETE /api/charting/note-types/{defaultId} -> 409 (cannot delete default); DELETE a non-default id -> 200 and that type becomes active:false (soft delete). (E) Same set for /api/charting/encounter-types (GET lazy-seed 7 types w/ one default incl code 99213; POST {name:'Wellness Visit', code:'99396', codeSystem:'CPT'} -> 200; PATCH isDefault -> only one default; DELETE default -> 409, DELETE non-default -> 200 soft-delete). (F) Extended encounter PATCH: get an open encounter id (GET /api/patients/search?q=adams to get patient, then note there may be existing encounters; or create via visiting /patients/{id}/encounters/new which redirects). PATCH /api/encounters/{id} with {noteFormat:'simple', simpleBody:'test body', familyHistory:'NC', socialHistory:'non-smoker', qualityMeasures:'[\"med_rec\"]', encounterTypeId:'<an encounter type id>', chiefComplaint:'',subjective:'',objective:'',assessment:'',plan:'',ros:'',examFindings:'',diagnoses:[],charges:[]} -> 200; re-GET the encounter (GET /api/encounters/{id} if available, else DB) shows noteFormat simple, simpleBody saved, encounterTypeName resolved. CLEANUP: soft-deletes are fine to leave; if you created extra note/encounter types feel free to leave them active or delete non-defaults. Also please RESET the default encounter type back to the one with code '99213' and default note type back to 'SOAP note' after testing so the demo defaults are sensible. Do NOT test frontend."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_charting.py. ALL 16 test cases passed with no critical issues. Test results: (A) Chart NOTE types /api/charting/note-types: (A.1) GET without session correctly returns 401 'Unauthorized' ✅. (A.2) GET with session returns 200 {noteTypes:[...]} with 2 auto-seeded types: 'SOAP note' (format:'soap', isDefault:true) and 'Simple note' (format:'simple', isDefault:false) ✅. (A.3) POST {name:'PT SOAP', format:'soap'} returns 200 {ok:true, noteType:{id:...}} ✅. (A.3b) POST {} (no name) correctly returns 400 'Name is required.' ✅. (A.4) PATCH /api/charting/note-types/{id} {isDefault:true} returns 200, subsequent GET shows EXACTLY ONE noteType with isDefault:true ('PT SOAP') ✅. (A.5a) DELETE /api/charting/note-types/{currentDefaultId} correctly returns 409 'Cannot delete the default note type. Set another default first.' ✅. (A.5b) DELETE /api/charting/note-types/{nonDefaultId} returns 200 {ok:true}, type soft-deleted with active:false ✅. (B) ENCOUNTER types /api/charting/encounter-types: (B.6) GET with session returns 200 {encounterTypes:[...]} with 7 auto-seeded types including default 'Office Visit — Established (Level 3)' (code:'99213', isDefault:true) ✅. (B.6b) GET without session correctly returns 401 ✅. (B.7) POST {name:'Wellness Visit', code:'99396', codeSystem:'CPT'} returns 200 {ok:true, encounterType:{id:...}} ✅. (B.7b) POST {} (no name) correctly returns 400 ✅. (B.8) PATCH /api/charting/encounter-types/{id} {isDefault:true} returns 200, subsequent GET shows EXACTLY ONE encounterType with isDefault:true ('Wellness Visit') ✅. (B.9a) DELETE /api/charting/encounter-types/{currentDefaultId} correctly returns 409 'Cannot delete the default encounter type. Set another default first.' ✅. (B.9b) DELETE /api/charting/encounter-types/{nonDefaultId} returns 200 {ok:true}, type soft-deleted with active:false ✅. (C) Extended encounter PATCH /api/encounters/{id}: (C.11) Created test encounter for patient Eleanor Adams (MRN PC-100000), PATCH with {noteFormat:'simple', simpleBody:'test body', familyHistory:'NC', socialHistory:'non-smoker', qualityMeasures:'[\"med_rec\"]', encounterTypeId:<valid_id>, chiefComplaint:'', subjective:'', objective:'', assessment:'', plan:'', ros:'', examFindings:'', diagnoses:[], charges:[]} returns 200 {ok:true} ✅. Persistence verified via MongoDB: noteFormat='simple' ✅, simpleBody='test body' ✅, familyHistory='NC' ✅, socialHistory='non-smoker' ✅, qualityMeasures contains 'med_rec' ✅, encounterTypeId set correctly ✅. (C.12) New encounter created with default noteFormat='soap' ✅. CLEANUP: Test encounters deleted ✅. Defaults reset: 'SOAP note' set as default note type ✅, encounter type '99213' set as default ✅. All authentication (401 without session), validation (400 for missing required fields), lazy-seeding, CRUD operations, isDefault toggling (exactly one default enforced), soft-delete (active:false), delete protection (409 for defaults), and extended field persistence working correctly."
+    -agent: "testing"
+    -message: "✅ Iteration 15 configurable charting backend testing completed successfully. ALL 16 test cases passed with no critical issues. Created /app/backend_test_charting.py with comprehensive test coverage. Test results: (A) Chart NOTE types /api/charting/note-types: All 7 test cases passed - GET without session (401) ✅, GET with session returns auto-seeded SOAP default + Simple ✅, POST create 'PT SOAP' ✅, POST validation (400 no name) ✅, PATCH set default (exactly one default enforced) ✅, DELETE default blocked (409) ✅, DELETE non-default soft-deletes (active:false) ✅. (B) ENCOUNTER types /api/charting/encounter-types: All 7 test cases passed - GET with session returns 7 auto-seeded types with 99213 default ✅, GET without session (401) ✅, POST create 'Wellness Visit' ✅, POST validation (400 no name) ✅, PATCH set default (exactly one default enforced) ✅, DELETE default blocked (409) ✅, DELETE non-default soft-deletes (active:false) ✅. (C) Extended encounter PATCH /api/encounters/{id}: Both test cases passed - PATCH with extended fields (noteFormat, simpleBody, familyHistory, socialHistory, qualityMeasures, encounterTypeId) all persist correctly ✅, new encounter has default noteFormat='soap' ✅. CLEANUP: Test encounters deleted ✅, defaults reset to 'SOAP note' and '99213' ✅. All authentication, validation, lazy-seeding, CRUD operations, isDefault toggling, soft-delete, delete protection, and extended field persistence working correctly. No issues found. Ready for main agent to summarize and finish."

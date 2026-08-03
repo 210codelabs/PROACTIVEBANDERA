@@ -75,6 +75,10 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
   const [quality, setQuality] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(encounter.qualityMeasures || "[]")); } catch { return new Set(); }
   });
+  const [noteFormat, setNoteFormat] = useState<string>(encounter.noteFormat || "soap");
+  const [simpleBody, setSimpleBody] = useState<string>(encounter.simpleBody || "");
+  const [encounterTypeId, setEncTypeId] = useState<string>(encounter.encounterTypeId || "");
+  const [encTypes, setEncTypes] = useState<any[]>([]);
   const [diagnoses, setDiagnoses] = useState<any[]>(encounter.diagnoses || []);
   const [charges, setCharges] = useState<any[]>(encounter.charges || []);
   const [saving, setSaving] = useState(false);
@@ -92,6 +96,7 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
   // ---- My Dx List favorites ----
   useEffect(() => {
     fetch("/api/me/dx-favorites").then(r => r.ok ? r.json() : { favorites: [] }).then(d => setFavorites(d.favorites || [])).catch(() => {});
+    fetch("/api/charting/encounter-types").then(r => r.ok ? r.json() : { encounterTypes: [] }).then(d => setEncTypes(d.encounterTypes || [])).catch(() => {});
   }, []);
   async function saveFavorite(d: { icd10: string; description: string }) {
     const r = await fetch("/api/me/dx-favorites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(d) });
@@ -105,10 +110,13 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
   const buildPayload = useCallback((extra: Record<string, unknown> = {}) => ({
     chiefComplaint, subjective, objective, assessment, plan, ros, examFindings: exam,
     familyHistory, socialHistory, qualityMeasures: JSON.stringify(Array.from(quality)),
+    noteFormat, simpleBody,
+    encounterTypeId: encounterTypeId || null,
+    encounterTypeName: encTypes.find((t) => t.id === encounterTypeId)?.name || encounter.encounterTypeName || null,
     diagnoses: diagnoses.map(d => ({ icd10: d.icd10, description: d.description, primary: !!d.primary })),
     charges: charges.map(c => ({ cpt: c.cpt, description: c.description, units: c.units || 1, modifier: c.modifier || null, feeCents: c.feeCents || 0 })),
     ...extra,
-  }), [chiefComplaint, subjective, objective, assessment, plan, ros, exam, familyHistory, socialHistory, quality, diagnoses, charges]);
+  }), [chiefComplaint, subjective, objective, assessment, plan, ros, exam, familyHistory, socialHistory, quality, noteFormat, simpleBody, encounterTypeId, encTypes, diagnoses, charges]);
 
   // ---- Auto-save (debounced) ----
   const firstRender = useRef(true);
@@ -286,6 +294,29 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
           </div>
         </div>
 
+        {/* Encounter details */}
+        <div className="card card-pad">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <label className="block">
+              <span className="label">Encounter type</span>
+              <select className="input" value={encounterTypeId} disabled={signed} onChange={(e) => setEncTypeId(e.target.value)}>
+                <option value="">— Select —</option>
+                {encTypes.filter((t) => t.active || t.id === encounterTypeId).map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}{t.code ? ` (${t.codeSystem || ""} ${t.code})` : ""}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="label">Note format</span>
+              <select className="input" value={noteFormat} disabled={signed} onChange={(e) => setNoteFormat(e.target.value)}>
+                <option value="soap">SOAP note (S / O / A / P)</option>
+                <option value="simple">Simple note (single body)</option>
+              </select>
+            </label>
+          </div>
+          {signed && <p className="text-[11px] text-slate-400 mt-2">Note is signed. To change the encounter type after signing, use an addendum (coming soon).</p>}
+        </div>
+
         {/* Chart pull-forward panel */}
         <div className="card card-pad">
           <div className="flex items-center justify-between">
@@ -308,6 +339,9 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
           </div>
         </div>
 
+        {noteFormat === "simple" ? (
+          <SoapBlock title="Visit Note" hint="Free-text note body" value={simpleBody} onChange={setSimpleBody} disabled={signed} rows={18} />
+        ) : (<>
         {!signed && (
           <div className="card card-pad ring-1 ring-brand-200 bg-brand-50/40">
             <div className="flex items-center gap-2">
@@ -427,6 +461,8 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
         {/* Assessment & Plan */}
         <SoapBlock title="Assessment (A)" hint="Clinical reasoning" value={assessment} onChange={setA} disabled={signed} />
         <SoapBlock title="Plan (P)" value={plan} onChange={setP} disabled={signed} />
+
+        </>)}
 
         {/* Quality measures */}
         <div className="card card-pad">

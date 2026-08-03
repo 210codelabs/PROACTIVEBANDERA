@@ -24,6 +24,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       familyHistory: b.familyHistory ?? null,
       socialHistory: b.socialHistory ?? null,
       qualityMeasures: b.qualityMeasures ?? null,
+      ...(b.noteFormat ? { noteFormat: b.noteFormat } : {}),
+      ...(b.noteTypeId !== undefined ? { noteTypeId: b.noteTypeId } : {}),
+      ...(b.simpleBody !== undefined ? { simpleBody: b.simpleBody } : {}),
+      ...(b.encounterTypeId !== undefined ? { encounterTypeId: b.encounterTypeId } : {}),
+      ...(b.encounterTypeName !== undefined ? { encounterTypeName: b.encounterTypeName } : {}),
       ...(b.signed ? { status: "signed", signedAt: new Date() } : {}),
     },
   });

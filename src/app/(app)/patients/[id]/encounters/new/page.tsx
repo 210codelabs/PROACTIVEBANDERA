@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ensureEncounterIndexHealed } from "@/lib/dbHeal";
+import { getDefaultNoteType, getDefaultEncounterType } from "@/lib/charting";
 
 export default async function NewEnc({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,12 +21,17 @@ export default async function NewEnc({ params }: { params: Promise<{ id: string 
     // Quick-create an open encounter and redirect to it.
     const providerId = user.role === "provider" ? user.id : (await db.user.findFirst({ where: { role: "provider", active: true } }))?.id;
     if (!providerId) throw new Error("No provider available");
+    const [noteType, encType] = await Promise.all([getDefaultNoteType(), getDefaultEncounterType()]);
     const enc = await db.encounter.create({
       data: {
         patientId: id,
         providerId,
         visitType: "office",
         status: "open",
+        noteFormat: noteType?.format || "soap",
+        noteTypeId: noteType?.id || null,
+        encounterTypeId: encType?.id || null,
+        encounterTypeName: encType?.name || null,
       },
     });
     target = `/encounters/${enc.id}`;

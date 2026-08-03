@@ -95,6 +95,7 @@ export default function Shell({
     { label: t("nav.encounters"), href: "/encounters", icon: <Icon.Clipboard /> },
     { label: t("nav.orders"), href: "/orders", icon: <Icon.Beaker /> },
     { label: t("nav.npiLookup"), href: "/npi-lookup", icon: <Icon.Shield /> },
+    { label: t("nav.chartingSetup"), href: "/settings/charting", icon: <Icon.Beaker /> },
     {
       label: t("nav.modules"),
       href: "/modules",
@@ -122,7 +123,7 @@ export default function Shell({
   const groupedNav: NavSection[] = [
     {
       title: t("sections.clinical"),
-      items: NAV.filter((item) => ["/dashboard", "/schedule", "/appointment-requests", "/patients", "/encounters", "/orders", "/npi-lookup", "/modules"].includes(item.href)),
+      items: NAV.filter((item) => ["/dashboard", "/schedule", "/appointment-requests", "/patients", "/encounters", "/orders", "/npi-lookup", "/settings/charting", "/modules"].includes(item.href)),
     },
     {
       title: t("sections.pharmacyRetail"),

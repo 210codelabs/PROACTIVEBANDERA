@@ -422,11 +422,35 @@ model Encounter {
   familyHistory  String?
   socialHistory  String?
   qualityMeasures String?   // JSON array of checked measure keys
+  noteFormat     String?    // soap | simple
+  noteTypeId     String?
+  simpleBody     String?    // body when noteFormat = simple
+  encounterTypeId   String?
+  encounterTypeName String?
 
   notes          EncounterNote[]
   diagnoses      EncounterDiagnosis[]
   charges        EncounterCharge[]
   orders         Order[]
+}
+
+model ChartNoteType {
+  id        String   @id @default(cuid()) @map("_id")
+  name      String
+  format    String   @default("soap") // soap | simple
+  isDefault Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model EncounterType {
+  id         String   @id @default(cuid()) @map("_id")
+  name       String
+  code       String?
+  codeSystem String?  // SNOMED | CPT | HCPCS
+  isDefault  Boolean  @default(false)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
 }
 
 model DxFavorite {
