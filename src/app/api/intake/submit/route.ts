@@ -65,12 +65,13 @@ export async function POST(req: Request) {
       });
     }
 
+    const isNewPatientForm = form.slug === "new-patient-intake" || form.slug === "clinical-new-patient";
     const confirmation = confNumber();
     await db.document.create({
       data: {
         patientId: patient.id,
         title: `${form.title} — Online Intake`,
-        category: form.slug === "new-patient-intake" ? "intake" : "intake-followup",
+        category: isNewPatientForm ? "intake" : "intake-followup",
         body: JSON.stringify({
           source: "online-intake",
           formSlug: form.slug,

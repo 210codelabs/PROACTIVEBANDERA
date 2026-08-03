@@ -175,6 +175,76 @@ export const ES: Record<string, string> = {
     "Autorizo las imágenes diagnósticas y certifico la declaración de embarazo (si aplica).",
   "I re-confirm my consent to today's treatment.":
     "Reconfirmo mi consentimiento para el tratamiento de hoy.",
+
+  // --- New tracks / clinical + PI forms ---
+  "Personal Injury — New Patient Intake": "Lesión Personal — Admisión de Paciente Nuevo",
+  "Physical Rehab & Recovery — Auto Accident / Personal-Injury Registration":
+    "Rehabilitación Física y Recuperación — Registro de Accidente / Lesión Personal",
+  "New patients whose care is related to a motor-vehicle accident or personal-injury (PIP) claim.":
+    "Pacientes nuevos cuya atención se relaciona con un accidente automovilístico o reclamo de lesiones personales (PIP).",
+  "Personal Injury — Follow-Up Check-In": "Lesión Personal — Registro de Seguimiento",
+  "Physical Rehab & Recovery — Auto Accident / PI Visit Update":
+    "Rehabilitación Física y Recuperación — Actualización de Visita de Accidente / Lesión Personal",
+  "Returning personal-injury patients checking in for a rehab / pain-management follow-up.":
+    "Pacientes de lesiones personales que regresan para un seguimiento de rehabilitación / manejo del dolor.",
+  "Clinical — New Patient Intake": "Clínico — Admisión de Paciente Nuevo",
+  "Physical Recovery & Therapy — General / Wellness New Patient":
+    "Recuperación Física y Terapia — Paciente Nuevo General / Bienestar",
+  "New patients starting physical therapy or rehabilitation not related to an auto accident.":
+    "Pacientes nuevos que inician terapia física o rehabilitación no relacionada con un accidente automovilístico.",
+  "Clinical — Follow-Up Check-In": "Clínico — Registro de Seguimiento",
+  "Physical Recovery & Therapy — General Visit Update":
+    "Recuperación Física y Terapia — Actualización de Visita General",
+  "Returning general therapy patients checking in for a follow-up visit.":
+    "Pacientes de terapia general que regresan para una visita de seguimiento.",
+  // Section titles (new)
+  "Auto Insurance & PIP": "Seguro de Auto y PIP",
+  "Insurance & Referral": "Seguro y Referencia",
+  "Reason for Visit": "Motivo de la Visita",
+  "Pain & Function": "Dolor y Función",
+  "Medical History": "Historial Médico",
+  "Financial Responsibility": "Responsabilidad Financiera",
+  "Privacy & Consent": "Privacidad y Consentimiento",
+  // Field labels (new)
+  "Auto Insurance Carrier": "Compañía de Seguro de Auto",
+  "Policy #": "N.º de Póliza",
+  "Claim #": "N.º de Reclamo",
+  "Police Report / Case #": "Reporte Policial / N.º de Caso",
+  "Adjuster Name": "Nombre del Ajustador",
+  "Adjuster Phone": "Teléfono del Ajustador",
+  "Do you have MedPay coverage?": "¿Tiene cobertura MedPay?",
+  "Do you also have health insurance?": "¿También tiene seguro médico?",
+  "Primary Insurance": "Seguro Primario",
+  "Member / Policy ID": "ID de Miembro / Póliza",
+  "Group #": "N.º de Grupo",
+  "Subscriber Name (if not you)": "Nombre del Suscriptor (si no es usted)",
+  "Secondary Insurance": "Seguro Secundario",
+  "Referring Provider": "Proveedor que Refiere",
+  "Do you have a referral or prior authorization?": "¿Tiene una referencia o autorización previa?",
+  "Chief complaint / reason for visit": "Queja principal / motivo de la visita",
+  "Body region affected": "Región del cuerpo afectada",
+  "When did it start?": "¿Cuándo comenzó?",
+  "This problem is:": "Este problema es:",
+  "Have you had this problem before?": "¿Ha tenido este problema antes?",
+  "Activities that are difficult or limited": "Actividades difíciles o limitadas",
+  "Your goals for therapy": "Sus metas para la terapia",
+  "Imaging / tests already done (X-ray, MRI, CT)": "Imágenes / estudios ya realizados (Rayos X, MRI, CT)",
+  "Current symptoms / how you feel": "Síntomas actuales / cómo se siente",
+  // Options (new)
+  "Acute (new)": "Agudo (nuevo)",
+  "Chronic (ongoing)": "Crónico (continuo)",
+  "Post-surgical": "Post-quirúrgico",
+  "Work-related": "Relacionado con el trabajo",
+  "Osteoporosis": "Osteoporosis",
+  // Ack labels (new)
+  "I agree to the Assignment of Benefits.": "Acepto la Cesión de Beneficios.",
+  "I agree to the Letter of Protection / Lien (if attorney-represented).":
+    "Acepto la Carta de Protección / Gravamen (si tengo abogado).",
+  "I acknowledge the PIP Disclosure & Acknowledgment.": "Reconozco la Divulgación y Reconocimiento de PIP.",
+  "I acknowledge the Financial Responsibility & Assignment of Benefits.":
+    "Reconozco la Responsabilidad Financiera y la Cesión de Beneficios.",
+  "I acknowledge the Notice of Privacy Practices.": "Reconozco el Aviso de Prácticas de Privacidad.",
+  "I consent to evaluation and treatment.": "Consiento la evaluación y el tratamiento.",
 };
 
 // UI chrome strings (not part of form definitions)

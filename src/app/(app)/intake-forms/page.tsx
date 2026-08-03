@@ -10,9 +10,6 @@ export default function IntakeFormsPage() {
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const onlineUrl = `${base}/intake`;
 
-  const online = FORMS.filter((f) => f.online);
-  const clinical = FORMS.filter((f) => !f.online);
-
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6">
@@ -50,11 +47,22 @@ export default function IntakeFormsPage() {
         </div>
       </div>
 
-      <FormGroup title="Patient intake forms" subtitle="Available online and as printable PDFs." forms={online} accent />
       <FormGroup
-        title="Clinical documentation forms"
+        title="Clinical Patient Forms"
+        subtitle="General / wellness therapy patients (not auto-accident). Available online and as printable PDFs."
+        forms={FORMS.filter((f) => f.track === "clinical")}
+        accent
+      />
+      <FormGroup
+        title="Personal Injury (Physical Rehab) Forms"
+        subtitle="Auto-accident / PIP patients — includes accident, auto insurance/PIP, attorney, AOB & Letter of Protection."
+        forms={FORMS.filter((f) => f.track === "personal-injury")}
+        accent
+      />
+      <FormGroup
+        title="Clinical Documentation Forms"
         subtitle="Provider-completed forms for in-office / offline use."
-        forms={clinical}
+        forms={FORMS.filter((f) => f.track === "documentation")}
       />
 
       <p className="mt-10 text-center text-xs text-slate-400">

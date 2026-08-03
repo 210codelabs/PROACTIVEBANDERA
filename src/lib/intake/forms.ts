@@ -43,6 +43,7 @@ export type FormDef = {
   subtitle: string;
   audience: string; // short description of who it is for
   online: boolean; // true => rendered as an interactive online form
+  track: "clinical" | "personal-injury" | "documentation";
   sections: Section[];
 };
 
@@ -81,16 +82,54 @@ const FINANCIAL_ACK =
   "coverage. If my care is related to a motor-vehicle accident or personal-injury claim, I authorize Proactive " +
   "Clinic to communicate with my attorney and/or insurer and to furnish records and bills related to my treatment.";
 
+// ---- Personal-Injury specific language --------------------------------
+const ASSIGNMENT_OF_BENEFITS =
+  "ASSIGNMENT OF BENEFITS: I hereby assign and transfer to Proactive Clinic all applicable Personal Injury " +
+  "Protection (PIP), MedPay, no-fault, health, and any third-party insurance benefits payable for the services " +
+  "rendered to me. I authorize and direct my insurer(s) to pay Proactive Clinic directly. This assignment includes " +
+  "the right to pursue payment and to release any information necessary to obtain payment. I remain financially " +
+  "responsible for any balance not paid by insurance.";
+
+const LETTER_OF_PROTECTION =
+  "LETTER OF PROTECTION / LIEN: If I am represented by an attorney in connection with this injury, I request and " +
+  "direct my attorney to withhold from any settlement, judgment, or verdict the amounts due to Proactive Clinic for " +
+  "care provided, and to pay the clinic directly before disbursing funds to me. I grant Proactive Clinic a lien on " +
+  "the proceeds of my claim. I understand this does not relieve me of ultimate financial responsibility for the balance.";
+
+const PIP_DISCLOSURE =
+  "PIP DISCLOSURE & ACKNOWLEDGMENT: I acknowledge that the services listed were actually rendered to me and were " +
+  "explained as medically necessary. I understand that submitting false, misleading, or fraudulent information to an " +
+  "insurer is unlawful and may be prosecuted. I acknowledge receiving the initial statutory disclosure at my first " +
+  "treatment and authorize Proactive Clinic to bill my PIP/no-fault carrier for covered services.";
+
+// ---- Clinical (non-injury) specific language --------------------------
+const FINANCIAL_POLICY_CLINICAL =
+  "FINANCIAL RESPONSIBILITY & ASSIGNMENT OF BENEFITS: I authorize Proactive Clinic to bill my health insurance and " +
+  "assign insurance benefits directly to the clinic. I understand that I am responsible for any copay, deductible, " +
+  "coinsurance, and non-covered services, and that charges not paid by my insurer are my responsibility.";
+
+const HIPAA_NPP_ACK =
+  "NOTICE OF PRIVACY PRACTICES: I acknowledge that I have been offered and/or received a copy of Proactive Clinic's " +
+  "Notice of Privacy Practices, which describes how my Protected Health Information (PHI) may be used and disclosed for " +
+  "treatment, payment, and healthcare operations in accordance with HIPAA.";
+
+const CONSENT_EVAL_TREAT =
+  "CONSENT TO EVALUATE & TREAT: I consent to a physical therapy / rehabilitation evaluation and to the treatment plan " +
+  "developed for me, which may include therapeutic exercise, manual therapy, modalities (heat, cold, electrical " +
+  "stimulation, ultrasound), and, where clinically appropriate, dry needling. The general benefits and risks have been " +
+  "explained and I have had the opportunity to ask questions. I may decline or stop any treatment at any time.";
+
 // =========================================================================
 // FORM 1 — New Patient Intake (ONLINE + printable)
 // =========================================================================
 
 const NEW_PATIENT_INTAKE: FormDef = {
   slug: "new-patient-intake",
-  title: "New Patient Intake",
-  subtitle: "Physical Recovery & Therapy — New Patient Registration",
-  audience: "First-time patients starting physical therapy, rehabilitation, or pain-management care.",
+  title: "Personal Injury — New Patient Intake",
+  subtitle: "Physical Rehab & Recovery — Auto Accident / Personal-Injury Registration",
+  audience: "New patients whose care is related to a motor-vehicle accident or personal-injury (PIP) claim.",
   online: true,
+  track: "personal-injury",
   sections: [
     {
       title: "Patient Information",
@@ -157,6 +196,21 @@ const NEW_PATIENT_INTAKE: FormDef = {
       ],
     },
     {
+      title: "Auto Insurance & PIP",
+      description:
+        "For motor-vehicle claims, provide your auto policy details so we can bill Personal Injury Protection (PIP) / MedPay.",
+      fields: [
+        { kind: "text", id: "autoCarrier", label: "Auto Insurance Carrier", width: "half" },
+        { kind: "text", id: "policyNumber", label: "Policy #", width: "half" },
+        { kind: "text", id: "claimNumber", label: "Claim #", width: "half" },
+        { kind: "text", id: "policeReport", label: "Police Report / Case #", width: "half" },
+        { kind: "text", id: "adjusterName", label: "Adjuster Name", width: "half" },
+        { kind: "text", id: "adjusterPhone", label: "Adjuster Phone", width: "half" },
+        { kind: "yesno", id: "medPay", label: "Do you have MedPay coverage?" },
+        { kind: "yesno", id: "healthInsurance", label: "Do you also have health insurance?" },
+      ],
+    },
+    {
       title: "Legal / Attorney Information",
       description:
         "Complete only if your care is related to a personal-injury (PIP) or auto-accident claim managed by an attorney.",
@@ -175,6 +229,9 @@ const NEW_PATIENT_INTAKE: FormDef = {
       fields: [
         { kind: "paragraph", text: CONSENT_TREATMENT, ack: true, id: "ackTreatment", ackLabel: "I have read and agree to the Consent to Treatment." },
         { kind: "paragraph", text: FINANCIAL_ACK, ack: true, id: "ackFinancial", ackLabel: "I acknowledge the financial and records-release statement." },
+        { kind: "paragraph", text: ASSIGNMENT_OF_BENEFITS, ack: true, id: "ackAOB", ackLabel: "I agree to the Assignment of Benefits." },
+        { kind: "paragraph", text: LETTER_OF_PROTECTION, ack: true, id: "ackLOP", ackLabel: "I agree to the Letter of Protection / Lien (if attorney-represented)." },
+        { kind: "paragraph", text: PIP_DISCLOSURE, ack: true, id: "ackPIP", ackLabel: "I acknowledge the PIP Disclosure & Acknowledgment." },
       ],
     },
     {
@@ -204,10 +261,11 @@ const NEW_PATIENT_INTAKE: FormDef = {
 
 const CURRENT_PATIENT_CHECKIN: FormDef = {
   slug: "current-patient-checkin",
-  title: "Follow-Up Check-In",
-  subtitle: "Physical Recovery & Therapy — Existing Patient Visit Update",
-  audience: "Returning patients checking in for a therapy or pain-management follow-up visit.",
+  title: "Personal Injury — Follow-Up Check-In",
+  subtitle: "Physical Rehab & Recovery — Auto Accident / PI Visit Update",
+  audience: "Returning personal-injury patients checking in for a rehab / pain-management follow-up.",
   online: true,
+  track: "personal-injury",
   sections: [
     {
       title: "Find Your Record",
@@ -264,6 +322,7 @@ const FIRST_OFFICE_VISIT: FormDef = {
   subtitle: "Physical Recovery & Therapy — Provider Documentation",
   audience: "Provider-completed comprehensive evaluation for a new patient.",
   online: false,
+  track: "documentation",
   sections: [
     {
       title: "Patient & Visit",
@@ -388,6 +447,7 @@ const FOLLOWUP_VISIT: FormDef = {
   subtitle: "Physical Recovery & Therapy — Provider Documentation",
   audience: "Provider-completed progress note for a returning patient.",
   online: false,
+  track: "documentation",
   sections: [
     {
       title: "Patient & Vitals",
@@ -443,6 +503,7 @@ const PROCEDURE_REPORT: FormDef = {
   subtitle: "Physical Recovery & Therapy — Procedure Documentation",
   audience: "Provider-completed report for an in-office procedure or injection.",
   online: false,
+  track: "documentation",
   sections: [
     {
       title: "Patient & Procedure",
@@ -486,7 +547,172 @@ const PROCEDURE_REPORT: FormDef = {
 
 // -------------------------------------------------------------------------
 
+// =========================================================================
+// FORM 6 — Clinical (non-injury) New Patient Intake (ONLINE + printable)
+// =========================================================================
+
+const CLINICAL_NEW_PATIENT: FormDef = {
+  slug: "clinical-new-patient",
+  title: "Clinical — New Patient Intake",
+  subtitle: "Physical Recovery & Therapy — General / Wellness New Patient",
+  audience: "New patients starting physical therapy or rehabilitation not related to an auto accident.",
+  online: true,
+  track: "clinical",
+  sections: [
+    {
+      title: "Patient Information",
+      description: "Tell us who you are. This information creates your Proactive Clinic chart.",
+      fields: [
+        { kind: "text", id: "firstName", label: "First Name", width: "half" },
+        { kind: "text", id: "lastName", label: "Last Name", width: "half" },
+        { kind: "date", id: "dob", label: "Date of Birth", width: "third" },
+        { kind: "text", id: "age", label: "Age", width: "third" },
+        { kind: "checkboxes", id: "sex", label: "Sex", options: ["Female", "Male", "Other"], inline: true },
+        { kind: "text", id: "phone", label: "Phone Number", width: "half" },
+        { kind: "text", id: "email", label: "Email", width: "half" },
+        { kind: "text", id: "address", label: "Home Address", width: "full" },
+        { kind: "heading", text: "Emergency Contact" },
+        { kind: "text", id: "emergencyName", label: "Name", width: "half" },
+        { kind: "text", id: "emergencyPhone", label: "Phone Number", width: "half" },
+      ],
+    },
+    {
+      title: "Insurance & Referral",
+      description: "So we can verify coverage and coordinate your care.",
+      fields: [
+        { kind: "text", id: "primaryInsurance", label: "Primary Insurance", width: "half" },
+        { kind: "text", id: "memberId", label: "Member / Policy ID", width: "half" },
+        { kind: "text", id: "groupId", label: "Group #", width: "half" },
+        { kind: "text", id: "subscriberName", label: "Subscriber Name (if not you)", width: "half" },
+        { kind: "text", id: "secondaryInsurance", label: "Secondary Insurance", width: "half" },
+        { kind: "text", id: "referringProvider", label: "Referring Provider", width: "half" },
+        { kind: "yesno", id: "hasReferral", label: "Do you have a referral or prior authorization?" },
+      ],
+    },
+    {
+      title: "Reason for Visit",
+      description: "Help us understand what brings you in today.",
+      fields: [
+        { kind: "textarea", id: "reasonForVisit", label: "Chief complaint / reason for visit", lines: 2 },
+        { kind: "text", id: "bodyRegion", label: "Body region affected", width: "half" },
+        { kind: "date", id: "onsetDate", label: "When did it start?", width: "half" },
+        { kind: "checkboxes", id: "conditionType", label: "This problem is:", options: ["Acute (new)", "Chronic (ongoing)", "Post-surgical", "Work-related"], inline: true },
+        { kind: "yesno", id: "priorEpisodes", label: "Have you had this problem before?" },
+      ],
+    },
+    {
+      title: "Pain & Function",
+      description: "Tell us how symptoms affect your daily life.",
+      fields: [
+        { kind: "checkboxes", id: "painLevel", label: "Current pain level (0 = none, 10 = worst)", options: ["0-2", "3-4", "5-6", "7-8", "9-10"], inline: true },
+        { kind: "textarea", id: "functionalLimitations", label: "Activities that are difficult or limited", lines: 2 },
+        { kind: "textarea", id: "goals", label: "Your goals for therapy", lines: 2 },
+      ],
+    },
+    {
+      title: "Injury Body Map",
+      description: "Tap on the body where you feel pain or symptoms. Add as many points as you need — front and back.",
+      fields: [{ kind: "bodymap", id: "bodyMap", label: "Mark your areas of pain" }],
+    },
+    {
+      title: "Medical History",
+      description: "Share your health background so we can plan safe, effective therapy.",
+      fields: [
+        { kind: "textarea", id: "currentMedications", label: "Medications you are currently taking", lines: 2 },
+        { kind: "textarea", id: "allergies", label: "Allergies", lines: 1 },
+        { kind: "checkboxes", id: "conditions", label: "Do you have any of the following?", options: ["Hypertension", "Diabetes", "Heart Disease", "Osteoporosis", "Asthma", "None"], inline: true },
+        { kind: "text", id: "otherConditions", label: "Other medical conditions", width: "full" },
+        { kind: "textarea", id: "surgeries", label: "Past surgeries", lines: 1 },
+        { kind: "textarea", id: "imaging", label: "Imaging / tests already done (X-ray, MRI, CT)", lines: 1 },
+      ],
+    },
+    {
+      title: "Financial Responsibility",
+      description: "Please read and acknowledge our billing policy.",
+      fields: [
+        { kind: "paragraph", text: FINANCIAL_POLICY_CLINICAL, ack: true, id: "ackFinancial", ackLabel: "I acknowledge the Financial Responsibility & Assignment of Benefits." },
+      ],
+    },
+    {
+      title: "Privacy & Consent",
+      description: "Please read each statement and check to acknowledge.",
+      fields: [
+        { kind: "paragraph", text: HIPAA_NPP_ACK, ack: true, id: "ackHipaa", ackLabel: "I acknowledge the Notice of Privacy Practices." },
+        { kind: "paragraph", text: CONSENT_EVAL_TREAT, ack: true, id: "ackTreatment", ackLabel: "I consent to evaluation and treatment." },
+      ],
+    },
+    {
+      title: "Acknowledgement & Signature",
+      description: "By signing below, you confirm the information provided is accurate to the best of your knowledge.",
+      fields: [
+        { kind: "signature", id: "signature", label: "Patient / Guardian Signature" },
+        { kind: "date", id: "signDate", label: "Date", width: "half" },
+      ],
+    },
+  ],
+};
+
+// =========================================================================
+// FORM 7 — Clinical (non-injury) Follow-Up Check-In (ONLINE + printable)
+// =========================================================================
+
+const CLINICAL_CHECKIN: FormDef = {
+  slug: "clinical-checkin",
+  title: "Clinical — Follow-Up Check-In",
+  subtitle: "Physical Recovery & Therapy — General Visit Update",
+  audience: "Returning general therapy patients checking in for a follow-up visit.",
+  online: true,
+  track: "clinical",
+  sections: [
+    {
+      title: "Find Your Record",
+      description: "Confirm your identity so we can attach today's update to your existing chart.",
+      fields: [
+        { kind: "text", id: "firstName", label: "First Name", width: "half" },
+        { kind: "text", id: "lastName", label: "Last Name", width: "half" },
+        { kind: "text", id: "mrn", label: "MRN (Medical Record #)", width: "half" },
+        { kind: "date", id: "dob", label: "Date of Birth", width: "half" },
+      ],
+    },
+    {
+      title: "How Are You Feeling Today?",
+      description: "Tell us how you have been doing since your last visit.",
+      fields: [
+        { kind: "textarea", id: "presentIllness", label: "Current symptoms / how you feel", lines: 3 },
+        { kind: "checkboxes", id: "painLevel", label: "Current pain level (0 = none, 10 = worst)", options: ["0-2", "3-4", "5-6", "7-8", "9-10"], inline: true },
+        { kind: "checkboxes", id: "progress", label: "Since your last visit, your symptoms are:", options: ["Much better", "Better", "Same", "Worse", "Much worse"], inline: true },
+        { kind: "yesno", id: "newSymptoms", label: "Any new symptoms or injuries?" },
+        { kind: "textarea", id: "medsChanges", label: "Any changes to your medications?", lines: 1 },
+      ],
+    },
+    {
+      title: "Injury Body Map",
+      description: "Tap on the body where you feel pain or symptoms today.",
+      fields: [{ kind: "bodymap", id: "bodyMap", label: "Mark your areas of pain" }],
+    },
+    {
+      title: "Consent Re-Acknowledgement",
+      description: "Please re-confirm your ongoing consent for today's treatment.",
+      fields: [
+        { kind: "paragraph", text: CONSENT_EVAL_TREAT, ack: true, id: "ackTreatment", ackLabel: "I re-confirm my consent to today's treatment." },
+      ],
+    },
+    {
+      title: "Signature",
+      description: "By signing you confirm today's update is accurate.",
+      fields: [
+        { kind: "signature", id: "signature", label: "Patient Signature" },
+        { kind: "date", id: "signDate", label: "Date", width: "half" },
+      ],
+    },
+  ],
+};
+
+// -------------------------------------------------------------------------
+
 export const FORMS: FormDef[] = [
+  CLINICAL_NEW_PATIENT,
+  CLINICAL_CHECKIN,
   NEW_PATIENT_INTAKE,
   CURRENT_PATIENT_CHECKIN,
   FIRST_OFFICE_VISIT,
@@ -505,5 +731,6 @@ export function formSummaries() {
     subtitle: f.subtitle,
     audience: f.audience,
     online: f.online,
+    track: f.track,
   }));
 }

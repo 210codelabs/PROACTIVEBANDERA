@@ -6,8 +6,10 @@ const BRAND = "#0E4770";
 const ACCENT = "#0A8C8C";
 
 const BLANK_FORMS = [
-  { slug: "new-patient-intake", title: "New Patient Intake" },
-  { slug: "current-patient-checkin", title: "Follow-Up Check-In" },
+  { slug: "clinical-new-patient", title: "Clinical — New Patient Intake" },
+  { slug: "clinical-checkin", title: "Clinical — Follow-Up Check-In" },
+  { slug: "new-patient-intake", title: "Personal Injury — New Patient Intake" },
+  { slug: "current-patient-checkin", title: "Personal Injury — Follow-Up Check-In" },
   { slug: "first-office-visit", title: "First Office Visit" },
   { slug: "followup-visit", title: "Follow-Up Visit" },
   { slug: "procedure-report", title: "Procedure Report" },
@@ -75,18 +77,26 @@ export default function PatientIntakePanel({
 
       <div className="p-4">
         {/* Issuance actions */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <IssueCard
-            title="New"
-            desc="Blank New Patient Intake to print or hand to a first-time patient."
+            title="New — Clinical"
+            desc="Blank Clinical New Patient Intake (general therapy)."
+            actionLabel="Open / Print"
+            onClick={() => open(`/api/intake/forms/clinical-new-patient/pdf?lang=${lang}`)}
+          />
+          <IssueCard
+            title="New — Personal Injury"
+            desc="Blank PI New Patient Intake (auto accident / PIP)."
             actionLabel="Open / Print"
             onClick={() => open(`/api/intake/forms/new-patient-intake/pdf?lang=${lang}`)}
           />
           <IssueCard
             title="Renew"
-            desc="Blank Follow-Up Check-In for a returning patient's visit update."
-            actionLabel="Open / Print"
-            onClick={() => open(`/api/intake/forms/current-patient-checkin/pdf?lang=${lang}`)}
+            desc="Follow-Up Check-In (Clinical or PI)."
+            actionLabel="Clinical"
+            onClick={() => open(`/api/intake/forms/clinical-checkin/pdf?lang=${lang}`)}
+            secondLabel="Personal Injury"
+            onSecond={() => open(`/api/intake/forms/current-patient-checkin/pdf?lang=${lang}`)}
           />
           <div className="rounded-xl border border-slate-200 p-4">
             <div className="text-sm font-bold" style={{ color: BRAND }}>Duplicate</div>
@@ -159,14 +169,21 @@ export default function PatientIntakePanel({
   );
 }
 
-function IssueCard({ title, desc, actionLabel, onClick }: { title: string; desc: string; actionLabel: string; onClick: () => void }) {
+function IssueCard({ title, desc, actionLabel, onClick, secondLabel, onSecond }: { title: string; desc: string; actionLabel: string; onClick: () => void; secondLabel?: string; onSecond?: () => void }) {
   return (
     <div className="rounded-xl border border-slate-200 p-4">
       <div className="text-sm font-bold" style={{ color: BRAND }}>{title}</div>
       <p className="mt-1 text-xs text-slate-500">{desc}</p>
-      <button onClick={onClick} className="mt-3 rounded-lg px-3 py-1.5 text-xs font-semibold text-white" style={{ background: BRAND }}>
-        {actionLabel}
-      </button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button onClick={onClick} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white" style={{ background: BRAND }}>
+          {actionLabel}
+        </button>
+        {secondLabel && onSecond && (
+          <button onClick={onSecond} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+            {secondLabel}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

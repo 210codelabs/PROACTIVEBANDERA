@@ -5,8 +5,10 @@ import React, { useState } from "react";
 const BRAND = "#0E4770";
 
 const FORM_OPTIONS = [
-  { slug: "new-patient-intake", title: "New Patient Intake" },
-  { slug: "current-patient-checkin", title: "Follow-Up Check-In" },
+  { slug: "clinical-new-patient", title: "Clinical — New Patient Intake" },
+  { slug: "clinical-checkin", title: "Clinical — Follow-Up Check-In" },
+  { slug: "new-patient-intake", title: "Personal Injury — New Patient Intake" },
+  { slug: "current-patient-checkin", title: "Personal Injury — Follow-Up Check-In" },
 ];
 
 export default function PortalIntakeUpload() {
