@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import PatientHeader, { PatientTabs } from "@/components/PatientHeader";
+import PatientCareTeam from "@/components/PatientCareTeam";
 import { fmtDateTime, fmtTime, colorForApptStatus } from "@/lib/utils";
 
 export default async function PatientSummary({ params }: { params: Promise<{ id: string }> }) {
@@ -175,6 +176,10 @@ export default async function PatientSummary({ params }: { params: Promise<{ id:
               ))}
             </ul>
           )}
+        </Card>
+
+        <Card title="Care Team & Referrals" className="lg:col-span-3">
+          <PatientCareTeam patientId={id} />
         </Card>
 
         <Card title="Recent Orders" href={`/patients/${id}/orders`} cta="All" className="lg:col-span-3">

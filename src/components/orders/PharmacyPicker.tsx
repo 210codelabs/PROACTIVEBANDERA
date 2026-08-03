@@ -43,6 +43,42 @@ export default function PharmacyPicker({
   const [open, setOpen] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // National registry (NPPES) fallback search
+  const [nppesOpen, setNppesOpen] = useState(false);
+  const [nf, setNf] = useState<{ name: string; city: string; state: string }>({ name: "", city: "", state: "" });
+  const [nppesResults, setNppesResults] = useState<Array<{ npi: string; name: string; address1: string; city: string; state: string; postal: string; phone: string; fax: string }>>([]);
+  const [nppesLoading, setNppesLoading] = useState(false);
+  const [nppesErr, setNppesErr] = useState("");
+  const [importingNpi, setImportingNpi] = useState<string | null>(null);
+
+  async function searchNppes() {
+    setNppesLoading(true); setNppesErr(""); setNppesResults([]);
+    const p = new URLSearchParams();
+    if (nf.name) p.set("name", nf.name);
+    if (nf.city) p.set("city", nf.city);
+    if (nf.state) p.set("state", nf.state);
+    if (!nf.name && !nf.city) { setNppesErr("Enter a name or city."); setNppesLoading(false); return; }
+    try {
+      const r = await fetch(`/api/pharmacies/nppes?${p.toString()}`);
+      const j = await r.json();
+      if (!r.ok) { setNppesErr(j.error || "Search failed."); }
+      else setNppesResults(j.pharmacies || []);
+    } catch { setNppesErr("Search failed."); }
+    setNppesLoading(false);
+  }
+
+  async function importAndSelect(ph: { npi: string; name: string; address1: string; city: string; state: string; postal: string; phone: string; fax: string }) {
+    setImportingNpi(ph.npi);
+    try {
+      const r = await fetch("/api/pharmacies/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(ph) });
+      const j = await r.json();
+      if (r.ok && j.pharmacy) {
+        onSelect({ id: j.pharmacy.id, name: j.pharmacy.name, network: j.pharmacy.network || "surescripts", city: j.pharmacy.city, state: j.pharmacy.state, phone: j.pharmacy.phone });
+        setOpen(false); setNppesOpen(false); setQuery("");
+      }
+    } finally { setImportingNpi(null); }
+  }
+
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
     debounce.current = setTimeout(async () => {
@@ -121,6 +157,34 @@ export default function PharmacyPicker({
                   <span className={`chip ${networkBadge(p.network)} capitalize shrink-0`}>{p.network}</span>
                 </button>
               ))}
+              <div className="px-3 py-2 bg-slate-50">
+                {!nppesOpen ? (
+                  <button type="button" onClick={() => setNppesOpen(true)} className="text-xs font-semibold text-brand-700 hover:underline">
+                    Can&apos;t find it? Search the national registry (NPPES) →
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      <input className="input" placeholder="Name" value={nf.name} onChange={(e) => setNf((s) => ({ ...s, name: e.target.value }))} />
+                      <input className="input" placeholder="City" value={nf.city} onChange={(e) => setNf((s) => ({ ...s, city: e.target.value }))} />
+                      <input className="input" placeholder="State" value={nf.state} onChange={(e) => setNf((s) => ({ ...s, state: e.target.value.toUpperCase() }))} />
+                    </div>
+                    <button type="button" onClick={searchNppes} disabled={nppesLoading} className="chip bg-brand-600 text-white text-xs">{nppesLoading ? "Searching…" : "Search national registry"}</button>
+                    {nppesErr && <div className="text-xs text-rose-600">{nppesErr}</div>}
+                    <div className="max-h-48 overflow-auto divide-y divide-slate-100">
+                      {nppesResults.map((ph) => (
+                        <div key={ph.npi} className="flex items-start justify-between gap-2 py-1.5">
+                          <div className="min-w-0 text-xs">
+                            <div className="font-medium text-slate-900 truncate">{ph.name}</div>
+                            <div className="text-slate-500 truncate">{ph.city}, {ph.state} {ph.phone ? `· ${ph.phone}` : ""}</div>
+                          </div>
+                          <button type="button" onClick={() => importAndSelect(ph)} disabled={importingNpi === ph.npi} className="chip bg-emerald-600 text-white text-[11px] shrink-0">{importingNpi === ph.npi ? "…" : "Add & select"}</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

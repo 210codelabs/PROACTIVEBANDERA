@@ -76,6 +76,29 @@ export default function AdminUsersManager({ initialUsers }: { initialUsers: User
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+
+  // Look up an NPI in NPPES and autofill name/credential/specialty.
+  async function verifyNpi(npi: string, apply: (v: { firstName: string; lastName: string; credential: string; specialty: string }) => void) {
+    const clean = (npi || "").replace(/\D/g, "");
+    if (clean.length !== 10) { setMessage({ kind: "error", text: "Enter a 10-digit NPI to verify." }); return; }
+    setVerifying(true); setMessage(null);
+    try {
+      const r = await fetch(`/api/nppes/search?npi=${clean}`);
+      const j = await r.json();
+      const rec = (j.results || [])[0];
+      if (!r.ok || !rec) { setMessage({ kind: "error", text: "No provider found for that NPI in the NPPES registry." }); return; }
+      const parts = String(rec.name || "").trim().split(/\s+/);
+      const firstName = parts[0] || "";
+      const lastName = parts.length > 1 ? parts[parts.length - 1] : "";
+      apply({ firstName, lastName, credential: rec.credential || "", specialty: rec.primaryTaxonomy?.desc || "" });
+      setMessage({ kind: "ok", text: `Verified: ${rec.name}${rec.credential ? `, ${rec.credential}` : ""} (${rec.status === "A" ? "Active" : rec.status})` });
+    } catch {
+      setMessage({ kind: "error", text: "NPI verification is temporarily unavailable." });
+    } finally {
+      setVerifying(false);
+    }
+  }
 
   // ---- migration state ----
   const [sourceId, setSourceId] = useState("");
@@ -446,7 +469,10 @@ export default function AdminUsersManager({ initialUsers }: { initialUsers: User
           <input data-testid="create-credential" className="input" placeholder={t("adminUsers.credential")} value={form.credential} onChange={(e) => setForm((f) => ({ ...f, credential: e.target.value }))} />
           <input data-testid="create-specialty" className="input" placeholder={t("adminUsers.specialty")} value={form.specialty} onChange={(e) => setForm((f) => ({ ...f, specialty: e.target.value }))} />
 
-          <input data-testid="create-npi" className="input" placeholder={t("adminUsers.npi")} value={form.npi} onChange={(e) => setForm((f) => ({ ...f, npi: e.target.value }))} />
+          <div className="flex gap-2">
+            <input data-testid="create-npi" className="input flex-1" placeholder={t("adminUsers.npi")} value={form.npi} onChange={(e) => setForm((f) => ({ ...f, npi: e.target.value }))} />
+            <button type="button" disabled={verifying} onClick={() => verifyNpi(form.npi, (v) => setForm((f) => ({ ...f, ...v })))} className="btn-secondary text-xs whitespace-nowrap">{verifying ? "…" : "Verify NPI"}</button>
+          </div>
           <input data-testid="create-password" className="input" placeholder={t("adminUsers.tempPassword")} value={form.temporaryPassword} onChange={(e) => setForm((f) => ({ ...f, temporaryPassword: e.target.value }))} required minLength={6} />
           <button data-testid="create-user-btn" disabled={saving} className="btn-primary">{saving ? t("adminUsers.creating") : t("adminUsers.createUser")}</button>
         </form>
@@ -505,7 +531,10 @@ export default function AdminUsersManager({ initialUsers }: { initialUsers: User
               </div>
               <div>
                 <label className="label">{t("adminUsers.npi")}</label>
-                <input data-testid="edit-npi" className="input" value={editForm.npi} onChange={(e) => setEditForm((f) => f && { ...f, npi: e.target.value })} />
+                <div className="flex gap-2">
+                  <input data-testid="edit-npi" className="input flex-1" value={editForm.npi} onChange={(e) => setEditForm((f) => f && { ...f, npi: e.target.value })} />
+                  <button type="button" disabled={verifying} onClick={() => verifyNpi(editForm.npi, (v) => setEditForm((f) => f && { ...f, ...v }))} className="btn-secondary text-xs whitespace-nowrap">{verifying ? "…" : "Verify NPI"}</button>
+                </div>
               </div>
               <div>
                 <label className="label">{t("adminUsers.resetPassword")}</label>

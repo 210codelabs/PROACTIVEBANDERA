@@ -260,6 +260,25 @@ model Patient {
   orders         Order[]
   documents      Document[]
   messages       Message[]
+  careTeam       CareTeamMember[]
+}
+
+model CareTeamMember {
+  id         String   @id @default(cuid()) @map("_id")
+  patientId  String
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  npi        String?
+  name       String
+  credential String?
+  specialty  String?
+  role       String?  // Referring | PCP | Specialist | Consultant | Other
+  phone      String?
+  address    String?
+  source     String   @default("nppes")
+  addedById  String?
+  createdAt  DateTime @default(now())
+
+  @@index([patientId])
 }
 
 model Allergy {

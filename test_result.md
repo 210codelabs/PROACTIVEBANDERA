@@ -935,3 +935,63 @@ agent_communication:
     -agent: "testing"
     -message: "✅ Backend testing completed successfully for NEW NPPES NPI Registry integration. ALL 12 test cases passed with no critical issues. Created /app/backend_test_nppes.py with comprehensive test coverage. Test results: GROUP A (GET /api/nppes/search): (A1) No session correctly blocked with 401 ✅. (A2) No params correctly returns 400 ✅. (A3) John Smith search in TX returns 23 matches, all results contain JOHN and SMITH (server-side relevance filter working), all have npi/name/primaryTaxonomy fields ✅. (A4) CVS organization search in TX returns 194 matches, all results contain CVS ✅. (A5) Exact NPI lookup returns exactly 1 matching result ✅. GROUP B (GET /api/pharmacies/nppes): (B6) No session correctly blocked with 401 ✅. (B7) No name/city/postal correctly returns 400 ✅. (B8) San Antonio search returns 25 pharmacies, all have npi/name/city/state/phone fields ✅. GROUP C (POST /api/pharmacies/import): (C9) No session correctly blocked with 401 ✅. (C10) No name correctly returns 400 ✅. (C11) Valid import creates pharmacy in MongoDB ✅. (C12) Duplicate import returns reused:true (idempotent, no duplicate created) ✅. CLEANUP: Test pharmacy successfully deleted from MongoDB ✅. NOTE: Testing required HTTPS URL because session cookie has secure:true flag. All authentication, validation, live NPPES API integration, server-side relevance filtering, pharmacy import, and idempotent reuse logic working correctly. Ready for main agent to summarize and finish."
 
+
+## ---- Iteration 14 (main agent): Autofill Credentials + Prescribe From Pharmacy + Save To Chart (care team) ----
+backend:
+  - task: "Patient care team CRUD (GET/POST/DELETE /api/patients/[id]/care-team) — staff only"
+    implemented: true
+    working: "NA"
+    file: "src/app/api/patients/[id]/care-team/route.ts, prisma/schema.prisma (CareTeamMember)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW CareTeamMember model + endpoints to attach verified external providers (from NPPES) to a patient chart. GET lists members (desc). POST attaches {npi,name,credential,specialty,role(Referring|PCP|Specialist|Consultant|Other, default Referring),phone,address,source}; name required (else 400); patient must exist (404); duplicate NPI on same patient -> 409. DELETE ?memberId= removes (404 if missing; 400 if no memberId). All require staff session (401 otherwise). Manually verified: add->200; list->1; dup NPI->409; no name->400; delete->200; no auth->401; patient chart page loads 200 with new 'Care Team & Referrals' card."
+
+frontend:
+  - task: "Verify NPI autofill (admin users) + Care Team card + national pharmacy picker"
+    implemented: true
+    working: "NA"
+    file: "src/components/admin/AdminUsersManager.tsx, src/components/PatientCareTeam.tsx, src/app/(app)/patients/[id]/page.tsx, src/components/orders/PharmacyPicker.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "(1) Autofill Credentials: 'Verify NPI' button next to the NPI field in both the create form and edit modal of Admin > User Management; calls /api/nppes/search?npi= and autofills firstName/lastName/credential/specialty with a status banner (admin-gated page). (2) Save To Chart: new 'Care Team & Referrals' card on the patient chart with '+ Add provider (NPI)' -> inline NPPES search (NPI/first/last/state + role) -> Attach; members list with role chip + Remove. Screenshot verified live NPPES results + Attach buttons render. (3) Prescribe From Pharmacy: PharmacyPicker in the Rx new-order form now has a 'Search the national registry (NPPES)' fallback (name/city/state) that imports the chosen pharmacy via /api/pharmacies/import and selects it for e-prescribe; imported pharmacies also appear in the normal local search. Screenshot verified Rx form + pharmacy picker render."
+
+test_plan:
+  current_focus:
+    - "Patient care team CRUD (GET/POST/DELETE /api/patients/[id]/care-team) — staff only"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 14 BACKEND: Test the NEW care-team endpoints /api/patients/[id]/care-team (STAFF-ONLY). HTTPS base URL; staff login andy.manzano@proactiveclinic.com/apex123 -> proactive_session. First get a patient id via GET /api/patients/search?q=adams (Eleanor Adams). Cases: (1) GET no session -> 401. (2) POST with session {npi:'1770589525', name:'Test Referral MD', credential:'MD', specialty:'Cardiology', role:'Referring', phone:'210-555-0170'} -> 200 {ok:true, member:{id, role:'Referring', npi:'1770589525'}}. (3) GET with session -> member appears in members[]. (4) POST same npi again for same patient -> 409. (5) POST with no name -> 400. (6) POST for a nonexistent patient id 'nope123' -> 404. (7) DELETE ?memberId=<id from step 2> with session -> 200 {ok:true}; DELETE without memberId -> 400; DELETE a random memberId -> 404. (8) POST/GET/DELETE without session -> 401. CLEANUP: delete any care-team members you created (the DELETE endpoint handles this; ensure none remain for the Adams patient). Note: the two supporting features (Verify NPI autofill, national pharmacy picker) reuse already-tested endpoints /api/nppes/search, /api/pharmacies/nppes, /api/pharmacies/import — you may spot-check them but focus on care-team. Do NOT test frontend."
+
+
+## ---- Iteration 14 (testing agent) ----
+backend:
+  - task: "Patient care team CRUD (GET/POST/DELETE /api/patients/[id]/care-team) — staff only"
+    implemented: true
+    working: true
+    file: "src/app/api/patients/[id]/care-team/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "(1) Autofill Credentials: 'Verify NPI' button next to the NPI field in both the create form and edit modal of Admin > User Management; calls /api/nppes/search?npi= and autofills firstName/lastName/credential/specialty with a status banner (admin-gated page). (2) Save To Chart: new 'Care Team & Referrals' card on the patient chart with '+ Add provider (NPI)' -> inline NPPES search (NPI/first/last/state + role) -> Attach; members list with role chip + Remove. Screenshot verified live NPPES results + Attach buttons render. (3) Prescribe From Pharmacy: PharmacyPicker in the Rx new-order form now has a 'Search the national registry (NPPES)' fallback (name/city/state) that imports the chosen pharmacy via /api/pharmacies/import and selects it for e-prescribe; imported pharmacies also appear in the normal local search. Screenshot verified Rx form + pharmacy picker render."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_care_team.py. ALL 11 test cases passed with no critical issues. Test results: (1) GET /api/patients/[id]/care-team without session correctly returns 401 'Unauthorized' ✅. (2) POST with session and body {npi:'1770589525', name:'Test Referral MD', credential:'MD', specialty:'Cardiology', role:'Referring', phone:'210-555-0170'} returns 200 {ok:true, member:{id:'cmscuvif700032jaiegmq30dm', role:'Referring', npi:'1770589525', name:'Test Referral MD'}} ✅. (3) GET with session returns 200 with members array including the member from test 2 ✅. (4) POST same npi again for same patient correctly returns 409 'That provider is already on this patient's care team.' (duplicate prevention working) ✅. (5) POST with session but no name (only {npi:'1999999999'}) correctly returns 400 'Provider name is required.' ✅. (6) POST to nonexistent patient id 'nope123' with {name:'X'} correctly returns 404 'Patient not found.' ✅. (7a) DELETE with session ?memberId=<id from test 2> returns 200 {ok:true} ✅. (7b) DELETE without memberId query param correctly returns 400 'memberId is required.' ✅. (7c) DELETE ?memberId=doesnotexist correctly returns 404 'Member not found.' ✅. (8a) POST without session correctly returns 401 ✅. (8b) DELETE without session correctly returns 401 ✅. CLEANUP: All care-team members removed from Eleanor Adams patient (verified no members remain) ✅. All authentication, authorization, validation, duplicate prevention, and CRUD operations working correctly."
+
+agent_communication:
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for NEW Patient care-team endpoints (/api/patients/[id]/care-team). ALL 11 test cases passed with no critical issues. Created /app/backend_test_care_team.py with comprehensive test coverage. Test results: (1) GET without session: 401 ✅. (2) POST with valid body: 200 with correct member data (role:'Referring', npi:'1770589525', name:'Test Referral MD') ✅. (3) GET with session: 200 with members array including created member ✅. (4) POST duplicate npi: 409 (duplicate prevention working) ✅. (5) POST without name: 400 ✅. (6) POST to nonexistent patient: 404 ✅. (7a) DELETE with memberId: 200 ✅. (7b) DELETE without memberId: 400 ✅. (7c) DELETE nonexistent memberId: 404 ✅. (8a) POST without session: 401 ✅. (8b) DELETE without session: 401 ✅. CLEANUP: All care-team members removed from Eleanor Adams patient ✅. All authentication, authorization, validation, duplicate prevention, and CRUD operations working correctly. Ready for main agent to summarize and finish."
