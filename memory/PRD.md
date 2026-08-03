@@ -108,3 +108,11 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - Branded printable PDFs via GET /api/intake/forms/[slug]/pdf (logo, clinic header/footer, checkboxes, extremity tables, signature lines).
 - Staff page /intake-forms (nav "Intake Forms") to share online link and print PDFs.
 - Backend tested (Iteration 17): forms list, PDF generation for all 5 slugs, submit + validation — all passing.
+
+## Intake enhancements (Iteration 18)
+- Spanish/English toggle on /intake (src/lib/intake/i18n.ts) — whole online intake + branded PDFs translate (?lang=es).
+- Injury Body Map: tap-to-mark Front/Back silhouettes (src/lib/intake/bodymap.ts); rendered on screen and in PDFs (blank + filled). Part of new-patient-intake and follow-up forms.
+- PDF Prefill: renderer draws submitted values (text, X'd checkboxes, yes/no, typed signature, body-map markers, "COMPLETED COPY" badge). Public POST /api/intake/forms/[slug]/pdf returns a filled copy of just-entered data; staff GET /api/intake/submissions/[id]/pdf and portal GET /api/portal/intake/[id]/pdf return stored completed copies.
+- Intake Review Inbox (/intake-inbox, staff nav): pending/approved tabs, approve/reopen (status in doc body), completed-PDF/file downloads, and staff upload of offline forms (MRN lookup). APIs under /api/intake/submissions/*.
+- Upload/download of offline forms: staff (/api/intake/submissions/upload + /[id]/file) and patient portal (/api/portal/intake/upload + /[id]/file, /[id]/pdf); files stored as base64 in Document.body (≤~6MB, PDF/image). Portal documents page shows download + upload with review status.
+- Security: middleware now makes only /api/intake/forms and /api/intake/submit public; /api/intake/submissions/* require staff session; /api/portal/intake/* require portal session with ownership checks. Backend tested (Iteration 18): 24/24 cases passed.
