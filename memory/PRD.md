@@ -116,3 +116,10 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - Intake Review Inbox (/intake-inbox, staff nav): pending/approved tabs, approve/reopen (status in doc body), completed-PDF/file downloads, and staff upload of offline forms (MRN lookup). APIs under /api/intake/submissions/*.
 - Upload/download of offline forms: staff (/api/intake/submissions/upload + /[id]/file) and patient portal (/api/portal/intake/upload + /[id]/file, /[id]/pdf); files stored as base64 in Document.body (≤~6MB, PDF/image). Portal documents page shows download + upload with review status.
 - Security: middleware now makes only /api/intake/forms and /api/intake/submit public; /api/intake/submissions/* require staff session; /api/portal/intake/* require portal session with ownership checks. Backend tested (Iteration 18): 24/24 cases passed.
+
+## Intake enhancements (Iteration 19)
+- Body Map Legend: markers now carry a pain type (Sharp/Dull/Burning/Numbness/Tingling/Stiffness) with colors. Online picker has a pain-type "pen" + colored numbered markers + legend; PDFs render colored markers, a color key, and a per-point legend.
+- Auto-Attach to Chart: approving an online intake copies answers into the patient chart — conditions/otherConditions -> Problems, allergies -> Allergies, currentMedications -> Medications (dedup, idempotent via attachedToChart). Inbox shows a summary of what was added.
+- Professional PDF letterhead + footer: logo + address + slogan ("Comprehensive Wellness & Recovery") ribbon; every-page footer with HIPAA privacy/security notice (EN/ES), © copyright, and slogan.
+- Staff patient-chart issuance: Documents tab now has an "Intake Forms — Issue, Download & Upload" panel: New / Renew / Duplicate issuance, all blank PDFs (EN/ES), duplicate re-download of on-file completed PDFs & uploaded files, and staff upload for this patient.
+- Portal + staff upload/download reused across chart and portal. Backend tested (Iteration 19): 11/11 passed.
