@@ -878,3 +878,60 @@ agent_communication:
     -message: "Iteration 12 BACKEND: Test enhanced GET /api/patients/search (staff session required; HTTPS base URL; login andy.manzano@proactiveclinic.com/apex123 -> proactive_session). Cases: (1) no session -> 401. (2) q=adams (lowercase) -> returns Eleanor Adams (case-insensitive). (3) q=PC-100000 -> Eleanor Adams. (4) q=1958-04-12 -> Eleanor Adams (DOB exact). (5) q=1958 -> includes Eleanor Adams (DOB year range). (6) status=active&sort=dob_asc (no q) -> 200 results ordered by DOB ascending (oldest first); verify ordering. (7) sort=name_desc with q=a -> last names in descending order. (8) sex=F filter -> only F patients. (9) no q AND no filters -> results empty []. (10) limit respected (e.g. limit=3 -> <=3). Existing demo patients include Eleanor Adams (PC-100000, DOB 1958-04-12). Do NOT create or delete any patients. Do NOT test frontend."
     -agent: "testing"
     -message: "✅ Backend testing completed successfully for enhanced patient search endpoint GET /api/patients/search. ALL 10 test cases passed with no critical issues. Created /app/backend_test_patient_search.py with comprehensive READ-ONLY test coverage. Test results: (1) Authentication: Without session correctly blocked with 401 ✅. (2) Case-insensitive search: ?q=adams returns Eleanor Adams with all required fields (id, mrn, firstName, lastName, dob, sex, status, phone) ✅. (3) MRN search: ?q=PC-100000 returns Eleanor Adams ✅. (4) Exact DOB search: ?q=1958-04-12 returns Eleanor Adams ✅. (5) Year-range DOB search: ?q=1958 includes Eleanor Adams ✅. (6) Status filter + DOB sort: ?status=active&sort=dob_asc returns 8 results, all active, ordered by DOB ascending (oldest first: 1948, 1958, 1968...) ✅. (7) Name sort descending: ?q=a&sort=name_desc returns results in Z->A order (Williams, Schmidt, Rodriguez...Martinez) ✅. (8) Sex filter: ?sex=F returns 6 results, all female ✅. (9) Empty query protection: No q AND no filters returns empty results [] (does not dump table) ✅. (10) Limit enforcement: ?status=active&limit=3 returns exactly 3 results ✅. All authentication, case-insensitive search, DOB matching (exact day and year range), filtering (status, sex), sorting (name_desc, dob_asc), limit enforcement, and empty-query protection working correctly. No data created or modified (READ-ONLY testing). Ready for main agent to summarize and finish."
+
+## ---- Iteration 13 (main agent): NPPES NPI Registry integration (credentialing + pharmacy locator) ----
+backend:
+  - task: "NPPES provider/credentialing search (GET /api/nppes/search) — staff only"
+    implemented: true
+    working: true
+    file: "src/lib/nppes.ts, src/app/api/nppes/search/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW. Calls the FREE public CMS NPPES NPI Registry API (https://npiregistry.cms.hhs.gov/api/?version=2.1, no key). Params: npi|first_name|last_name|organization_name|taxonomy|city|state|postal|type(NPI-1|NPI-2)|limit. Normalizes to {npi,type,name,credential,gender,status,enumerationDate,lastUpdated,authorizedOfficial,primaryTaxonomy{code,desc,license,state},taxonomies[],practice{address1,city,state,postal,phone,fax},mailing}. IMPORTANT: NPPES ignores single name fields, so the lib appends trailing wildcards AND post-filters results by first/last/org locally for relevance. Guards: no params -> 400; no session -> 401; upstream failure -> 502. Sanity-tested: last_name=Smith&state=TX -> only Smith names; first=John&last=Smith&state=TX -> all JOHN...SMITH with credentials (MD/RPh/Pharmacist); org=CVS type=NPI-2 -> CVS PHARMACY etc.; npi exact works; no auth 401; empty 400."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_nppes.py. ALL 5 test cases passed with no critical issues. Test results: (A1) GET /api/nppes/search without session correctly returns 401 'Unauthorized' ✅. (A2) GET with session but no params correctly returns 400 'Provide an NPI, name, organization, taxonomy, city or ZIP to search.' ✅. (A3) GET ?first_name=John&last_name=Smith&state=TX&type=NPI-1 returns 200 with 23 total matches, 20 results returned ✅. Server-side relevance post-filter verified: EVERY result's name contains both 'JOHN' and 'SMITH' (checked first 5: JOHN MARVIN SMITH, JOHN GARDNER SMITH, JOHN CLEVELAND SMITH, JOHN DOYLE SMITH, JOHN BARRETT SMITH) ✅. All results have required fields npi/name/primaryTaxonomy ✅. (A4) GET ?organization_name=CVS&type=NPI-2&state=TX returns 200 with 194 total matches, 20 results returned ✅. Every result name contains 'CVS' (checked first 5: CVS HEALTH, CVS HOME HEALTH AGENCY INC, CVS HOME HEALTH AGENCY INC., CVS MINUTECLINIC, CVS PHARMACY) ✅. (A5) GET ?npi=1770589525 (NPI from A3 result) returns 200 with exactly 1 result whose npi matches '1770589525' ✅. All authentication, validation, live NPPES API integration, wildcard search, server-side relevance filtering, and exact NPI lookup working correctly."
+  - task: "NPPES pharmacy locator (GET /api/pharmacies/nppes) + import (POST /api/pharmacies/import) — staff only"
+    implemented: true
+    working: true
+    file: "src/app/api/pharmacies/nppes/route.ts, src/app/api/pharmacies/import/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "GET /api/pharmacies/nppes: searches NPPES NPI-2 orgs with taxonomy 'pharmacy' by name/city/state/postal -> {count, pharmacies:[{npi,name,taxonomy,address1,city,state,postal,phone,fax}]}. Requires at least name|city|postal else 400; no session 401. POST /api/pharmacies/import: saves/updates a selected pharmacy into local Pharmacy table (idempotent on npi) -> {ok:true, pharmacy, reused?}. Requires name else 400; no session 401. Sanity-tested: city=San Antonio&state=TX returns live pharmacies (15RX LLC etc.); import creates a Pharmacy row and re-import reuses it."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_nppes.py. ALL 7 test cases passed with no critical issues. Test results: (B6) GET /api/pharmacies/nppes without session correctly returns 401 'Unauthorized' ✅. (B7) GET with session but no name/city/postal (only state=TX) correctly returns 400 'Enter a pharmacy name, city or ZIP to search.' ✅. (B8) GET ?city=San Antonio&state=TX returns 200 with 'pharmacies' array containing 25 pharmacies ✅. All pharmacies have required fields npi/name/city/state/phone (checked first 3: 15RX LLC with NPIs 1902181829, 1447604632, 1841595188, all in SAN ANTONIO, TX with phone numbers) ✅. (C9) POST /api/pharmacies/import without session correctly returns 401 'Unauthorized' ✅. (C10) POST with session but no name (only npi) correctly returns 400 'Pharmacy name is required.' ✅. (C11) POST with valid body {npi:'1902181829', name:'15RX LLC', address1:'11212 STATE HIGHWAY 151 STE 110', city:'SAN ANTONIO', state:'TX', postal:'78251', phone:'210-543-1579'} returns 200 {ok:true, pharmacy:{id:'cmscudfp00000p79vdtn2dsqo', name:'15RX LLC', npi:'1902181829'}} ✅. Pharmacy successfully created in MongoDB ✅. (C12) POST the SAME npi+name again returns 200 {ok:true, pharmacy:{...}, reused:true} ✅. Idempotent behavior verified: no duplicate Pharmacy row created, existing record reused ✅. CLEANUP: Test pharmacy with NPI 1902181829 successfully deleted from MongoDB (1 record deleted) ✅. All authentication, validation, live NPPES pharmacy search, pharmacy import, idempotent reuse logic, and cleanup working correctly."
+
+frontend:
+  - task: "NPI Lookup staff page (2 tabs) + nav link"
+    implemented: true
+    working: "NA"
+    file: "src/app/(app)/npi-lookup/page.tsx, src/components/NpiLookup.tsx, src/components/Shell.tsx, src/lib/i18n/dictionaries.ts"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "New /npi-lookup page with two tabs: Provider/Credentialing (NPI/name/org/taxonomy/city/state/ZIP search; result cards show name, credential chip, type, active status, NPI, specialty, license+state, phone, address, enumeration date) and Pharmacy Locator (name/city/state/ZIP search; cards with NPI/address/phone/fax and an 'Import to directory' button calling /api/pharmacies/import). Added 'NPI Lookup' (Búsqueda NPI) to Clinical sidebar with shield icon. Screenshot verified both tabs return live NPPES data and render correctly."
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 13 BACKEND: Test the NPPES integration (calls the live FREE public CMS NPPES API; no key). HTTPS base URL; staff login andy.manzano@proactiveclinic.com/apex123 -> proactive_session. (A) GET /api/nppes/search: no session -> 401; no params -> 400; ?npi=<any valid 10-digit NPI you find> -> 1 exact match; ?first_name=John&last_name=Smith&state=TX&type=NPI-1 -> 200 results where EVERY result name contains both 'JOHN' and 'SMITH' (post-filter relevance) and each has fields npi/name/primaryTaxonomy; ?organization_name=CVS&type=NPI-2&state=TX -> 200 results whose names contain 'CVS'. (B) GET /api/pharmacies/nppes: no session -> 401; no name/city/postal -> 400; ?city=San Antonio&state=TX -> 200 with pharmacies array (each has npi,name,phone,city,state). (C) POST /api/pharmacies/import: no session -> 401; no name -> 400; with a valid body {npi,name,address1,city,state,postal,phone} from a pharmacy result -> 200 {ok:true, pharmacy}; POST the SAME npi again -> 200 {ok:true, reused:true} (idempotent, no duplicate). CLEANUP: after testing import, delete the Pharmacy row(s) you created (match by the npi you imported) so the directory stays clean. NOTE: external API depends on NPPES availability; if NPPES is down you'll get 502 (acceptable). Do NOT test frontend."
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for NEW NPPES NPI Registry integration. ALL 12 test cases passed with no critical issues. Created /app/backend_test_nppes.py with comprehensive test coverage. Test results: GROUP A (GET /api/nppes/search): (A1) No session correctly blocked with 401 ✅. (A2) No params correctly returns 400 ✅. (A3) John Smith search in TX returns 23 matches, all results contain JOHN and SMITH (server-side relevance filter working), all have npi/name/primaryTaxonomy fields ✅. (A4) CVS organization search in TX returns 194 matches, all results contain CVS ✅. (A5) Exact NPI lookup returns exactly 1 matching result ✅. GROUP B (GET /api/pharmacies/nppes): (B6) No session correctly blocked with 401 ✅. (B7) No name/city/postal correctly returns 400 ✅. (B8) San Antonio search returns 25 pharmacies, all have npi/name/city/state/phone fields ✅. GROUP C (POST /api/pharmacies/import): (C9) No session correctly blocked with 401 ✅. (C10) No name correctly returns 400 ✅. (C11) Valid import creates pharmacy in MongoDB ✅. (C12) Duplicate import returns reused:true (idempotent, no duplicate created) ✅. CLEANUP: Test pharmacy successfully deleted from MongoDB ✅. NOTE: Testing required HTTPS URL because session cookie has secure:true flag. All authentication, validation, live NPPES API integration, server-side relevance filtering, pharmacy import, and idempotent reuse logic working correctly. Ready for main agent to summarize and finish."
+
