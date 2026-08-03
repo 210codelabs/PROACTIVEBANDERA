@@ -95,6 +95,7 @@ export default function Shell({
     { label: t("nav.encounters"), href: "/encounters", icon: <Icon.Clipboard /> },
     { label: t("nav.orders"), href: "/orders", icon: <Icon.Beaker /> },
     { label: "Intake Forms", href: "/intake-forms", icon: <Icon.Clipboard /> },
+    { label: "Intake Inbox", href: "/intake-inbox", icon: <Icon.Inbox /> },
     { label: t("nav.npiLookup"), href: "/npi-lookup", icon: <Icon.Shield /> },
     { label: t("nav.chartingSetup"), href: "/settings/charting", icon: <Icon.Beaker /> },
     {

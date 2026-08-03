@@ -7,11 +7,11 @@ const PUBLIC_EXACT = ["/", "/login", "/landing", "/book", "/intake", "/manifest.
 const PUBLIC_PREFIX = [
   "/legal",
   "/kiosk",
-  "/intake",
   "/attorney",
   "/book",
   "/api/kiosk",
-  "/api/intake",
+  "/api/intake/forms",
+  "/api/intake/submit",
   "/api/attorney",
   "/api/assistant",
   "/api/appointments/request",

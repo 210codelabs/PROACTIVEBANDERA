@@ -76,6 +76,8 @@ export async function POST(req: Request) {
           formSlug: form.slug,
           formTitle: form.title,
           confirmation,
+          lang: b.lang === "es" ? "es" : "en",
+          reviewStatus: "pending",
           values,
           submittedAt: new Date().toISOString(),
         }),

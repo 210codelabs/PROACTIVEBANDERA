@@ -27,6 +27,7 @@ export type Field =
   | { kind: "heading"; text: string }
   | { kind: "paragraph"; text: string; ack?: boolean; id?: string; ackLabel?: string }
   | { kind: "signature"; id?: string; label: string }
+  | { kind: "bodymap"; id: string; label: string; instructions?: string }
   | { kind: "pairs"; label: string; columns: string[]; rows: string[] };
 
 export type Section = {
@@ -91,7 +92,7 @@ const NEW_PATIENT_INTAKE: FormDef = {
   online: true,
   sections: [
     {
-      title: "1. Patient Information",
+      title: "Patient Information",
       description:
         "Tell us who you are. This information creates your Proactive Clinic chart. Please print clearly if completing on paper.",
       fields: [
@@ -111,9 +112,9 @@ const NEW_PATIENT_INTAKE: FormDef = {
       ],
     },
     {
-      title: "2. Injury / Accident Details",
+      title: "Injury / Accident Details",
       description:
-        "Complete this section only if your visit is related to an injury or motor-vehicle accident. If not accident-related, skip to Section 3.",
+        "Complete this section only if your visit is related to an injury or motor-vehicle accident. If not accident-related, skip to the next section.",
       fields: [
         { kind: "date", id: "dateOfAccident", label: "Date of Accident / Injury", width: "half" },
         { kind: "yesno", id: "seatbelt", label: "Were you wearing your seatbelt?" },
@@ -129,7 +130,12 @@ const NEW_PATIENT_INTAKE: FormDef = {
       ],
     },
     {
-      title: "3. Past & Present Medical History",
+      title: "Injury Body Map",
+      description: "Tap on the body where you feel pain or injury. Add as many points as you need — front and back.",
+      fields: [{ kind: "bodymap", id: "bodyMap", label: "Mark your areas of pain" }],
+    },
+    {
+      title: "Past & Present Medical History",
       description:
         "Help our clinical team plan safe, effective therapy by sharing your health background. Leave blank anything that does not apply.",
       fields: [
@@ -150,7 +156,7 @@ const NEW_PATIENT_INTAKE: FormDef = {
       ],
     },
     {
-      title: "4. Legal / Attorney Information",
+      title: "Legal / Attorney Information",
       description:
         "Complete only if your care is related to a personal-injury (PIP) or auto-accident claim managed by an attorney.",
       fields: [
@@ -163,7 +169,7 @@ const NEW_PATIENT_INTAKE: FormDef = {
       ],
     },
     {
-      title: "5. Consent to Treatment",
+      title: "Consent to Treatment",
       description: "Please read carefully. Your signature at the end of this form confirms your agreement.",
       fields: [
         { kind: "paragraph", text: CONSENT_TREATMENT, ack: true, id: "ackTreatment", ackLabel: "I have read and agree to the Consent to Treatment." },
@@ -171,7 +177,7 @@ const NEW_PATIENT_INTAKE: FormDef = {
       ],
     },
     {
-      title: "6. Radiology / Imaging Consent",
+      title: "Radiology / Imaging Consent",
       description: "Bilingual authorization for diagnostic imaging (English & Español).",
       fields: [
         { kind: "paragraph", text: RADIOLOGY_EN },
@@ -181,7 +187,7 @@ const NEW_PATIENT_INTAKE: FormDef = {
       ],
     },
     {
-      title: "7. Acknowledgement & Signature",
+      title: "Acknowledgement & Signature",
       description: "By signing below, you confirm the information provided is accurate to the best of your knowledge.",
       fields: [
         { kind: "signature", id: "signature", label: "Patient / Guardian Signature" },
@@ -203,7 +209,7 @@ const CURRENT_PATIENT_CHECKIN: FormDef = {
   online: true,
   sections: [
     {
-      title: "1. Find Your Record",
+      title: "Find Your Record",
       description: "Confirm your identity so we can attach today's update to your existing Proactive Clinic chart.",
       fields: [
         { kind: "text", id: "firstName", label: "First Name", width: "half" },
@@ -213,7 +219,7 @@ const CURRENT_PATIENT_CHECKIN: FormDef = {
       ],
     },
     {
-      title: "2. How Are You Feeling Today?",
+      title: "How Are You Feeling Today?",
       description: "Tell us how you have been doing since your last visit so your provider can adjust your plan.",
       fields: [
         { kind: "textarea", id: "presentIllness", label: "Current symptoms / present illness", lines: 3 },
@@ -225,14 +231,19 @@ const CURRENT_PATIENT_CHECKIN: FormDef = {
       ],
     },
     {
-      title: "3. Consent Re-Acknowledgement",
+      title: "Injury Body Map",
+      description: "Tap on the body where you feel pain or injury. Add as many points as you need — front and back.",
+      fields: [{ kind: "bodymap", id: "bodyMap", label: "Mark your areas of pain" }],
+    },
+    {
+      title: "Consent Re-Acknowledgement",
       description: "Please re-confirm your ongoing consent for today's treatment.",
       fields: [
         { kind: "paragraph", text: CONSENT_TREATMENT, ack: true, id: "ackTreatment", ackLabel: "I re-confirm my consent to today's treatment." },
       ],
     },
     {
-      title: "4. Signature",
+      title: "Signature",
       description: "By signing you confirm today's update is accurate.",
       fields: [
         { kind: "signature", id: "signature", label: "Patient Signature" },

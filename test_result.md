@@ -1280,3 +1280,90 @@ test_plan:
 agent_communication:
     -agent: "testing"
     -message: "✅ Backend testing completed successfully for NEW PUBLIC intake endpoints. ALL test cases passed with no critical issues. Created /app/backend_test_intake.py with comprehensive test coverage. Test results: (1) GET /api/intake/forms: Returns 200 with 5 forms (all required fields present), exactly 2 have online:true (new-patient-intake, current-patient-checkin) ✅. (2) GET /api/intake/forms/{slug}/pdf: All 5 valid slugs return 200 with Content-Type: application/pdf and bodies starting with '%PDF' magic bytes (sizes: 230-237KB) ✅. Unknown slug 'nope' correctly returns 404 {error: 'Form not found'} ✅. (3) POST /api/intake/submit: Valid new-patient-intake create returns correct response with confirmation (^PC-[A-Z0-9]{6}$), mrn (^PC-\\d{6}$), patientId, isNew:true ✅. Existing patient match (same firstName/lastName/dob) returns isNew:false with same mrn (patient reused correctly) ✅. All 8 validation cases return 400 with appropriate error messages (missing body/slug/values, non-online slug, missing firstName/lastName/dob/signature, invalid dob) ✅. All authentication (public, no auth required), validation, patient creation/matching logic, response formats, PDF generation, and data persistence working correctly. No issues found. Ready for main agent to summarize and finish."
+
+## ---- Iteration 18 (main agent) — Intake enhancements: ES, prefill, review inbox, upload, body map ----
+backend:
+  - task: "Filled-copy PDF (POST /api/intake/forms/[slug]/pdf) + ?lang=es blank PDF"
+    implemented: true
+    working: "NA"
+    file: "src/app/api/intake/forms/[slug]/pdf/route.ts, src/lib/intake/pdf.ts, src/lib/intake/i18n.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "PUBLIC. GET /api/intake/forms/{slug}/pdf?lang=es returns a Spanish-translated blank PDF (application/pdf, %PDF). POST /api/intake/forms/{slug}/pdf with JSON {values:{...}, lang:'en'|'es'} returns a FILLED copy PDF (nothing stored). Unknown slug -> 404. Verify 200 application/pdf for GET lang=es on new-patient-intake, and POST with sample values returns 200 application/pdf."
+  - task: "Online submit stores lang + reviewStatus + bodyMap (POST /api/intake/submit)"
+    implemented: true
+    working: "NA"
+    file: "src/app/api/intake/submit/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "PUBLIC. Now accepts top-level lang and a values.bodyMap object {front:[{x,y}],back:[{x,y}]}. Stores document body with reviewStatus:'pending', lang, and full values (bodyMap preserved as object). Verify a valid new-patient-intake submit with lang:'es' and bodyMap returns 200 {ok, confirmation ^PC-[A-Z0-9]{6}$, mrn ^PC-\\d{6}$, isNew}."
+  - task: "Staff review inbox APIs (/api/intake/submissions, /[id], /[id]/review, /[id]/pdf)"
+    implemented: true
+    working: "NA"
+    file: "src/app/api/intake/submissions/route.ts and subroutes"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "STAFF ONLY (session cookie required). GET /api/intake/submissions?status=pending|approved|all -> 401 without session; 200 {submissions:[...], pendingCount} with session; each item has patientName, mrn, reviewStatus, kind. GET /api/intake/submissions/{id} -> detail with parsed values (no base64 blob). POST /api/intake/submissions/{id}/review {action:'approve'} -> 200 {ok, reviewStatus:'approved'}; {action:'reopen'} -> reviewStatus:'pending'; invalid action -> 400; no session -> 401. GET /api/intake/submissions/{id}/pdf -> 200 application/pdf (completed copy for an online submission); 401 no session. Suggested flow: submit an online intake first (public), find it in the staff list, exercise review + pdf."
+  - task: "Staff + portal upload/download of offline forms"
+    implemented: true
+    working: "NA"
+    file: "src/app/api/intake/submissions/upload/route.ts, [id]/file/route.ts, src/app/api/portal/intake/*"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "STAFF: POST /api/intake/submissions/upload {patientId, slug, fileName, dataUrl(base64 PDF/image)} -> 200 {ok,id}; validation: missing fields 400, non data-url/non pdf|image 400, unknown patient 404, no session 401. GET /api/intake/submissions/{id}/file -> returns the stored file bytes (staff). PORTAL (cookie via POST /api/portal/auth/login {mrn:'PC-100000', dob:'1958-04-12'}): POST /api/portal/intake/upload {slug, fileName, dataUrl} -> 200 {ok,id} attaches to logged-in patient; GET /api/portal/intake/{id}/pdf and /file -> 200 for own docs, 404 for a doc that belongs to a different patient; 401 without portal cookie. Use a tiny valid base64 PDF like 'data:application/pdf;base64,JVBERi0xLjQKJ...'; a minimal %PDF header is fine for storage/echo tests."
+
+frontend:
+  - task: "Online intake ES toggle + Injury Body Map picker + download filled copy"
+    implemented: true
+    working: "NA"
+    file: "src/app/intake/page.tsx, src/lib/intake/i18n.ts, src/lib/intake/bodymap.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Verified via screenshot: EN/ES toggle translates the whole form; Injury Body Map renders Front/Back silhouettes and tap-to-add / tap-to-remove numbered markers works; sticky footer + submit localize. Post-submit offers 'Download filled copy (PDF)'."
+  - task: "Staff Intake Inbox (/intake-inbox) + Portal upload (portal/documents)"
+    implemented: true
+    working: "NA"
+    file: "src/app/(app)/intake-inbox/page.tsx, src/app/portal/documents/page.tsx, src/components/portal/PortalIntakeUpload.tsx, src/components/Shell.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Staff inbox lists submissions with pending/approved tabs, approve/reopen, completed-PDF / file downloads, upload widget. Portal documents page shows download + upload of offline forms. Not yet browser-tested by agent."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_intake_iteration18.py. ALL 24 test cases passed with no critical issues. Test results: (1) PUBLIC PDF endpoints: GET blank PDF with lang=es returns 200 application/pdf starting with '%PDF' (237561 bytes) ✅. POST filled PDF with values returns 200 application/pdf starting with '%PDF' (237965 bytes) ✅. POST unknown slug correctly returns 404 ✅. (2) PUBLIC submit: POST /api/intake/submit creates new patient with confirmation 'PC-JK5XTK' (matches ^PC-[A-Z0-9]{6}$) ✅, mrn 'PC-256023' (matches ^PC-\\d{6}$) ✅, patientId captured ✅. (3) STAFF review inbox (10 tests): GET /api/intake/submissions without cookie correctly returns 401 ✅. GET with staff cookie returns 200 with submissions array and pendingCount ✅. Submission created in step 2 found in inbox (patientName 'InboxTest Userxrh9ztos') ✅. GET /api/intake/submissions/{id} without cookie returns 401 ✅, with cookie returns 200 with all required fields (id, patientId, patientName, mrn, detail with parsed values) ✅. POST review {action:'approve'} returns 200 {ok:true, reviewStatus:'approved'} ✅. POST review {action:'reopen'} returns 200 {ok:true, reviewStatus:'pending'} ✅. POST review {action:'bogus'} correctly returns 400 ✅. POST review without cookie correctly returns 401 ✅. GET /api/intake/submissions/{id}/pdf with cookie returns 200 application/pdf starting with '%PDF' (237967 bytes) ✅. GET PDF without cookie correctly returns 401 ✅. (4) STAFF upload/download (6 tests): POST /api/intake/submissions/upload with valid data returns 200 {ok:true, id} ✅. POST with missing dataUrl correctly returns 400 ✅. POST with bad dataUrl (text/plain) correctly returns 400 ✅. POST with unknown patientId correctly returns 404 ✅. POST without cookie correctly returns 401 ✅. GET /api/intake/submissions/{uploadId}/file with cookie returns 200 application/pdf (9 bytes) ✅. (5) PORTAL upload/download (4 tests): POST /api/portal/intake/upload with portal cookie returns 200 {ok:true, id} ✅. GET /api/portal/intake/{portalUploadId}/file with portal cookie returns 200 application/pdf (9 bytes) ✅. Ownership check: GET /api/portal/intake/{staff-uploadId}/file (different patient) correctly returns 404 ✅. POST without portal cookie correctly returns 401 ✅. All authentication, authorization, validation, PDF generation, submission workflow, review actions, file upload/download, and ownership checks working correctly."
+
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 18 BACKEND test only. Staff cookie: POST /api/auth/login {email:'andy.manzano@proactiveclinic.com', password:'apex123'}. Portal cookie: POST /api/portal/auth/login {mrn:'PC-100000', dob:'1958-04-12'}. Base URL http://localhost:3000. Test: (1) GET /api/intake/forms/new-patient-intake/pdf?lang=es -> 200 application/pdf %PDF; POST same path with {values:{firstName:'A',lastName:'B',dob:'1990-01-01',signature:'A B',injuredAreas:'Neck, Lower Back',bodyMap:{front:[{x:0.5,y:0.3}],back:[]}}, lang:'en'} -> 200 application/pdf. (2) POST /api/intake/submit {slug:'new-patient-intake', lang:'es', values:{firstName:'InboxTest', lastName:'User<rand>', dob:'1991-02-03', signature:'InboxTest User', bodyMap:{front:[{x:0.5,y:0.3}],back:[]}}} -> 200 with confirmation + mrn; capture the returned patientId. (3) Staff inbox: GET /api/intake/submissions -> 401 without cookie, 200 {submissions,pendingCount} with cookie; find the submission just created (by patientName InboxTest). GET /api/intake/submissions/{id} -> detail. POST /api/intake/submissions/{id}/review {action:'approve'} -> reviewStatus approved; then {action:'reopen'} -> pending; {action:'bogus'} -> 400; no-cookie -> 401. GET /api/intake/submissions/{id}/pdf -> 200 application/pdf; no-cookie -> 401. (4) Upload: staff POST /api/intake/submissions/upload {patientId:<from step2>, slug:'new-patient-intake', fileName:'scan.pdf', dataUrl:'data:application/pdf;base64,JVBERi0xLjQK'} -> 200 {ok,id}; validation missing dataUrl -> 400, bad dataUrl 'data:text/plain;base64,AAAA' -> 400, unknown patientId -> 404, no cookie -> 401; then GET /api/intake/submissions/{uploadId}/file -> 200 application/pdf. (5) Portal: with portal cookie POST /api/portal/intake/upload {slug:'current-patient-checkin', fileName:'p.pdf', dataUrl:'data:application/pdf;base64,JVBERi0xLjQK'} -> 200 {ok,id}; GET /api/portal/intake/{that id}/file -> 200; GET /api/portal/intake/{staff-uploadId-from-step4-belonging-to-different-patient}/file -> 404 (ownership); no portal cookie -> 401. Do NOT test frontend. Created test data is acceptable."
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for Iteration 18 intake enhancement. ALL 24 test cases passed with no critical issues. Created /app/backend_test_intake_iteration18.py with comprehensive test coverage. Test results: (1) PUBLIC PDF endpoints (3 tests): GET blank PDF with lang=es ✅, POST filled PDF with values ✅, POST unknown slug returns 404 ✅. (2) PUBLIC submit (1 test): Creates patient with correct confirmation format (^PC-[A-Z0-9]{6}$) and MRN format (^PC-\\d{6}$) ✅. (3) STAFF review inbox (10 tests): GET submissions with/without auth ✅, GET detail with/without auth ✅, POST review approve/reopen/bogus actions ✅, GET PDF with/without auth ✅. All authentication, authorization, and review workflow working correctly. (4) STAFF upload/download (6 tests): POST upload with all validation cases (missing dataUrl, bad format, unknown patientId, no auth) ✅, GET file download ✅. (5) PORTAL upload/download (4 tests): POST upload ✅, GET file ✅, ownership check (cannot access other patient's file) ✅, auth blocking ✅. All authentication, authorization, validation, PDF generation, submission workflow, review actions, file upload/download, and ownership checks working correctly. No issues found. Ready for main agent to summarize and finish."

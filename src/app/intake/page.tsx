@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { CLINIC, FORMS, FormDef, Field, Section } from "@/lib/intake/forms";
+import { tr, ui, Lang } from "@/lib/intake/i18n";
+import { MANNEQUIN, BODY_BOX, BodyMapValue, emptyBodyMap } from "@/lib/intake/bodymap";
 
 const BRAND = "#0E4770";
 const ACCENT = "#0A8C8C";
@@ -10,22 +12,109 @@ const ONLINE_FORMS = FORMS.filter((f) => f.online);
 
 type Values = Record<string, any>;
 
-/* ----------------------------- small UI atoms ---------------------------- */
-function Header() {
+/* ----------------------------- header ---------------------------- */
+function Header({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
   return (
     <header className="w-full border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-4xl flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <img src="/pclinic-header.png" alt="Proactive Clinic" className="h-12 w-auto object-contain" />
-        <div className="text-left text-xs leading-5 text-slate-500 sm:text-right">
-          <div>{CLINIC.addr1}</div>
-          <div>{CLINIC.addr2}</div>
-          <div className="font-semibold" style={{ color: BRAND }}>
-            {CLINIC.phone} · {CLINIC.web}
+        <div className="flex items-center gap-4">
+          <div className="text-left text-xs leading-5 text-slate-500 sm:text-right">
+            <div>{CLINIC.addr1}</div>
+            <div>{CLINIC.addr2}</div>
+            <div className="font-semibold" style={{ color: BRAND }}>{CLINIC.phone} · {CLINIC.web}</div>
           </div>
+          <button
+            onClick={() => setLang(lang === "en" ? "es" : "en")}
+            className="shrink-0 rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            title="Language"
+          >
+            🌐 {ui(lang, "langLabel")}
+          </button>
         </div>
       </div>
       <div className="h-1 w-full" style={{ background: ACCENT }} />
     </header>
+  );
+}
+
+/* ----------------------------- body map picker ---------------------------- */
+function Silhouette({
+  markers,
+  onAdd,
+  onRemove,
+}: {
+  markers: { x: number; y: number }[];
+  onAdd: (x: number, y: number) => void;
+  onRemove: (i: number) => void;
+}) {
+  const ref = useRef<SVGSVGElement | null>(null);
+  function handleClick(e: React.MouseEvent) {
+    const svg = ref.current;
+    if (!svg) return;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const p = pt.matrixTransform(ctm.inverse());
+    onAdd(p.x / BODY_BOX.w, p.y / BODY_BOX.h);
+  }
+  return (
+    <svg
+      ref={ref}
+      viewBox={`0 0 ${BODY_BOX.w} ${BODY_BOX.h}`}
+      onClick={handleClick}
+      className="w-full cursor-crosshair select-none"
+      style={{ maxWidth: 180, touchAction: "manipulation" }}
+    >
+      {MANNEQUIN.map((s, i) =>
+        s.type === "circle" ? (
+          <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="#EAF3FA" stroke="#B9C6D2" strokeWidth={1.5} />
+        ) : (
+          <rect key={i} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} fill="#EAF3FA" stroke="#B9C6D2" strokeWidth={1.5} />
+        )
+      )}
+      {markers.map((m, i) => (
+        <g
+          key={i}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(i);
+          }}
+          className="cursor-pointer"
+        >
+          <circle cx={m.x * BODY_BOX.w} cy={m.y * BODY_BOX.h} r={11} fill="#DC2626" />
+          <text x={m.x * BODY_BOX.w} y={m.y * BODY_BOX.h + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="#fff">
+            {i + 1}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function BodyMapField({ lang, value, set }: { lang: Lang; value: BodyMapValue; set: (v: BodyMapValue) => void }) {
+  const v = value && typeof value === "object" && value.front ? value : emptyBodyMap();
+  const add = (view: "front" | "back", x: number, y: number) =>
+    set({ ...v, [view]: [...v[view], { x, y }] });
+  const remove = (view: "front" | "back", i: number) =>
+    set({ ...v, [view]: v[view].filter((_, idx) => idx !== i) });
+
+  return (
+    <div className="col-span-full">
+      <p className="mb-2 text-xs text-slate-500">{ui(lang, "bodyTapAdd")}</p>
+      <div className="grid grid-cols-2 gap-4">
+        {(["front", "back"] as const).map((view) => (
+          <div key={view} className="flex flex-col items-center rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <Silhouette markers={v[view]} onAdd={(x, y) => add(view, x, y)} onRemove={(i) => remove(view, i)} />
+            <div className="mt-2 text-xs font-semibold text-slate-500">
+              {ui(lang, view === "front" ? "bodyFront" : "bodyBack")} · {v[view].length} {ui(lang, "bodyPoints")}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -34,29 +123,28 @@ function FieldView({
   field,
   values,
   set,
+  lang,
 }: {
   field: Field;
   values: Values;
   set: (id: string, v: any) => void;
+  lang: Lang;
 }) {
   switch (field.kind) {
     case "heading":
       return (
         <h4 className="col-span-full mt-2 text-sm font-semibold" style={{ color: ACCENT }}>
-          {field.text}
+          {tr(field.text, lang)}
         </h4>
       );
 
     case "text":
     case "date": {
       const id = field.id!;
-      const span =
-        field.kind === "text" && field.width === "full"
-          ? "col-span-full"
-          : "col-span-full sm:col-span-1";
+      const span = field.kind === "text" && field.width === "full" ? "col-span-full" : "col-span-full sm:col-span-1";
       return (
         <div className={span}>
-          <label className="mb-1 block text-xs font-semibold text-slate-700">{field.label}</label>
+          <label className="mb-1 block text-xs font-semibold text-slate-700">{tr(field.label, lang)}</label>
           <input
             type={field.kind === "date" ? "date" : "text"}
             value={values[id] || ""}
@@ -71,7 +159,7 @@ function FieldView({
       const id = field.id!;
       return (
         <div className="col-span-full">
-          <label className="mb-1 block text-xs font-semibold text-slate-700">{field.label}</label>
+          <label className="mb-1 block text-xs font-semibold text-slate-700">{tr(field.label, lang)}</label>
           <textarea
             rows={field.lines || 2}
             value={values[id] || ""}
@@ -87,21 +175,22 @@ function FieldView({
       const cur = values[id];
       return (
         <div className="col-span-full flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
-          <span className="text-sm text-slate-700">{field.label}</span>
+          <span className="text-sm text-slate-700">{tr(field.label, lang)}</span>
           <div className="flex gap-2">
-            {["Yes", "No"].map((opt) => (
+            {[
+              { canon: "Yes", label: ui(lang, "yes") },
+              { canon: "No", label: ui(lang, "no") },
+            ].map((opt) => (
               <button
-                key={opt}
+                key={opt.canon}
                 type="button"
-                onClick={() => set(id, opt)}
+                onClick={() => set(id, opt.canon)}
                 className={`rounded-md border px-4 py-1 text-sm font-medium transition ${
-                  cur === opt
-                    ? "border-transparent text-white"
-                    : "border-slate-300 bg-white text-slate-600 hover:border-teal-400"
+                  cur === opt.canon ? "border-transparent text-white" : "border-slate-300 bg-white text-slate-600 hover:border-teal-400"
                 }`}
-                style={cur === opt ? { background: BRAND } : {}}
+                style={cur === opt.canon ? { background: BRAND } : {}}
               >
-                {opt}
+                {opt.label}
               </button>
             ))}
           </div>
@@ -114,17 +203,12 @@ function FieldView({
       const single = id === "sex" || id === "painLevel" || id === "progress";
       const cur: string[] = Array.isArray(values[id]) ? values[id] : [];
       const toggle = (opt: string) => {
-        if (single) {
-          set(id, [opt]);
-        } else {
-          set(id, cur.includes(opt) ? cur.filter((o) => o !== opt) : [...cur, opt]);
-        }
+        if (single) set(id, [opt]);
+        else set(id, cur.includes(opt) ? cur.filter((o) => o !== opt) : [...cur, opt]);
       };
       return (
         <div className="col-span-full">
-          {field.label && (
-            <label className="mb-1.5 block text-xs font-semibold text-slate-700">{field.label}</label>
-          )}
+          {field.label && <label className="mb-1.5 block text-xs font-semibold text-slate-700">{tr(field.label, lang)}</label>}
           <div className="flex flex-wrap gap-2">
             {field.options.map((opt) => {
               const on = cur.includes(opt);
@@ -138,7 +222,7 @@ function FieldView({
                   }`}
                   style={on ? { background: ACCENT } : {}}
                 >
-                  {opt}
+                  {tr(opt, lang)}
                 </button>
               );
             })}
@@ -150,7 +234,7 @@ function FieldView({
     case "paragraph": {
       return (
         <div className="col-span-full">
-          <p className="rounded-lg bg-slate-50 p-3 text-[13px] leading-relaxed text-slate-600">{field.text}</p>
+          <p className="rounded-lg bg-slate-50 p-3 text-[13px] leading-relaxed text-slate-600">{tr(field.text, lang)}</p>
           {field.ack && (
             <label className="mt-2 flex cursor-pointer items-start gap-2 text-sm font-medium" style={{ color: BRAND }}>
               <input
@@ -159,7 +243,7 @@ function FieldView({
                 onChange={(e) => set(field.id!, e.target.checked)}
                 className="mt-0.5 h-4 w-4 accent-teal-600"
               />
-              <span>{field.ackLabel || "I acknowledge and agree."}</span>
+              <span>{tr(field.ackLabel, lang)}</span>
             </label>
           )}
         </div>
@@ -170,19 +254,22 @@ function FieldView({
       const id = field.id!;
       return (
         <div className="col-span-full">
-          <label className="mb-1 block text-xs font-semibold text-slate-700">{field.label}</label>
+          <label className="mb-1 block text-xs font-semibold text-slate-700">{tr(field.label, lang)}</label>
           <input
             value={values[id] || ""}
             onChange={(e) => set(id, e.target.value)}
-            placeholder="Type your full legal name"
+            placeholder={ui(lang, "typeName")}
             className="w-full rounded-lg border-2 border-dashed border-slate-300 px-3 py-2.5 text-base italic outline-none focus:border-teal-500"
             style={{ fontFamily: "cursive" }}
           />
-          <p className="mt-1 text-[11px] text-slate-400">
-            Typing your name serves as your electronic signature.
-          </p>
+          <p className="mt-1 text-[11px] text-slate-400">{ui(lang, "sigNote")}</p>
         </div>
       );
+    }
+
+    case "bodymap": {
+      const id = field.id;
+      return <BodyMapField lang={lang} value={values[id]} set={(v) => set(id, v)} />;
     }
 
     default:
@@ -195,33 +282,28 @@ function SectionView({
   index,
   values,
   set,
+  lang,
 }: {
   section: Section;
   index: number;
   values: Values;
   set: (id: string, v: any) => void;
+  lang: Lang;
 }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-start gap-3 rounded-t-2xl border-b border-slate-100 px-5 py-4" style={{ background: "#F1F7FB" }}>
-        <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
-          style={{ background: BRAND }}
-        >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white" style={{ background: BRAND }}>
           {index + 1}
         </div>
         <div>
-          <h3 className="text-base font-bold" style={{ color: BRAND }}>
-            {section.title.replace(/^\d+\.\s*/, "")}
-          </h3>
-          {section.description && (
-            <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{section.description}</p>
-          )}
+          <h3 className="text-base font-bold" style={{ color: BRAND }}>{tr(section.title, lang)}</h3>
+          {section.description && <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{tr(section.description, lang)}</p>}
         </div>
       </div>
       <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
         {section.fields.map((f, i) => (
-          <FieldView key={i} field={f} values={values} set={set} />
+          <FieldView key={i} field={f} values={values} set={set} lang={lang} />
         ))}
       </div>
     </section>
@@ -230,11 +312,12 @@ function SectionView({
 
 /* ----------------------------- main experience --------------------------- */
 export default function IntakePage() {
+  const [lang, setLang] = useState<Lang>("en");
   const [selected, setSelected] = useState<FormDef | null>(null);
   const [values, setValues] = useState<Values>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState<null | { confirmation: string; mrn: string; isNew: boolean }>(null);
+  const [done, setDone] = useState<null | { confirmation: string; mrn: string; isNew: boolean; slug: string; out: Values }>(null);
 
   const set = (id: string, v: any) => setValues((p) => ({ ...p, [id]: v }));
 
@@ -257,48 +340,66 @@ export default function IntakePage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function submit() {
-    setError("");
-    if (!values.firstName?.trim() || !values.lastName?.trim() || !values.dob) {
-      setError("Please provide your first name, last name and date of birth.");
-      return;
-    }
-    if (!values.signature?.trim()) {
-      setError("Please type your name as your electronic signature.");
-      return;
-    }
-    for (const id of requiredAcks) {
-      if (!values[id]) {
-        setError("Please read and check each consent acknowledgement before submitting.");
-        return;
-      }
-    }
-
-    // Serialize checkbox arrays to strings; map sex to a chart code.
+  function serialize(): Values {
     const out: Values = {};
     for (const [k, v] of Object.entries(values)) {
-      out[k] = Array.isArray(v) ? v.join(", ") : v;
+      if (k === "bodyMap") out[k] = v; // keep object
+      else out[k] = Array.isArray(v) ? v.join(", ") : v;
     }
     if (Array.isArray(values.sex) && values.sex[0]) {
       out.sex = values.sex[0] === "Female" ? "F" : values.sex[0] === "Male" ? "M" : "U";
     }
+    return out;
+  }
 
+  async function downloadFilled(slug: string, out: Values) {
+    try {
+      const res = await fetch(`/api/intake/forms/${slug}/pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ values: out, lang }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function submit() {
+    setError("");
+    if (!values.firstName?.trim() || !values.lastName?.trim() || !values.dob) {
+      setError(ui(lang, "errRequired"));
+      return;
+    }
+    if (!values.signature?.trim()) {
+      setError(ui(lang, "errSignature"));
+      return;
+    }
+    for (const id of requiredAcks) {
+      if (!values[id]) {
+        setError(ui(lang, "errAcks"));
+        return;
+      }
+    }
+    const out = serialize();
     setSubmitting(true);
     try {
       const res = await fetch("/api/intake/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug: selected!.slug, values: out }),
+        body: JSON.stringify({ slug: selected!.slug, values: out, lang }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Could not submit your intake.");
-      } else {
-        setDone({ confirmation: data.confirmation, mrn: data.mrn, isNew: data.isNew });
+      if (!res.ok) setError(data.error || ui(lang, "errSubmit"));
+      else {
+        setDone({ confirmation: data.confirmation, mrn: data.mrn, isNew: data.isNew, slug: selected!.slug, out });
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     } catch {
-      setError("Network error. Please try again or ask the front desk for help.");
+      setError(ui(lang, "errNetwork"));
     } finally {
       setSubmitting(false);
     }
@@ -308,30 +409,35 @@ export default function IntakePage() {
   if (done) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <Header />
+        <Header lang={lang} setLang={setLang} />
         <main className="mx-auto max-w-2xl px-5 py-16 text-center">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "#DCFCE7" }}>
             <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Thank you — your intake was submitted</h1>
-          <p className="mt-2 text-slate-500">A front-desk team member will verify your information at your visit.</p>
+          <h1 className="text-2xl font-bold text-slate-800">{ui(lang, "thanks")}</h1>
+          <p className="mt-2 text-slate-500">{ui(lang, "thanksSub")}</p>
           <div className="mx-auto mt-6 max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm">
-            <Row label="Confirmation #" value={done.confirmation} />
-            <Row label="Medical Record #" value={done.mrn} />
-            <Row label="Record" value={done.isNew ? "New patient created" : "Matched to existing chart"} />
+            <Row label={ui(lang, "confirmationNo")} value={done.confirmation} />
+            <Row label={ui(lang, "mrnNo")} value={done.mrn} />
+            <Row label={ui(lang, "record")} value={done.isNew ? ui(lang, "newPatient") : ui(lang, "matched")} />
           </div>
-          <button
-            onClick={() => {
-              setSelected(null);
-              setDone(null);
-            }}
-            className="mt-8 rounded-xl px-6 py-3 text-sm font-semibold text-white"
-            style={{ background: BRAND }}
-          >
-            Back to intake home
-          </button>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => downloadFilled(done.slug, done.out)}
+              className="rounded-xl border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              {ui(lang, "downloadCopy")}
+            </button>
+            <button
+              onClick={() => { setSelected(null); setDone(null); }}
+              className="rounded-xl px-6 py-3 text-sm font-semibold text-white"
+              style={{ background: BRAND }}
+            >
+              {ui(lang, "backHome")}
+            </button>
+          </div>
         </main>
       </div>
     );
@@ -341,35 +447,33 @@ export default function IntakePage() {
   if (selected) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <Header />
+        <Header lang={lang} setLang={setLang} />
         <main className="mx-auto max-w-3xl px-4 py-8">
           <button onClick={() => setSelected(null)} className="mb-4 text-sm font-medium text-slate-500 hover:text-slate-700">
-            ← Back
+            {ui(lang, "back")}
           </button>
           <div className="mb-6 rounded-2xl p-6 text-white" style={{ background: `linear-gradient(135deg, ${BRAND}, ${ACCENT})` }}>
-            <h1 className="text-2xl font-bold">{selected.title}</h1>
-            <p className="mt-1 text-sm text-white/85">{selected.subtitle}</p>
-            <p className="mt-3 text-xs text-white/75">{selected.audience}</p>
+            <h1 className="text-2xl font-bold">{tr(selected.title, lang)}</h1>
+            <p className="mt-1 text-sm text-white/85">{tr(selected.subtitle, lang)}</p>
+            <p className="mt-3 text-xs text-white/75">{tr(selected.audience, lang)}</p>
           </div>
 
           <div className="space-y-5">
             {selected.sections.map((s, i) => (
-              <SectionView key={i} section={s} index={i} values={values} set={set} />
+              <SectionView key={i} section={s} index={i} values={values} set={set} lang={lang} />
             ))}
           </div>
 
-          {error && (
-            <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
-          )}
+          {error && <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
           <div className="sticky bottom-0 mt-6 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur">
             <a
-              href={`/api/intake/forms/${selected.slug}/pdf`}
+              href={`/api/intake/forms/${selected.slug}/pdf?lang=${lang}`}
               target="_blank"
               rel="noreferrer"
               className="text-sm font-medium text-slate-500 underline-offset-2 hover:underline"
             >
-              Prefer paper? Download a printable copy
+              {ui(lang, "preferPaper")}
             </a>
             <button
               onClick={submit}
@@ -377,7 +481,7 @@ export default function IntakePage() {
               className="rounded-xl px-7 py-3 text-sm font-semibold text-white disabled:opacity-60"
               style={{ background: BRAND }}
             >
-              {submitting ? "Submitting…" : "Submit Intake"}
+              {submitting ? ui(lang, "submitting") : ui(lang, "submit")}
             </button>
           </div>
         </main>
@@ -388,20 +492,14 @@ export default function IntakePage() {
   /* ---------- landing ---------- */
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header />
+      <Header lang={lang} setLang={setLang} />
       <main className="mx-auto max-w-4xl px-5 py-10">
         <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: ACCENT }}>
-            Patient Intake
-          </p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-800">Welcome to Proactive Clinic</h1>
-          <p className="mx-auto mt-3 max-w-xl text-slate-500">
-            Complete your Physical Recovery &amp; Therapy paperwork online before your visit — or download a printable
-            copy to fill out offline. Choose the option that fits you.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: ACCENT }}>{ui(lang, "kicker")}</p>
+          <h1 className="mt-2 text-3xl font-bold text-slate-800">{ui(lang, "welcome")}</h1>
+          <p className="mx-auto mt-3 max-w-xl text-slate-500">{ui(lang, "intro")}</p>
         </div>
 
-        {/* online choices */}
         <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2">
           {ONLINE_FORMS.map((f) => (
             <button
@@ -414,46 +512,41 @@ export default function IntakePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-slate-800">{f.title}</h3>
-              <p className="mt-1 text-sm text-slate-500">{f.audience}</p>
-              <span className="mt-4 text-sm font-semibold group-hover:underline" style={{ color: ACCENT }}>
-                Start online →
-              </span>
+              <h3 className="text-lg font-bold text-slate-800">{tr(f.title, lang)}</h3>
+              <p className="mt-1 text-sm text-slate-500">{tr(f.audience, lang)}</p>
+              <span className="mt-4 text-sm font-semibold group-hover:underline" style={{ color: ACCENT }}>{ui(lang, "startOnline")}</span>
             </button>
           ))}
         </div>
 
-        {/* printable downloads */}
         <div className="mt-12">
-          <h2 className="text-lg font-bold text-slate-800">Printable forms (for offline / in-office use)</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Download beautifully formatted, brand-ready PDFs. Includes patient intake and clinical documentation forms.
-          </p>
+          <h2 className="text-lg font-bold text-slate-800">{ui(lang, "printableTitle")}</h2>
+          <p className="mt-1 text-sm text-slate-500">{ui(lang, "printableDesc")}</p>
           <div className="mt-5 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             {FORMS.map((f) => (
               <a
                 key={f.slug}
-                href={`/api/intake/forms/${f.slug}/pdf`}
+                href={`/api/intake/forms/${f.slug}/pdf?lang=${lang}`}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-between gap-4 px-5 py-4 transition hover:bg-slate-50"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="truncate font-semibold text-slate-800">{f.title}</p>
+                    <p className="truncate font-semibold text-slate-800">{tr(f.title, lang)}</p>
                     {f.online && (
                       <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-600">
-                        Also online
+                        {ui(lang, "alsoOnline")}
                       </span>
                     )}
                   </div>
-                  <p className="truncate text-xs text-slate-500">{f.subtitle}</p>
+                  <p className="truncate text-xs text-slate-500">{tr(f.subtitle, lang)}</p>
                 </div>
                 <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
                   </svg>
-                  PDF
+                  {ui(lang, "pdf")}
                 </span>
               </a>
             ))}
