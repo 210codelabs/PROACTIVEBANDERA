@@ -3,7 +3,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { CLINIC, FORMS, FormDef, Field, Section } from "@/lib/intake/forms";
 import { tr, ui, Lang } from "@/lib/intake/i18n";
-import { MANNEQUIN, BODY_BOX, BodyMapValue, emptyBodyMap } from "@/lib/intake/bodymap";
+import { MANNEQUIN, BODY_BOX, PAIN_TYPES, painType, BodyMapValue, emptyBodyMap } from "@/lib/intake/bodymap";
 
 const BRAND = "#0E4770";
 const ACCENT = "#0A8C8C";
@@ -44,7 +44,7 @@ function Silhouette({
   onAdd,
   onRemove,
 }: {
-  markers: { x: number; y: number }[];
+  markers: { x: number; y: number; type?: string }[];
   onAdd: (x: number, y: number) => void;
   onRemove: (i: number) => void;
 }) {
@@ -84,7 +84,7 @@ function Silhouette({
           }}
           className="cursor-pointer"
         >
-          <circle cx={m.x * BODY_BOX.w} cy={m.y * BODY_BOX.h} r={11} fill="#DC2626" />
+          <circle cx={m.x * BODY_BOX.w} cy={m.y * BODY_BOX.h} r={11} fill={painType(m.type).color} />
           <text x={m.x * BODY_BOX.w} y={m.y * BODY_BOX.h + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="#fff">
             {i + 1}
           </text>
@@ -95,15 +95,36 @@ function Silhouette({
 }
 
 function BodyMapField({ lang, value, set }: { lang: Lang; value: BodyMapValue; set: (v: BodyMapValue) => void }) {
+  const [penType, setPenType] = useState<string>("sharp");
   const v = value && typeof value === "object" && value.front ? value : emptyBodyMap();
   const add = (view: "front" | "back", x: number, y: number) =>
-    set({ ...v, [view]: [...v[view], { x, y }] });
+    set({ ...v, [view]: [...v[view], { x, y, type: penType }] });
   const remove = (view: "front" | "back", i: number) =>
     set({ ...v, [view]: v[view].filter((_, idx) => idx !== i) });
 
   return (
     <div className="col-span-full">
       <p className="mb-2 text-xs text-slate-500">{ui(lang, "bodyTapAdd")}</p>
+      {/* pain-type selector (active "pen") */}
+      <div className="mb-3 flex flex-wrap gap-2">
+        {PAIN_TYPES.map((pt) => {
+          const on = penType === pt.key;
+          return (
+            <button
+              key={pt.key}
+              type="button"
+              onClick={() => setPenType(pt.key)}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                on ? "border-transparent text-white shadow-sm" : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"
+              }`}
+              style={on ? { background: pt.color } : {}}
+            >
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: on ? "#fff" : pt.color }} />
+              {lang === "es" ? pt.labelEs : pt.label}
+            </button>
+          );
+        })}
+      </div>
       <div className="grid grid-cols-2 gap-4">
         {(["front", "back"] as const).map((view) => (
           <div key={view} className="flex flex-col items-center rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -114,6 +135,23 @@ function BodyMapField({ lang, value, set }: { lang: Lang; value: BodyMapValue; s
           </div>
         ))}
       </div>
+      {/* legend of marked points */}
+      {(v.front.length > 0 || v.back.length > 0) && (
+        <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+          {v.front.map((m, i) => (
+            <div key={`f${i}`} className="flex items-center gap-2">
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: painType(m.type).color }}>{i + 1}</span>
+              {ui(lang, "bodyFront")} · {lang === "es" ? painType(m.type).labelEs : painType(m.type).label}
+            </div>
+          ))}
+          {v.back.map((m, i) => (
+            <div key={`b${i}`} className="flex items-center gap-2">
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: painType(m.type).color }}>{i + 1}</span>
+              {ui(lang, "bodyBack")} · {lang === "es" ? painType(m.type).labelEs : painType(m.type).label}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

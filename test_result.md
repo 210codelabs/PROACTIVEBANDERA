@@ -1367,3 +1367,67 @@ agent_communication:
     -message: "Iteration 18 BACKEND test only. Staff cookie: POST /api/auth/login {email:'andy.manzano@proactiveclinic.com', password:'apex123'}. Portal cookie: POST /api/portal/auth/login {mrn:'PC-100000', dob:'1958-04-12'}. Base URL http://localhost:3000. Test: (1) GET /api/intake/forms/new-patient-intake/pdf?lang=es -> 200 application/pdf %PDF; POST same path with {values:{firstName:'A',lastName:'B',dob:'1990-01-01',signature:'A B',injuredAreas:'Neck, Lower Back',bodyMap:{front:[{x:0.5,y:0.3}],back:[]}}, lang:'en'} -> 200 application/pdf. (2) POST /api/intake/submit {slug:'new-patient-intake', lang:'es', values:{firstName:'InboxTest', lastName:'User<rand>', dob:'1991-02-03', signature:'InboxTest User', bodyMap:{front:[{x:0.5,y:0.3}],back:[]}}} -> 200 with confirmation + mrn; capture the returned patientId. (3) Staff inbox: GET /api/intake/submissions -> 401 without cookie, 200 {submissions,pendingCount} with cookie; find the submission just created (by patientName InboxTest). GET /api/intake/submissions/{id} -> detail. POST /api/intake/submissions/{id}/review {action:'approve'} -> reviewStatus approved; then {action:'reopen'} -> pending; {action:'bogus'} -> 400; no-cookie -> 401. GET /api/intake/submissions/{id}/pdf -> 200 application/pdf; no-cookie -> 401. (4) Upload: staff POST /api/intake/submissions/upload {patientId:<from step2>, slug:'new-patient-intake', fileName:'scan.pdf', dataUrl:'data:application/pdf;base64,JVBERi0xLjQK'} -> 200 {ok,id}; validation missing dataUrl -> 400, bad dataUrl 'data:text/plain;base64,AAAA' -> 400, unknown patientId -> 404, no cookie -> 401; then GET /api/intake/submissions/{uploadId}/file -> 200 application/pdf. (5) Portal: with portal cookie POST /api/portal/intake/upload {slug:'current-patient-checkin', fileName:'p.pdf', dataUrl:'data:application/pdf;base64,JVBERi0xLjQK'} -> 200 {ok,id}; GET /api/portal/intake/{that id}/file -> 200; GET /api/portal/intake/{staff-uploadId-from-step4-belonging-to-different-patient}/file -> 404 (ownership); no portal cookie -> 401. Do NOT test frontend. Created test data is acceptable."
     -agent: "testing"
     -message: "✅ Backend testing completed successfully for Iteration 18 intake enhancement. ALL 24 test cases passed with no critical issues. Created /app/backend_test_intake_iteration18.py with comprehensive test coverage. Test results: (1) PUBLIC PDF endpoints (3 tests): GET blank PDF with lang=es ✅, POST filled PDF with values ✅, POST unknown slug returns 404 ✅. (2) PUBLIC submit (1 test): Creates patient with correct confirmation format (^PC-[A-Z0-9]{6}$) and MRN format (^PC-\\d{6}$) ✅. (3) STAFF review inbox (10 tests): GET submissions with/without auth ✅, GET detail with/without auth ✅, POST review approve/reopen/bogus actions ✅, GET PDF with/without auth ✅. All authentication, authorization, and review workflow working correctly. (4) STAFF upload/download (6 tests): POST upload with all validation cases (missing dataUrl, bad format, unknown patientId, no auth) ✅, GET file download ✅. (5) PORTAL upload/download (4 tests): POST upload ✅, GET file ✅, ownership check (cannot access other patient's file) ✅, auth blocking ✅. All authentication, authorization, validation, PDF generation, submission workflow, review actions, file upload/download, and ownership checks working correctly. No issues found. Ready for main agent to summarize and finish."
+
+## ---- Iteration 19 (main agent) — Body Map legend, Auto-Attach to chart, letterhead/HIPAA PDF, patient-chart issuance ----
+backend:
+  - task: "Auto-Attach approved intake to chart (POST /api/intake/submissions/[id]/review)"
+    implemented: true
+    working: true
+    file: "src/app/api/intake/submissions/[id]/review/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "STAFF ONLY. On {action:'approve'} for an online submission, the endpoint copies intake answers into the patient chart: values.conditions + values.otherConditions -> Problem rows; values.allergies -> Allergy rows; values.currentMedications -> Medication rows (split on , ; newline; skips none/n/a). Deduplicates against existing rows (case-insensitive). Idempotent: sets attachedToChart:true so re-approving does NOT duplicate. Response now includes {ok, reviewStatus, attached:{problems,allergies,medications} | null}. reopen sets pending but keeps attachedToChart true. Verify: submit online new-patient-intake with allergies 'Penicillin, Latex', conditions ['Hypertension','Diabetes'] (sent as 'Hypertension, Diabetes'), currentMedications 'Ibuprofen 200mg\\nLisinopril' -> approve returns attached {problems:2,allergies:2,medications:2}; reopen then approve again returns attached:null (no duplicates)."
+  - task: "Body-map marker pain types + colored PDF legend + HIPAA letterhead footer"
+    implemented: true
+    working: true
+    file: "src/lib/intake/pdf.ts, src/lib/intake/bodymap.ts"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "PUBLIC PDF. Markers now carry an optional 'type' (sharp/dull/burning/numb/tingling/stiff). PDF renders colored markers + a pain-type key + per-point legend, and every page footer has a HIPAA privacy notice + copyright + slogan. Verify GET /api/intake/forms/new-patient-intake/pdf -> 200 application/pdf; POST /api/intake/forms/new-patient-intake/pdf with values.bodyMap.front=[{x:0.5,y:0.3,type:'sharp'}] -> 200 application/pdf."
+
+frontend:
+  - task: "Body-map pain-type picker (online) + staff Patient Intake Panel + portal"
+    implemented: true
+    working: "NA"
+    file: "src/app/intake/page.tsx, src/components/PatientIntakePanel.tsx, src/app/(app)/patients/[id]/documents/page.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Screenshot-verified: online body map has a pain-type selector (Sharp/Dull/Burning/Numbness/Tingling/Stiffness) and colored numbered markers + legend. Patient chart Documents page now has a 'Intake Forms — Issue, Download & Upload' panel (New/Renew/Duplicate + blank downloads EN/ES + staff upload). Not agent browser-tested."
+
+test_plan:
+  current_focus:
+    - "Auto-Attach approved intake to chart (POST /api/intake/submissions/[id]/review)"
+    - "Body-map marker pain types + colored PDF legend + HIPAA letterhead footer"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 19 BACKEND test only. Staff cookie: POST /api/auth/login {email:'andy.manzano@proactiveclinic.com', password:'apex123'}. Base URL http://localhost:3000. TEST AUTO-ATTACH: (1) POST /api/intake/submit {slug:'new-patient-intake', lang:'en', values:{firstName:'Attach', lastName:'Test<rand>', dob:'1990-04-05', signature:'Attach Test', allergies:'Penicillin, Latex', conditions:'Hypertension, Diabetes', currentMedications:'Ibuprofen 200mg\\nLisinopril', bodyMap:{front:[{x:0.5,y:0.3,type:'sharp'}],back:[]}}} -> 200; capture the returned id via staff GET /api/intake/submissions (find by patientName 'Attach Test<rand>') -> submission id. (2) POST /api/intake/submissions/{id}/review {action:'approve'} (staff cookie) -> 200 {ok:true, reviewStatus:'approved', attached:{problems:2, allergies:2, medications:2}}. (3) POST review {action:'reopen'} -> 200 reviewStatus pending. (4) POST review {action:'approve'} again -> 200 attached:null (idempotent, no duplicates). (5) invalid action -> 400; no cookie -> 401. ALSO PDF: GET /api/intake/forms/new-patient-intake/pdf -> 200 application/pdf %PDF; POST /api/intake/forms/new-patient-intake/pdf {values:{firstName:'X',bodyMap:{front:[{x:0.5,y:0.3,type:'numb'}],back:[]}}, lang:'es'} -> 200 application/pdf. Do NOT test frontend. Test data creation OK."
+
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_iteration19.py. ALL 11 test cases passed with no critical issues. Test results: AUTO-ATTACH WORKFLOW (8 tests): (1) POST /api/intake/submit (public, no auth) with {slug:'new-patient-intake', lang:'en', values:{firstName:'Attach', lastName:'Testrrzlvw6p', dob:'1990-04-05', signature:'Attach Test', allergies:'Penicillin, Latex', conditions:'Hypertension, Diabetes', currentMedications:'Ibuprofen 200mg\\nLisinopril', bodyMap:{front:[{x:0.5,y:0.3,type:'sharp'}],back:[]}}} returns 200 {ok:true, confirmation:'PC-1CXJVT', patientId:'cmsdnc5hc0000cxs8qtnof5v8', mrn:'PC-374600', isNew:true} ✅. (2) Staff login successful, cookie obtained ✅. (3) GET /api/intake/submissions?status=pending with staff cookie returns 200, submission found by patientName 'Attach Testrrzlvw6p', submission ID captured ✅. (4) POST /api/intake/submissions/{id}/review {action:'approve'} with staff cookie returns 200 {ok:true, reviewStatus:'approved', attached:{problems:2, allergies:2, medications:2}} ✅. Auto-attach counts verified: problems=2 (Hypertension, Diabetes), allergies=2 (Penicillin, Latex), medications=2 (Ibuprofen 200mg, Lisinopril) ✅. (5) POST review {action:'reopen'} returns 200 {ok:true, reviewStatus:'pending', attached:null} ✅. (6) POST review {action:'approve'} AGAIN returns 200 {ok:true, reviewStatus:'approved', attached:null} - idempotent behavior verified (no duplicates added) ✅. (7) POST review {action:'bogus'} correctly returns 400 {error:'Invalid action.'} ✅. (8) POST review {action:'approve'} WITHOUT staff cookie correctly returns 401 {error:'Unauthorized'} ✅. PDF REGRESSION (3 tests): (9) GET /api/intake/forms/new-patient-intake/pdf (public, no auth) returns 200 with Content-Type: application/pdf (239363 bytes), body starts with '%PDF' magic bytes ✅. (10) POST /api/intake/forms/new-patient-intake/pdf with {values:{firstName:'X', bodyMap:{front:[{x:0.5,y:0.3,type:'numb'}],back:[]}}, lang:'es'} returns 200 with Content-Type: application/pdf (240549 bytes), body starts with '%PDF' magic bytes ✅. (11) GET /api/intake/forms/unknown/pdf correctly returns 404 {error:'Form not found'} ✅. All authentication, authorization, validation, auto-attach workflow (with deduplication and idempotency), PDF generation (blank and filled), and error handling working correctly."
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for Iteration 19: Auto-Attach intake to chart + PDF regression. ALL 11 test cases passed with no critical issues. Created /app/backend_test_iteration19.py with comprehensive test coverage. Test results: AUTO-ATTACH WORKFLOW (8 tests): (1) Public intake submission with allergies, conditions, medications, and bodyMap returns 200 with confirmation and MRN ✅. (2) Staff login successful ✅. (3) GET submissions list finds submission by patientName ✅. (4) First approval returns attached:{problems:2, allergies:2, medications:2} - auto-attach working correctly ✅. (5) Reopen returns reviewStatus:'pending' ✅. (6) Second approval returns attached:null - idempotent behavior verified (no duplicates) ✅. (7) Invalid action 'bogus' correctly returns 400 ✅. (8) Unauthorized request without cookie correctly returns 401 ✅. PDF REGRESSION (3 tests): (9) GET blank PDF returns 200 application/pdf starting with '%PDF' (239363 bytes) ✅. (10) POST filled PDF with values and lang:'es' returns 200 application/pdf starting with '%PDF' (240549 bytes) ✅. (11) GET unknown slug correctly returns 404 ✅. All authentication, authorization, validation, auto-attach workflow (with deduplication and idempotency), PDF generation (blank and filled with bodyMap pain types), and error handling working correctly. No issues found. Ready for main agent to summarize and finish."

@@ -12,7 +12,7 @@ import fs from "fs";
 import path from "path";
 import { CLINIC, FormDef, Field, Width } from "./forms";
 import { tr, Lang } from "./i18n";
-import { MANNEQUIN, BODY_BOX } from "./bodymap";
+import { MANNEQUIN, BODY_BOX, PAIN_TYPES, painType } from "./bodymap";
 
 const C_BRAND = rgb(0.055, 0.278, 0.42);
 const C_ACCENT = rgb(0.02, 0.55, 0.55);
@@ -22,13 +22,20 @@ const C_FILL = rgb(0.05, 0.32, 0.6); // filled-in answer ink
 const C_MUTED = rgb(0.42, 0.47, 0.53);
 const C_LINE = rgb(0.72, 0.77, 0.82);
 const C_WHITE = rgb(1, 1, 1);
-const C_MARK = rgb(0.86, 0.15, 0.15);
 
 const PAGE_W = 612;
 const PAGE_H = 792;
 const MARGIN = 46;
 const CW = PAGE_W - MARGIN * 2;
-const BOTTOM = 56;
+const BOTTOM = 72;
+
+function hexRgb(hex: string) {
+  const m = hex.replace("#", "");
+  const r = parseInt(m.slice(0, 2), 16) / 255;
+  const g = parseInt(m.slice(2, 4), 16) / 255;
+  const b = parseInt(m.slice(4, 6), 16) / 255;
+  return rgb(r, g, b);
+}
 
 let logoCache: Buffer | null | undefined;
 function logoBytes(): Buffer | null {
@@ -113,16 +120,24 @@ export async function renderFormPdf(form: FormDef, opts: RenderOpts = {}): Promi
   }
 
   function drawFooter(p: PDFPage) {
-    p.drawLine({ start: { x: MARGIN, y: 44 }, end: { x: PAGE_W - MARGIN, y: 44 }, thickness: 0.5, color: C_LINE });
+    p.drawLine({ start: { x: MARGIN, y: 58 }, end: { x: PAGE_W - MARGIN, y: 58 }, thickness: 0.5, color: C_LINE });
+    const yr = new Date().getFullYear();
     const line1 = `${CLINIC.name}  •  ${CLINIC.addr1}, ${CLINIC.addr2}  •  ${CLINIC.phone}  •  ${CLINIC.web}`;
-    p.drawText(line1, { x: MARGIN, y: 32, size: 7, font, color: C_MUTED });
-    p.drawText(lang === "es" ? "Confidencial — parte del expediente médico del paciente." : "Confidential — part of the patient medical record.", {
-      x: MARGIN,
-      y: 22,
-      size: 6.5,
-      font,
-      color: C_MUTED,
-    });
+    p.drawText(line1, { x: MARGIN, y: 47, size: 7, font: bold, color: C_BRAND });
+    const hipaa =
+      lang === "es"
+        ? "AVISO DE PRIVACIDAD HIPAA: Este documento contiene Información de Salud Protegida (PHI) y es confidencial conforme a HIPAA (45 CFR Partes 160 y 164). El acceso, uso o divulgación no autorizados están prohibidos por ley."
+        : "HIPAA PRIVACY NOTICE: This document contains Protected Health Information (PHI) and is confidential under HIPAA (45 CFR Parts 160 & 164). Unauthorized access, use, or disclosure is prohibited by law.";
+    let hy = 38;
+    for (const ln of wrap(hipaa, font, 6.3, CW)) {
+      p.drawText(ln, { x: MARGIN, y: hy, size: 6.3, font, color: C_MUTED });
+      hy -= 8;
+    }
+    const sec =
+      lang === "es"
+        ? `© ${yr} ${CLINIC.name}. Todos los derechos reservados. ${CLINIC.slogan}. Manejar y almacenar de forma segura.`
+        : `© ${yr} ${CLINIC.name}. All rights reserved. ${CLINIC.slogan}. Handle and store securely.`;
+    p.drawText(sec, { x: MARGIN, y: hy - 1, size: 6.3, font, color: C_MUTED });
   }
 
   function drawHeader(p: PDFPage, first: boolean) {
@@ -148,8 +163,10 @@ export async function renderFormPdf(form: FormDef, opts: RenderOpts = {}): Promi
 
       const ruleY = Math.min(headerBottom, PAGE_H - 74) - 6;
       p.drawLine({ start: { x: MARGIN, y: ruleY }, end: { x: PAGE_W - MARGIN, y: ruleY }, thickness: 1.2, color: C_BRAND });
+      // slogan ribbon
+      p.drawText(CLINIC.slogan, { x: MARGIN, y: ruleY - 11, size: 8, font: italic, color: C_ACCENT });
 
-      const bandTop = ruleY - 10;
+      const bandTop = ruleY - 22;
       const bandH = 36;
       p.drawRectangle({ x: MARGIN, y: bandTop - bandH, width: CW, height: bandH, color: C_LIGHT });
       p.drawRectangle({ x: MARGIN, y: bandTop - bandH, width: 4, height: bandH, color: C_ACCENT });
@@ -341,8 +358,7 @@ export async function renderFormPdf(form: FormDef, opts: RenderOpts = {}): Promi
     y -= 6;
   }
 
-  function drawMannequin(boxLeft: number, boxTop: number, scale: number, label: string, markers: { x: number; y: number }[]) {
-    // silhouette guide
+  function drawMannequin(boxLeft: number, boxTop: number, scale: number, label: string, markers: { x: number; y: number; type?: string }[]) {
     for (const s of MANNEQUIN) {
       if (s.type === "circle") {
         page.drawCircle({ x: boxLeft + s.cx * scale, y: boxTop - s.cy * scale, size: s.r * scale, borderColor: C_LINE, borderWidth: 1, color: C_LIGHT });
@@ -358,35 +374,64 @@ export async function renderFormPdf(form: FormDef, opts: RenderOpts = {}): Promi
         });
       }
     }
-    // markers
     markers.forEach((m, i) => {
       const mx = boxLeft + m.x * BODY_BOX.w * scale;
       const my = boxTop - m.y * BODY_BOX.h * scale;
-      page.drawCircle({ x: mx, y: my, size: 7, color: C_MARK });
+      page.drawCircle({ x: mx, y: my, size: 7, color: hexRgb(painType(m.type).color) });
       page.drawText(String(i + 1), { x: mx - 2.2, y: my - 3, size: 7, font: bold, color: C_WHITE });
     });
-    // caption
     page.drawText(label, { x: boxLeft + (BODY_BOX.w * scale) / 2 - font.widthOfTextAtSize(label, 8) / 2, y: boxTop - BODY_BOX.h * scale - 12, size: 8, font: bold, color: C_MUTED });
   }
 
   function drawBodyMap(f: Field & { kind: "bodymap" }) {
-    const scale = 0.62; // ~124 x 285 per figure
+    const scale = 0.58;
     const figW = BODY_BOX.w * scale;
     const figH = BODY_BOX.h * scale;
-    const need = figH + 24;
+
+    const v = values && f.id ? values[f.id] : null;
+    const front = v && Array.isArray(v.front) ? v.front : [];
+    const back = v && Array.isArray(v.back) ? v.back : [];
+
+    // legend of marked points (only when filled)
+    const legend: string[] = [];
+    front.forEach((m: any, i: number) => legend.push(`${lang === "es" ? "Frente" : "Front"} ${i + 1}: ${lang === "es" ? painType(m.type).labelEs : painType(m.type).label}`));
+    back.forEach((m: any, i: number) => legend.push(`${lang === "es" ? "Espalda" : "Back"} ${i + 1}: ${lang === "es" ? painType(m.type).labelEs : painType(m.type).label}`));
+
+    const need = figH + 24 + (legend.length ? legend.length * 10 + 14 : 24);
     ensure(need);
     const top = y;
     const gap = 40;
     const totalW = figW * 2 + gap;
     const startX = MARGIN + (CW - totalW) / 2;
 
-    const v = values && f.id ? values[f.id] : null;
-    const front = v && Array.isArray(v.front) ? v.front : [];
-    const back = v && Array.isArray(v.back) ? v.back : [];
-
     drawMannequin(startX, top, scale, lang === "es" ? "Frente" : "Front", front);
     drawMannequin(startX + figW + gap, top, scale, lang === "es" ? "Espalda" : "Back", back);
-    y = top - figH - 24;
+    y = top - figH - 26;
+
+    // pain-type key (chips)
+    ensure(16);
+    let kx = MARGIN;
+    for (const pt of PAIN_TYPES) {
+      const lbl = lang === "es" ? pt.labelEs : pt.label;
+      const w = 10 + font.widthOfTextAtSize(lbl, 7) + 14;
+      if (kx + w > PAGE_W - MARGIN) {
+        kx = MARGIN;
+        y -= 12;
+        ensure(12);
+      }
+      page.drawCircle({ x: kx + 4, y: y - 6, size: 4, color: hexRgb(pt.color) });
+      page.drawText(lbl, { x: kx + 11, y: y - 8, size: 7, font, color: C_MUTED });
+      kx += w;
+    }
+    y -= 16;
+
+    // per-point legend list (filled)
+    for (const ln of legend) {
+      ensure(11);
+      page.drawText(ln, { x: MARGIN, y: y - 8, size: 7.5, font, color: C_INK });
+      y -= 10;
+    }
+    y -= 8;
   }
 
   function drawSectionHeader(title: string, description: string | undefined, num: number) {

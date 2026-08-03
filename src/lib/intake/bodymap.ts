@@ -22,8 +22,22 @@ export const MANNEQUIN: Shape[] = [
   { type: "rect", x: 104, y: 232, w: 28, h: 206, rx: 13 }, // right leg
 ];
 
-export type Marker = { x: number; y: number }; // normalized 0..1
+export type Marker = { x: number; y: number; type?: string }; // normalized 0..1 + pain type
 export type BodyMapValue = { front: Marker[]; back: Marker[] };
+
+// Pain descriptors with display colors (hex for SVG, used by PDF too).
+export const PAIN_TYPES: { key: string; label: string; labelEs: string; color: string }[] = [
+  { key: "sharp", label: "Sharp", labelEs: "Agudo", color: "#DC2626" },
+  { key: "dull", label: "Dull / Aching", labelEs: "Sordo / Dolor", color: "#D97706" },
+  { key: "burning", label: "Burning", labelEs: "Ardor", color: "#DB2777" },
+  { key: "numb", label: "Numbness", labelEs: "Entumecimiento", color: "#2563EB" },
+  { key: "tingling", label: "Tingling", labelEs: "Hormigueo", color: "#7C3AED" },
+  { key: "stiff", label: "Stiffness", labelEs: "Rigidez", color: "#0F766E" },
+];
+
+export function painType(key?: string) {
+  return PAIN_TYPES.find((p) => p.key === key) || PAIN_TYPES[0];
+}
 
 export function emptyBodyMap(): BodyMapValue {
   return { front: [], back: [] };

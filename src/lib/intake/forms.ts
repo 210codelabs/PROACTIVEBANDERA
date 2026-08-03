@@ -9,6 +9,7 @@
 export const CLINIC = {
   name: "Proactive Clinic",
   tagline: "Physical Recovery & Therapy",
+  slogan: "Comprehensive Wellness & Recovery",
   addr1: "8103 Bandera Rd, Suite 102",
   addr2: "San Antonio, TX 78250",
   phone: "(210) 500-2914",

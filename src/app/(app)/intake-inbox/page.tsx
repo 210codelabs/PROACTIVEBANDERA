@@ -38,6 +38,7 @@ export default function IntakeInboxPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string>("");
   const [showUpload, setShowUpload] = useState(false);
+  const [flash, setFlash] = useState("");
 
   async function load() {
     setLoading(true);
@@ -57,11 +58,22 @@ export default function IntakeInboxPage() {
   async function review(id: string, action: "approve" | "reopen") {
     setBusy(id);
     try {
-      await fetch(`/api/intake/submissions/${id}/review`, {
+      const res = await fetch(`/api/intake/submissions/${id}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (action === "approve" && data.attached) {
+        const a = data.attached;
+        const total = (a.problems || 0) + (a.allergies || 0) + (a.medications || 0);
+        setFlash(
+          total > 0
+            ? `Approved. Added to chart: ${a.problems} problem(s), ${a.allergies} allergy(ies), ${a.medications} medication(s).`
+            : "Approved. No new chart items to add."
+        );
+        setTimeout(() => setFlash(""), 6000);
+      }
       await load();
     } finally {
       setBusy("");
@@ -87,6 +99,10 @@ export default function IntakeInboxPage() {
       </div>
 
       {showUpload && <UploadPanel onDone={() => { setShowUpload(false); setTab("pending"); load(); }} />}
+
+      {flash && (
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">{flash}</div>
+      )}
 
       <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-1">
         {(["pending", "approved", "all"] as const).map((t) => (
