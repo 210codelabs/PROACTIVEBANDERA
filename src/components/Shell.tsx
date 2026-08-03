@@ -125,7 +125,7 @@ export default function Shell({
   const groupedNav: NavSection[] = [
     {
       title: t("sections.clinical"),
-      items: NAV.filter((item) => ["/dashboard", "/schedule", "/appointment-requests", "/patients", "/encounters", "/orders", "/npi-lookup", "/settings/charting", "/modules"].includes(item.href)),
+      items: NAV.filter((item) => ["/dashboard", "/schedule", "/appointment-requests", "/patients", "/encounters", "/orders", "/intake-forms", "/intake-inbox", "/npi-lookup", "/settings/charting", "/modules"].includes(item.href)),
     },
     {
       title: t("sections.pharmacyRetail"),
