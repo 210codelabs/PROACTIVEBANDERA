@@ -123,3 +123,12 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - Professional PDF letterhead + footer: logo + address + slogan ("Comprehensive Wellness & Recovery") ribbon; every-page footer with HIPAA privacy/security notice (EN/ES), © copyright, and slogan.
 - Staff patient-chart issuance: Documents tab now has an "Intake Forms — Issue, Download & Upload" panel: New / Renew / Duplicate issuance, all blank PDFs (EN/ES), duplicate re-download of on-file completed PDFs & uploaded files, and staff upload for this patient.
 - Portal + staff upload/download reused across chart and portal. Backend tested (Iteration 19): 11/11 passed.
+
+## Intake tracks (Iteration 20)
+- Sidebar fix: added "Intake Forms" and "Intake Inbox" to the Clinical nav allow-list in Shell.tsx (they existed but were filtered out).
+- Segregated intake into two patient tracks + documentation (FormDef.track):
+  - CLINICAL (general/wellness): clinical-new-patient (Insurance & Referral, Reason for Visit, Pain & Function, Body Map, Medical History, Financial/AOB, HIPAA NPP, Consent to Eval/Treat) and clinical-checkin.
+  - PERSONAL INJURY (auto/PIP): new-patient-intake (now titled "Personal Injury — New Patient Intake"; added Auto Insurance & PIP section + Assignment of Benefits, Letter of Protection, PIP Disclosure consents) and current-patient-checkin.
+  - DOCUMENTATION: first-office-visit, followup-visit, procedure-report.
+- Grouped by track on: public /intake landing, staff /intake-forms, patient chart panel (New-Clinical / New-PI / Renew Clinical+PI / Duplicate), inbox + portal upload option lists.
+- Full EN/ES for new strings. All 7 forms render EN+ES PDFs with letterhead + HIPAA footer. Backend tested (Iteration 20): all passed (auto-attach still works on clinical form).
