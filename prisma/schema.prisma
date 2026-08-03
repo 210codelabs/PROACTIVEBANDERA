@@ -453,6 +453,33 @@ model EncounterType {
   createdAt  DateTime @default(now())
 }
 
+model Template {
+  id        String   @id @default(cuid()) @map("_id")
+  kind      String   // charting | order | billing
+  name      String
+  ownerId   String?
+  shared    Boolean  @default(false)
+  shortcut  String?
+  data      String   // JSON payload; shape depends on kind
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kind])
+}
+
+model Addendum {
+  id                    String   @id @default(cuid()) @map("_id")
+  encounterId           String
+  authorId              String?
+  authorName            String?
+  note                  String?
+  prevEncounterTypeName String?
+  newEncounterTypeName  String?
+  createdAt             DateTime @default(now())
+
+  @@index([encounterId])
+}
+
 model DxFavorite {
   id          String   @id @default(cuid()) @map("_id")
   userId      String

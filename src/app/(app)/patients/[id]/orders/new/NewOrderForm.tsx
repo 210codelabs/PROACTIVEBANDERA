@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import PharmacyPicker, { type Pharmacy } from "@/components/orders/PharmacyPicker";
 import RefSelect from "@/components/RefSelect";
@@ -23,6 +23,27 @@ export default function NewOrderForm({ patientId, initialType, encounterId }: { 
   const [diag, setDiag] = useState("");
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [loading, setLoading] = useState(false);
+  const [orderTpls, setOrderTpls] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/templates?kind=order").then(r => r.ok ? r.json() : { templates: [] }).then(d => setOrderTpls(d.templates || [])).catch(() => {});
+  }, []);
+
+  function applyOrderTemplate(id: string) {
+    const t = orderTpls.find((x) => x.id === id); if (!t) return;
+    const tests: string[] = t.data?.tests || [];
+    const dxs: any[] = t.data?.diagnoses || [];
+    if (t.data?.orderType) setType(t.data.orderType);
+    if (tests.length) setName(tests.join("; "));
+    if (dxs[0]?.icd10) setDiag(dxs[0].icd10);
+    if (dxs.length) setInstructions((p) => [p, `Dx: ${dxs.map((d) => `${d.icd10} ${d.description}`).join("; ")}`].filter(Boolean).join("\n"));
+  }
+  async function saveOrderTemplate() {
+    const tplName = prompt("Name this order template:");
+    if (!tplName) return;
+    await fetch("/api/templates", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "order", name: tplName, data: { orderType: type, tests: name ? [name] : [], diagnoses: diag ? [{ icd10: diag, description: diag }] : [] } }) });
+    const r = await fetch("/api/templates?kind=order"); if (r.ok) setOrderTpls((await r.json()).templates || []);
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -86,6 +107,17 @@ export default function NewOrderForm({ patientId, initialType, encounterId }: { 
               {picks.map(p => (
                 <button key={p} type="button" onClick={() => setName(p)} className="chip bg-slate-100 hover:bg-brand-100 ring-slate-200 hover:ring-brand-200 text-slate-700 hover:text-brand-800">{p}</button>
               ))}
+            </div>
+          )}
+          {(type === "lab" || type === "imaging") && (
+            <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-slate-100">
+              {orderTpls.filter((t) => !t.data?.orderType || t.data.orderType === type).length > 0 && (
+                <select className="input max-w-xs" defaultValue="" onChange={(e) => { if (e.target.value) { applyOrderTemplate(e.target.value); e.target.value = ""; } }}>
+                  <option value="">Apply order template…</option>
+                  {orderTpls.filter((t) => !t.data?.orderType || t.data.orderType === type).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              )}
+              <button type="button" onClick={saveOrderTemplate} className="chip bg-slate-100 hover:bg-brand-100 ring-slate-200 text-slate-700 text-xs">Save as template</button>
             </div>
           )}
         </div>

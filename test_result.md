@@ -1063,3 +1063,90 @@ agent_communication:
         -comment: "Comprehensive backend testing completed via backend_test_charting.py. ALL 16 test cases passed with no critical issues. Test results: (A) Chart NOTE types /api/charting/note-types: (A.1) GET without session correctly returns 401 'Unauthorized' ✅. (A.2) GET with session returns 200 {noteTypes:[...]} with 2 auto-seeded types: 'SOAP note' (format:'soap', isDefault:true) and 'Simple note' (format:'simple', isDefault:false) ✅. (A.3) POST {name:'PT SOAP', format:'soap'} returns 200 {ok:true, noteType:{id:...}} ✅. (A.3b) POST {} (no name) correctly returns 400 'Name is required.' ✅. (A.4) PATCH /api/charting/note-types/{id} {isDefault:true} returns 200, subsequent GET shows EXACTLY ONE noteType with isDefault:true ('PT SOAP') ✅. (A.5a) DELETE /api/charting/note-types/{currentDefaultId} correctly returns 409 'Cannot delete the default note type. Set another default first.' ✅. (A.5b) DELETE /api/charting/note-types/{nonDefaultId} returns 200 {ok:true}, type soft-deleted with active:false ✅. (B) ENCOUNTER types /api/charting/encounter-types: (B.6) GET with session returns 200 {encounterTypes:[...]} with 7 auto-seeded types including default 'Office Visit — Established (Level 3)' (code:'99213', isDefault:true) ✅. (B.6b) GET without session correctly returns 401 ✅. (B.7) POST {name:'Wellness Visit', code:'99396', codeSystem:'CPT'} returns 200 {ok:true, encounterType:{id:...}} ✅. (B.7b) POST {} (no name) correctly returns 400 ✅. (B.8) PATCH /api/charting/encounter-types/{id} {isDefault:true} returns 200, subsequent GET shows EXACTLY ONE encounterType with isDefault:true ('Wellness Visit') ✅. (B.9a) DELETE /api/charting/encounter-types/{currentDefaultId} correctly returns 409 'Cannot delete the default encounter type. Set another default first.' ✅. (B.9b) DELETE /api/charting/encounter-types/{nonDefaultId} returns 200 {ok:true}, type soft-deleted with active:false ✅. (C) Extended encounter PATCH /api/encounters/{id}: (C.11) Created test encounter for patient Eleanor Adams (MRN PC-100000), PATCH with {noteFormat:'simple', simpleBody:'test body', familyHistory:'NC', socialHistory:'non-smoker', qualityMeasures:'[\"med_rec\"]', encounterTypeId:<valid_id>, chiefComplaint:'', subjective:'', objective:'', assessment:'', plan:'', ros:'', examFindings:'', diagnoses:[], charges:[]} returns 200 {ok:true} ✅. Persistence verified via MongoDB: noteFormat='simple' ✅, simpleBody='test body' ✅, familyHistory='NC' ✅, socialHistory='non-smoker' ✅, qualityMeasures contains 'med_rec' ✅, encounterTypeId set correctly ✅. (C.12) New encounter created with default noteFormat='soap' ✅. CLEANUP: Test encounters deleted ✅. Defaults reset: 'SOAP note' set as default note type ✅, encounter type '99213' set as default ✅. All authentication (401 without session), validation (400 for missing required fields), lazy-seeding, CRUD operations, isDefault toggling (exactly one default enforced), soft-delete (active:false), delete protection (409 for defaults), and extended field persistence working correctly."
     -agent: "testing"
     -message: "✅ Iteration 15 configurable charting backend testing completed successfully. ALL 16 test cases passed with no critical issues. Created /app/backend_test_charting.py with comprehensive test coverage. Test results: (A) Chart NOTE types /api/charting/note-types: All 7 test cases passed - GET without session (401) ✅, GET with session returns auto-seeded SOAP default + Simple ✅, POST create 'PT SOAP' ✅, POST validation (400 no name) ✅, PATCH set default (exactly one default enforced) ✅, DELETE default blocked (409) ✅, DELETE non-default soft-deletes (active:false) ✅. (B) ENCOUNTER types /api/charting/encounter-types: All 7 test cases passed - GET with session returns 7 auto-seeded types with 99213 default ✅, GET without session (401) ✅, POST create 'Wellness Visit' ✅, POST validation (400 no name) ✅, PATCH set default (exactly one default enforced) ✅, DELETE default blocked (409) ✅, DELETE non-default soft-deletes (active:false) ✅. (C) Extended encounter PATCH /api/encounters/{id}: Both test cases passed - PATCH with extended fields (noteFormat, simpleBody, familyHistory, socialHistory, qualityMeasures, encounterTypeId) all persist correctly ✅, new encounter has default noteFormat='soap' ✅. CLEANUP: Test encounters deleted ✅, defaults reset to 'SOAP note' and '99213' ✅. All authentication, validation, lazy-seeding, CRUD operations, isDefault toggling, soft-delete, delete protection, and extended field persistence working correctly. No issues found. Ready for main agent to summarize and finish."
+
+## ---- Iteration 16 (main agent): Charting/Order/Billing Templates + Note Addenda ----
+backend:
+  - task: "Unified templates API (/api/templates, /api/templates/[id]) — charting|order|billing, staff only"
+    implemented: true
+    working: "NA"
+    file: "src/app/api/templates/route.ts, src/app/api/templates/[id]/route.ts, prisma/schema.prisma (Template)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "One Template model (kind charting|order|billing) with ownerId + shared + shortcut + JSON data. GET ?kind= returns own + shared (parsed data, mine flag). POST creates (name+valid kind required, else 400). PATCH edits (name/shared/shortcut/data; only owner or practice-shared-null owner, else 403). DELETE (owner only, 403 otherwise; 404 missing). All require staff session (401). Manually verified create/list/patch-share/delete for all 3 kinds + 401."
+  - task: "Note addenda API (/api/encounters/[id]/addenda) — staff only"
+    implemented: true
+    working: "NA"
+    file: "src/app/api/encounters/[id]/addenda/route.ts, prisma/schema.prisma (Addendum)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "GET lists addenda desc. POST adds an addendum to a (signed) encounter; optional newEncounterTypeId records prev->new names and updates the encounter's type; requires note OR type change (else 400); 404 if encounter missing, 400 if bad type id. Records authorName. Staff session required (401). Manually verified add w/ type change + list."
+
+frontend:
+  - task: "Template management tabs (Charting Setup) + editor template/billing insert + addenda panel + order-form templates"
+    implemented: true
+    working: "NA"
+    file: "src/components/settings/TemplateManager.tsx, src/components/settings/ChartingSettings.tsx, src/app/(app)/encounters/[id]/EncounterEditor.tsx, src/app/(app)/patients/[id]/orders/new/NewOrderForm.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Charting Setup now has Charting/Order/Billing Templates tabs (create with line items / tests+dx / cpt bundles, share toggle, delete). EncounterEditor: 'Insert charting template' dropdown fills S/O/A/P with {age}/{dob}/{name}/{mrn} substitution; 'Apply billing template' adds CPT bundles to Charges; signed notes show an Addenda panel (add note + change encounter type with history). NewOrderForm (lab/imaging): apply order template + 'Save as template'. All pages compile & load 200."
+
+test_plan:
+  current_focus:
+    - "Unified templates API (/api/templates, /api/templates/[id]) — charting|order|billing, staff only"
+    - "Note addenda API (/api/encounters/[id]/addenda) — staff only"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 16 BACKEND: Test unified templates + addenda. HTTPS base URL; staff login andy.manzano@proactiveclinic.com/apex123 -> proactive_session. (A) Templates: GET /api/templates?kind=charting no session -> 401. POST /api/templates {kind:'charting', name:'LBP', shared:true, shortcut:'lbp', data:{sections:{subjective:['{age} y/o with LBP'],objective:[],assessment:['Lumbago'],plan:['PT referral']}}} -> 200 {ok,template{id,mine:true}}. POST invalid kind 'foo' -> 400. POST no name -> 400. GET ?kind=charting -> includes it. POST kind:'billing' {name:'Bundle', shared:true, data:{codes:[{cpt:'99214',description:'L4',feeCents:17500}]}} -> 200. POST kind:'order' {name:'Labs', data:{orderType:'lab',tests:['CBC','CMP'],diagnoses:[{icd10:'Z00.00',description:'exam'}]}} -> 200. PATCH /api/templates/{id} {shared:false} -> 200 (owner). DELETE /api/templates/{id} -> 200. DELETE again -> 404. (B) Addenda: get a SIGNED encounter id (query most recent status 'signed', or sign one via PATCH {signed:true}). GET /api/encounters/{id}/addenda no session -> 401. POST with session {note:'clarification'} -> 200 {ok,addendum}. POST {newEncounterTypeId:'<a valid encounter type id from /api/charting/encounter-types>'} -> 200 and addendum.newEncounterTypeName set; the encounter's encounterTypeName is updated. POST {} (empty) -> 400. GET -> lists addenda desc. CLEANUP: delete all Template rows you create (via DELETE endpoint or DB) and delete the Addendum rows you create for the test encounter (DB delete on 'Addendum'); if you changed a signed encounter's type, that's fine to leave. Do NOT test frontend."
+
+
+## ---- Iteration 16 (testing agent) ----
+backend:
+  - task: "Unified templates API (/api/templates, /api/templates/[id]) — charting|order|billing, staff only"
+    implemented: true
+    working: true
+    file: "src/app/api/templates/route.ts, src/app/api/templates/[id]/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW unified templates API for charting/order/billing templates. GET /api/templates?kind= returns templates visible to user (own + shared), data parsed as JSON object. POST creates template with kind/name/shared/shortcut/data (401 no session, 400 invalid kind or missing name). PATCH /api/templates/[id] updates name/shared/shortcut/data (401 no session, 404 bad id, 403 not owner). DELETE /api/templates/[id] deletes template (401 no session, 404 bad id, 403 not owner). Supports 3 kinds: charting (SOAP sections), order (tests+diagnoses), billing (CPT codes with fees)."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_templates_addenda.py. ALL 10 test cases passed with no critical issues. Test results: (A1) GET /api/templates?kind=charting without session correctly blocked with 401 'Unauthorized' ✅. (A2) POST /api/templates with charting template {kind:'charting', name:'LBP', shared:true, shortcut:'lbp', data:{sections:{subjective,objective,assessment,plan}}} returns 200 {ok:true, template:{id:'cmsd7n7ff0004d86ansy936eu', mine:true}} ✅. Template data correctly parsed as object (not string) ✅. Data sections verified: subjective, objective, assessment, plan ✅. (A3a) POST with invalid kind 'foo' correctly rejected with 400 'Invalid template kind.' ✅. (A3b) POST with no name correctly rejected with 400 'Name is required.' ✅. (A4) GET /api/templates?kind=charting with session returns 200 with 1 charting template ✅. LBP template found in results ✅. LBP template data correctly parsed as object with sections {subjective:['{age} y/o with LBP'], assessment:['Lumbago']} ✅. (A5a) POST kind:'billing' template {name:'Bundle', shared:true, data:{codes:[{cpt:'99214', description:'L4', feeCents:17500}]}} returns 200 {ok:true, template:{id}} ✅. (A5b) POST kind:'order' template {name:'Labs', data:{orderType:'lab', tests:['CBC','CMP'], diagnoses:[{icd10:'Z00.00', description:'exam'}]}} returns 200 {ok:true, template:{id}} ✅. (A6) PATCH /api/templates/{lbpId} {shared:false} returns 200 with template.shared=false ✅. (A7a) DELETE /api/templates/{lbpId} returns 200 {ok:true} ✅. (A7b) DELETE same template again correctly returns 404 'Not found' ✅. CLEANUP: All created templates (billing, order) successfully deleted ✅. All authentication, authorization, validation, CRUD operations, and data parsing working correctly."
+
+  - task: "Note addenda API (/api/encounters/[id]/addenda) — staff only"
+    implemented: true
+    working: true
+    file: "src/app/api/encounters/[id]/addenda/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW addenda API for signed encounters. GET /api/encounters/[id]/addenda lists addenda for encounter (401 no session, desc order by createdAt). POST creates addendum with optional note and/or newEncounterTypeId (401 no session, 404 encounter not found, 400 if both note and newEncounterTypeId missing). When newEncounterTypeId provided, updates encounter's encounterTypeId and encounterTypeName, records prevEncounterTypeName and newEncounterTypeName in addendum. Addendum includes authorId, authorName (from session), note, type change history."
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_templates_addenda.py. ALL 5 test cases passed with no critical issues. Test results: (B9) GET /api/encounters/{id}/addenda without session correctly blocked with 401 'Unauthorized' ✅. (B10) POST /api/encounters/{id}/addenda with session and {note:'Clarification added after review.'} returns 200 {ok:true, addendum:{id:'cmsd7n8sr0007d86az1mgwt39', note:'Clarification added after review.', authorName:'Andy Manzano'}} ✅. Addendum created with correct note and author name ✅. (B11) POST with {newEncounterTypeId:'cmsd6qzva0002s62vqy9am8k7'} returns 200 {ok:true, addendum:{id:'cmsd7n99a0008d86amzigbsqq', newEncounterTypeName:'Office Visit — Established (Level 3)'}} ✅. newEncounterTypeName correctly set (non-null) ✅. Encounter's encounterTypeName verified updated in MongoDB to 'Office Visit — Established (Level 3)' ✅. (B12) POST with empty body {} correctly rejected with 400 'Add a note or change the encounter type.' ✅. (B13) GET /api/encounters/{id}/addenda with session returns 200 {addenda:[...]} with 2 addenda ✅. Addenda correctly ordered most recent first (descending by createdAt) ✅. Addenda structure verified: [0] has type change (newEncounterTypeName set, note null), [1] has note (note set, type change null) ✅. CLEANUP: All created addenda successfully deleted from MongoDB ✅. Test used existing signed encounter 'cms87vxco0056l4oc0mxmgybx' (left intact). All authentication, authorization, validation, addendum creation, encounter type updates, and ordering working correctly."
+
+agent_communication:
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for NEW unified Templates API and Note Addenda API (Iteration 16). ALL 15 test cases passed with no critical issues. Created /app/backend_test_templates_addenda.py with comprehensive test coverage. Test results: TEMPLATES API (10 tests): Authentication (401 without session) ✅, POST charting template with data parsed as object ✅, validation (invalid kind 400, missing name 400) ✅, GET with kind filter includes created template ✅, POST billing template ✅, POST order template ✅, PATCH shared status ✅, DELETE template ✅, DELETE again returns 404 ✅. NOTE ADDENDA API (5 tests): Authentication (401 without session) ✅, POST with note creates addendum with authorName ✅, POST with newEncounterTypeId updates encounter type and records change in addendum ✅, POST empty body validation (400) ✅, GET list returns addenda in descending order (most recent first) ✅. CLEANUP: All created templates and addenda successfully deleted ✅. Used existing signed encounter 'cms87vxco0056l4oc0mxmgybx' (left intact). All functionality working correctly. Ready for main agent to summarize and finish."

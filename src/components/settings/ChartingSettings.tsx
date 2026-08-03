@@ -1,19 +1,32 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import TemplateManager from "@/components/settings/TemplateManager";
 
 type NoteType = { id: string; name: string; format: string; isDefault: boolean; active: boolean };
 type EncType = { id: string; name: string; code?: string | null; codeSystem?: string | null; isDefault: boolean; active: boolean };
 
 export default function ChartingSettings() {
-  const [tab, setTab] = useState<"note" | "enc">("note");
+  const [tab, setTab] = useState<"note" | "enc" | "tpl" | "order" | "billing">("note");
+  const tabs: { k: typeof tab; label: string }[] = [
+    { k: "note", label: "Chart Note Types" },
+    { k: "enc", label: "Encounter Types" },
+    { k: "tpl", label: "Charting Templates" },
+    { k: "order", label: "Order Templates" },
+    { k: "billing", label: "Billing Templates" },
+  ];
   return (
     <div>
-      <div className="inline-flex rounded-lg bg-slate-100 p-1 mb-4">
-        <button onClick={() => setTab("note")} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${tab === "note" ? "bg-white shadow text-brand-700" : "text-slate-500"}`}>Chart Note Types</button>
-        <button onClick={() => setTab("enc")} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${tab === "enc" ? "bg-white shadow text-brand-700" : "text-slate-500"}`}>Encounter Types</button>
+      <div className="inline-flex flex-wrap rounded-lg bg-slate-100 p-1 mb-4">
+        {tabs.map((t) => (
+          <button key={t.k} onClick={() => setTab(t.k)} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${tab === t.k ? "bg-white shadow text-brand-700" : "text-slate-500"}`}>{t.label}</button>
+        ))}
       </div>
-      {tab === "note" ? <NoteTypes /> : <EncTypes />}
+      {tab === "note" && <NoteTypes />}
+      {tab === "enc" && <EncTypes />}
+      {tab === "tpl" && <TemplateManager kind="charting" />}
+      {tab === "order" && <TemplateManager kind="order" />}
+      {tab === "billing" && <TemplateManager kind="billing" />}
     </div>
   );
 }

@@ -79,6 +79,8 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
   const [simpleBody, setSimpleBody] = useState<string>(encounter.simpleBody || "");
   const [encounterTypeId, setEncTypeId] = useState<string>(encounter.encounterTypeId || "");
   const [encTypes, setEncTypes] = useState<any[]>([]);
+  const [chartTpls, setChartTpls] = useState<any[]>([]);
+  const [billingTpls, setBillingTpls] = useState<any[]>([]);
   const [diagnoses, setDiagnoses] = useState<any[]>(encounter.diagnoses || []);
   const [charges, setCharges] = useState<any[]>(encounter.charges || []);
   const [saving, setSaving] = useState(false);
@@ -97,7 +99,39 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
   useEffect(() => {
     fetch("/api/me/dx-favorites").then(r => r.ok ? r.json() : { favorites: [] }).then(d => setFavorites(d.favorites || [])).catch(() => {});
     fetch("/api/charting/encounter-types").then(r => r.ok ? r.json() : { encounterTypes: [] }).then(d => setEncTypes(d.encounterTypes || [])).catch(() => {});
+    fetch("/api/templates?kind=charting").then(r => r.ok ? r.json() : { templates: [] }).then(d => setChartTpls(d.templates || [])).catch(() => {});
+    fetch("/api/templates?kind=billing").then(r => r.ok ? r.json() : { templates: [] }).then(d => setBillingTpls(d.templates || [])).catch(() => {});
   }, []);
+
+  // Substitute patient shortcuts in template line items.
+  function subst(text: string) {
+    const dob = patient.dob ? new Date(patient.dob) : null;
+    const age = dob ? Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 3600 * 1000)) : "";
+    return String(text)
+      .replaceAll("{age}", String(age))
+      .replaceAll("{dob}", dob ? dob.toLocaleDateString() : "")
+      .replaceAll("{name}", `${patient.firstName || ""} ${patient.lastName || ""}`.trim())
+      .replaceAll("{mrn}", patient.mrn || "");
+  }
+  function applyChartTemplate(tplId: string) {
+    const t = chartTpls.find((x) => x.id === tplId); if (!t) return;
+    const sec = t.data?.sections || {};
+    const j = (arr?: string[]) => (arr || []).map(subst).join("\n");
+    if (sec.subjective?.length) setS((p: string) => appendBlock(p, j(sec.subjective)));
+    if (sec.objective?.length) setO((p: string) => appendBlock(p, j(sec.objective)));
+    if (sec.assessment?.length) setA((p: string) => appendBlock(p, j(sec.assessment)));
+    if (sec.plan?.length) setP((p: string) => appendBlock(p, j(sec.plan)));
+  }
+  function applyBillingTemplate(tplId: string) {
+    const t = billingTpls.find((x) => x.id === tplId); if (!t) return;
+    const codes = t.data?.codes || [];
+    setCharges((prev) => {
+      const seen = new Set(prev.map((c) => c.cpt));
+      const merged = [...prev];
+      for (const c of codes) { if (c.cpt && seen.has(c.cpt)) continue; merged.push({ cpt: c.cpt, description: c.description, units: 1, feeCents: c.feeCents || 0 }); if (c.cpt) seen.add(c.cpt); }
+      return merged;
+    });
+  }
   async function saveFavorite(d: { icd10: string; description: string }) {
     const r = await fetch("/api/me/dx-favorites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(d) });
     if (r.ok) { const j = await r.json(); if (j.favorite && !favorites.some(f => f.icd10 === j.favorite.icd10)) setFavorites(prev => [j.favorite, ...prev]); }
@@ -342,6 +376,16 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
         {noteFormat === "simple" ? (
           <SoapBlock title="Visit Note" hint="Free-text note body" value={simpleBody} onChange={setSimpleBody} disabled={signed} rows={18} />
         ) : (<>
+        {!signed && chartTpls.length > 0 && (
+          <div className="card card-pad flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-slate-700">Insert charting template:</span>
+            <select className="input max-w-xs" defaultValue="" onChange={(e) => { if (e.target.value) { applyChartTemplate(e.target.value); e.target.value = ""; } }}>
+              <option value="">Choose a template…</option>
+              {chartTpls.map((t) => <option key={t.id} value={t.id}>{t.name}{t.shortcut ? ` (..${t.shortcut})` : ""}</option>)}
+            </select>
+            <span className="text-[11px] text-slate-400">Fills S/O/A/P line items · shortcuts like {"{age}"} auto-populate.</span>
+          </div>
+        )}
         {!signed && (
           <div className="card card-pad ring-1 ring-brand-200 bg-brand-50/40">
             <div className="flex items-center gap-2">
@@ -555,6 +599,15 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
                 {c.feeMinCents != null && <div className="pl-1 mt-0.5 text-[10px] text-amber-600">est. {fmtMoney(c.feeMinCents)}–{fmtMoney(c.feeMaxCents)} · AI estimate — verify{c.rationale ? ` · ${c.rationale}` : ""}</div>}
               </div>
             ))}
+            {!signed && billingTpls.length > 0 && (
+              <div className="pb-1">
+                <span className="label">Apply billing template</span>
+                <select className="input" defaultValue="" onChange={(e) => { if (e.target.value) { applyBillingTemplate(e.target.value); e.target.value = ""; } }}>
+                  <option value="">Choose a bundle…</option>
+                  {billingTpls.map((t) => <option key={t.id} value={t.id}>{t.name} ({(t.data?.codes || []).length} codes)</option>)}
+                </select>
+              </div>
+            )}
             {!signed && (
               <div>
                 <span className="label mt-2">Add CPT / HCPCS code</span>
@@ -601,6 +654,8 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
           </div>
         </section>
 
+        {signed && <AddendaPanel encounterId={encounter.id} encTypes={encTypes} onChanged={() => router.refresh()} />}
+
         <div className="card card-pad flex items-center gap-2 sticky bottom-3">
           {!signed && <button onClick={() => save()} disabled={saving} className="btn-secondary flex-1">{saving ? "Saving…" : "Save Draft"}</button>}
           {!signed && <button onClick={() => save({ signed: true })} disabled={saving} className="btn-primary flex-1">🔒 Sign & Lock</button>}
@@ -622,6 +677,62 @@ function SoapBlock({ title, hint, value, onChange, disabled, rows = 6 }: { title
         </div>
       </div>
       <textarea className="input font-mono text-[13px] leading-relaxed" rows={rows} value={value} onChange={e => onChange(e.target.value)} disabled={disabled} />
+    </section>
+  );
+}
+
+
+function AddendaPanel({ encounterId, encTypes, onChanged }: { encounterId: string; encTypes: any[]; onChanged: () => void }) {
+  const [addenda, setAddenda] = useState<any[]>([]);
+  const [note, setNote] = useState("");
+  const [newType, setNewType] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function load() {
+    const r = await fetch(`/api/encounters/${encounterId}/addenda`);
+    if (r.ok) setAddenda((await r.json()).addenda || []);
+  }
+  useEffect(() => { load(); }, []); // eslint-disable-line
+
+  async function submit() {
+    if (!note.trim() && !newType) { setErr("Add a note or choose a new encounter type."); return; }
+    setBusy(true); setErr("");
+    const r = await fetch(`/api/encounters/${encounterId}/addenda`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ note, newEncounterTypeId: newType }) });
+    setBusy(false);
+    if (!r.ok) { setErr((await r.json()).error || "Could not add addendum."); return; }
+    setNote(""); setNewType(""); load(); onChanged();
+  }
+
+  return (
+    <section className="card">
+      <header className="px-4 py-3 border-b border-slate-200 font-semibold">Addenda</header>
+      <div className="p-4 space-y-3 text-sm">
+        <p className="text-[11px] text-slate-500">The note is locked. Add an addendum to append information or change the encounter type — the change is recorded with an audit trail.</p>
+        <textarea className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Addendum note…" />
+        <label className="block">
+          <span className="label">Change encounter type (optional)</span>
+          <select className="input" value={newType} onChange={(e) => setNewType(e.target.value)}>
+            <option value="">— Keep current —</option>
+            {encTypes.filter((t) => t.active).map((t) => <option key={t.id} value={t.id}>{t.name}{t.code ? ` (${t.codeSystem || ""} ${t.code})` : ""}</option>)}
+          </select>
+        </label>
+        {err && <div className="text-rose-600 text-xs">{err}</div>}
+        <button disabled={busy} onClick={submit} className="btn-primary w-full">{busy ? "Saving…" : "Add addendum"}</button>
+
+        {addenda.length > 0 && (
+          <div className="pt-2 border-t border-slate-100 space-y-2">
+            <div className="text-xs font-semibold text-slate-500">History</div>
+            {addenda.map((a) => (
+              <div key={a.id} className="rounded-md bg-slate-50 ring-1 ring-slate-200 p-2">
+                <div className="text-[11px] text-slate-400">{new Date(a.createdAt).toLocaleString()}{a.authorName ? ` · ${a.authorName}` : ""}</div>
+                {a.note && <div className="text-slate-700 mt-0.5">{a.note}</div>}
+                {a.newEncounterTypeName && <div className="text-[12px] text-violet-700 mt-0.5">Encounter type: {a.prevEncounterTypeName || "—"} → {a.newEncounterTypeName}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
