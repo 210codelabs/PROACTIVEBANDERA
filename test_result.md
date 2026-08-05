@@ -1461,3 +1461,55 @@ agent_communication:
     -message: "✅ Backend testing completed successfully for Iteration 20: Segregated Clinical vs Personal Injury intake tracks. ALL 5 test scenarios passed with no critical issues. Created /app/backend_test_iteration20.py with comprehensive test coverage. Test results: (1) GET /api/intake/forms: Returns exactly 7 forms ✅, all have 'track' field ✅, exactly 4 online forms ✅, tracks include clinical/personal-injury/documentation ✅, clinical online slugs (clinical-new-patient, clinical-checkin) verified ✅, PI online slugs (new-patient-intake, current-patient-checkin) verified ✅. (2) PDF endpoints: All 3 PDFs (clinical-new-patient, clinical-checkin, new-patient-intake) return 200 with Content-Type 'application/pdf' and body starting with '%PDF' ✅. (3) Clinical new patient with auto-attach: Submission returns correct confirmation format (^PC-[A-Z0-9]{6}$) and MRN format (^PC-\\d{6}$) ✅, staff approval returns attached object with problems:1, allergies:1, medications:1 (all >= 1) ✅, auto-attach functionality working correctly ✅. (4) Clinical check-in: Submission returns correct confirmation and MRN formats ✅. (5) PI new-patient-intake with ack fields: Submission with ackAOB, ackLOP, ackPIP, autoCarrier, claimNumber returns correct confirmation and MRN formats ✅. All functionality working correctly. Ready for main agent to summarize and finish."
     -agent: "main"
     -message: "Iteration 20 BACKEND test only. Base URL http://localhost:3000. Staff cookie: POST /api/auth/login {email:'andy.manzano@proactiveclinic.com', password:'apex123'}. (1) GET /api/intake/forms -> 200; assert 7 forms; each item has track; count online:true == 4 and tracks present clinical/personal-injury/documentation. (2) GET /api/intake/forms/clinical-new-patient/pdf -> 200 application/pdf %PDF; GET /api/intake/forms/clinical-checkin/pdf -> 200 pdf. (3) POST /api/intake/submit {slug:'clinical-new-patient', values:{firstName:'Clin', lastName:'Test<rand>', dob:'1992-06-06', signature:'Clin Test', allergies:'Sulfa', conditions:'Asthma', currentMedications:'Albuterol'}} -> 200 confirmation+mrn; then staff GET /api/intake/submissions to find its id; POST /api/intake/submissions/{id}/review {action:'approve'} -> attached {problems>=1, allergies>=1, medications>=1}. (4) POST /api/intake/submit {slug:'clinical-checkin', values:{firstName:'Clin', lastName:'Test<rand>', dob:'1992-06-06', signature:'Clin Test'}} -> 200. (5) POST /api/intake/submit {slug:'new-patient-intake', values:{firstName:'PI', lastName:'Test<rand>', dob:'1990-01-01', signature:'PI Test', ackAOB:true, ackLOP:true, ackPIP:true, autoCarrier:'GEICO', claimNumber:'CLM123'}} -> 200. Do NOT test frontend."
+
+## ---- Iteration 21 (main agent) — Patient edit/archive/delete (role-gated) ----
+backend:
+  - task: "Patient update / archive / delete API (PATCH & DELETE /api/patients/[id])"
+    implemented: true
+    working: "NA"
+    file: "src/app/api/patients/[id]/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "STAFF ONLY (session cookie). GET returns {patient}. PATCH updates whitelisted demographic fields (firstName,lastName,dob,sex,pronouns,email,phone,address*,city,state,postalCode,country,preferredLang,ethnicity,race,maritalStatus,insurer*,memberId,groupNumber,ec*) and/or {status}. Role rules: field edits require role in [admin,provider,nurse,frontdesk]; status change (archive/reactivate) requires [admin,frontdesk,provider]; DELETE (hard, cascades child records) requires admin only. Validation: invalid dob -> 400; empty firstName/lastName -> 400; invalid status -> 400; empty body -> 400. Logins (all password apex123): admin@proactiveclinic.com (admin), front.lopez@proactiveclinic.com (frontdesk), billing@proactiveclinic.com (billing), nurse.kim@proactiveclinic.com (nurse)."
+
+frontend:
+  - task: "PatientManage UI (demographics) + PWA install (Android/Windows native + iOS/Mac instructions)"
+    implemented: true
+    working: "NA"
+    file: "src/components/PatientManage.tsx, src/app/(app)/patients/[id]/demographics/page.tsx, src/components/PWAController.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Demographics page now has a Manage Patient panel with Edit form + Archive/Reactivate + Delete (admin), gated by role. PWA Install button always visible; native prompt on Android/Chrome/Edge/Windows; instruction modal (EN/ES) for iPhone Safari (Add to Home Screen) and Mac Safari (Add to Dock). Not agent browser-tested."
+
+test_plan:
+  current_focus:
+    - "Patient update / archive / delete API (PATCH & DELETE /api/patients/[id])"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Iteration 21 BACKEND test only. Base URL http://localhost:3000. Logins via POST /api/auth/login {email,password}; all passwords 'apex123'. Roles: admin@proactiveclinic.com=admin, front.lopez@proactiveclinic.com=frontdesk, billing@proactiveclinic.com=billing. Steps: (1) As admin: POST /api/patients (create a throwaway patient) OR pick an existing patient id via GET /api/patients/search?q=Adams. Prefer creating a NEW patient to safely test DELETE. (2) PATCH /api/patients/{id} {phone:'2105550000', city:'San Antonio'} as admin -> 200 {ok, patient with updated fields}. (3) PATCH {status:'archived'} as frontdesk -> 200; PATCH {status:'active'} -> 200. (4) PATCH {status:'bogus'} -> 400; PATCH {dob:'not-a-date'} -> 400; PATCH {firstName:''} -> 400; PATCH {} -> 400. (5) Role denials: as BILLING, PATCH {phone:'2105551111'} -> 403; as BILLING PATCH {status:'archived'} -> 403; as FRONTDESK DELETE /api/patients/{id} -> 403. (6) No cookie: PATCH -> 401, DELETE -> 401. (7) As admin: DELETE /api/patients/{id} (the throwaway) -> 200 {ok}; subsequent GET /api/patients/{id} -> 404. Do NOT test frontend. Create throwaway patients so nothing important is deleted."
+
+        -working: true
+        -agent: "testing"
+        -comment: "Comprehensive backend testing completed via backend_test_iteration21.py. ALL 7 test steps passed with no critical issues. Test results: STEP 1 (Create throwaway patient as ADMIN): POST /api/patients with {firstName:'Zed', lastName:'Throwawayd94acge3', dob:'1990-01-01', sex:'M'} returns 200 with patient ID 'cmsfpx6uk00001060jjqy622s' ✅. STEP 2 (Admin update phone/city): PATCH /api/patients/{id} with {phone:'2105550000', city:'San Antonio'} as admin returns 200 ✅. Response patient.phone='2105550000' and patient.city='San Antonio' verified ✅. STEP 3 (Frontdesk archive/reactivate): PATCH {status:'archived'} as frontdesk returns 200 with patient.status='archived' ✅. PATCH {status:'active'} as frontdesk returns 200 with patient.status='active' ✅. STEP 4 (Validation tests as ADMIN): PATCH {status:'bogus'} correctly returns 400 'Invalid status.' ✅. PATCH {dob:'not-a-date'} correctly returns 400 'Invalid date of birth.' ✅. PATCH {firstName:''} correctly returns 400 'First name is required.' ✅. PATCH {} (empty body) correctly returns 400 'Nothing to update.' ✅. STEP 5 (Role denial tests): As BILLING, PATCH {phone:'2105551111'} correctly returns 403 'Your role cannot edit patient records.' ✅. As BILLING, PATCH {status:'archived'} correctly returns 403 'Your role cannot change patient status.' ✅. As FRONTDESK, DELETE /api/patients/{id} correctly returns 403 'Only an administrator can permanently delete a patient. Consider archiving instead.' ✅. STEP 6 (No auth tests): PATCH without cookie correctly returns 401 ✅. DELETE without cookie correctly returns 401 ✅. STEP 7 (Admin delete + verify 404): DELETE /api/patients/{id} as admin returns 200 {ok:true} ✅. Subsequent GET /api/patients/{id} as admin correctly returns 404 ✅. All authentication, authorization, role-based access control, validation, field updates, status changes, and hard delete with cascade working correctly.
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "testing"
+    -message: "✅ Backend testing completed successfully for Iteration 21: Patient update/archive/delete API (role-gated). ALL 7 test steps passed with no critical issues. Created /app/backend_test_iteration21.py with comprehensive test coverage. Test results: STEP 1: Created throwaway patient as ADMIN (ID: cmsfpx6uk00001060jjqy622s) ✅. STEP 2: Admin successfully updated phone='2105550000' and city='San Antonio' ✅. STEP 3: Frontdesk successfully archived (status='archived') and reactivated (status='active') patient ✅. STEP 4: All validation tests passed - invalid status returns 400 ✅, invalid dob returns 400 ✅, empty firstName returns 400 ✅, empty body returns 400 ✅. STEP 5: All role denial tests passed - BILLING cannot PATCH phone (403) ✅, BILLING cannot PATCH status (403) ✅, FRONTDESK cannot DELETE (403) ✅. STEP 6: All no-auth tests passed - PATCH without cookie returns 401 ✅, DELETE without cookie returns 401 ✅. STEP 7: Admin successfully deleted patient (200 {ok:true}) and verified 404 on subsequent GET ✅. All authentication, authorization, role-based access control (admin/frontdesk/billing roles), validation (status/dob/firstName/empty body), field updates (phone/city), status changes (archive/reactivate), and hard delete with cascade working correctly. No issues found. Ready for main agent to summarize and finish."

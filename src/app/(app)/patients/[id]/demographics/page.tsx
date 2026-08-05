@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/auth";
 import PatientChart, { loadPatientCtx } from "@/components/PatientChart";
+import PatientManage from "@/components/PatientManage";
 import { fmtDate, fmtPhone, ageFromDob } from "@/lib/utils";
 
 export default async function DemoPage({ params }: { params: Promise<{ id: string }> }) {
@@ -10,6 +11,7 @@ export default async function DemoPage({ params }: { params: Promise<{ id: strin
 
   return (
     <PatientChart user={user} {...ctx} active="demographics">
+      <PatientManage patient={JSON.parse(JSON.stringify(p))} role={user.role} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card title="Identity">
           <Row k="Name">{p.firstName} {p.lastName}</Row>
