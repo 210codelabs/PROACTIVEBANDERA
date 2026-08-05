@@ -132,3 +132,8 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
   - DOCUMENTATION: first-office-visit, followup-visit, procedure-report.
 - Grouped by track on: public /intake landing, staff /intake-forms, patient chart panel (New-Clinical / New-PI / Renew Clinical+PI / Duplicate), inbox + portal upload option lists.
 - Full EN/ES for new strings. All 7 forms render EN+ES PDFs with letterhead + HIPAA footer. Backend tested (Iteration 20): all passed (auto-attach still works on clinical form).
+
+## Patient management + PWA (Iteration 21)
+- Patient API /api/patients/[id]: GET, PATCH (edit demographics + archive/reactivate via status), DELETE (hard, cascades children). Role gates: edit -> admin/provider/nurse/frontdesk; status -> admin/frontdesk/provider; delete -> admin only. Backend tested 7/7.
+- Demographics page: "Manage Patient" panel (PatientManage.tsx) with Edit form, Archive/Reactivate, and admin-only Delete (double confirm). Read-only notice for billing.
+- PWA install reactivated + broadened (PWAController): always-visible Install button; native beforeinstallprompt for Android/Chrome/Edge + Windows; bilingual (EN/ES) instruction modal for iPhone/iPad Safari (Add to Home Screen) and Mac Safari (Add to Dock); Chrome/Edge desktop hint. Skipped on /kiosk and when already installed.
