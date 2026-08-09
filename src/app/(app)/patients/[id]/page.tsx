@@ -6,6 +6,7 @@ import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import PatientHeader, { PatientTabs } from "@/components/PatientHeader";
 import PatientCareTeam from "@/components/PatientCareTeam";
+import PatientAppointments from "@/components/PatientAppointments";
 import { fmtDateTime, fmtTime, colorForApptStatus } from "@/lib/utils";
 
 export default async function PatientSummary({ params }: { params: Promise<{ id: string }> }) {
@@ -148,20 +149,9 @@ export default async function PatientSummary({ params }: { params: Promise<{ id:
           )}
         </Card>
 
-        <Card title="Upcoming Appointments" href={`/schedule?patientId=${id}`} cta="Schedule" className="lg:col-span-2">
-          {upcoming.length === 0 ? <Empty>No upcoming appointments</Empty> : (
-            <ul className="divide-y divide-slate-100">
-              {upcoming.map(a => (
-                <li key={a.id} className="py-2 flex items-center gap-3 text-sm">
-                  <div className="w-32 text-xs text-slate-500">{new Date(a.startsAt).toLocaleDateString()} · {fmtTime(a.startsAt)}</div>
-                  <div className="flex-1">{a.reason || a.serviceType?.name || "Office visit"}</div>
-                  <div className="text-xs text-slate-500">{a.provider.firstName} {a.provider.lastName}</div>
-                  <span className={`chip ${colorForApptStatus(a.status)}`}>{a.status}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        <div className="lg:col-span-2">
+          <PatientAppointments patientId={id} role={user.role} />
+        </div>
 
         <Card title="Recent Encounters" href={`/patients/${id}/encounters`} cta="All">
           {encounters.length === 0 ? <Empty>No encounters</Empty> : (

@@ -1,6 +1,60 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
+import { mapByIds } from "@/lib/safe-relations";
+
+// GET /api/appointments?patientId=&from=&to=&providerId=&refs=1
+// Returns appointments (optionally filtered) plus provider/service reference lists.
+export async function GET(req: Request) {
+  await requireSession();
+  const { searchParams } = new URL(req.url);
+  const patientId = searchParams.get("patientId") || undefined;
+  const providerId = searchParams.get("providerId") || undefined;
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+
+  const where: any = {};
+  if (patientId) where.patientId = patientId;
+  if (providerId) where.providerId = providerId;
+  if (from || to) where.startsAt = { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) };
+
+  let appointments: any[] = [];
+  try {
+    const rows = await db.appointment.findMany({ where, orderBy: { startsAt: "asc" }, take: 500 });
+    const pMap = await mapByIds("patient", rows.map((r) => r.patientId));
+    const uMap = await mapByIds("user", rows.map((r) => r.providerId));
+    const sMap = await mapByIds("serviceType", rows.map((r) => r.serviceTypeId).filter(Boolean) as string[]);
+    appointments = rows.map((r) => {
+      const p: any = pMap.get(r.patientId);
+      const u: any = uMap.get(r.providerId);
+      const s: any = r.serviceTypeId ? sMap.get(r.serviceTypeId) : null;
+      return {
+        id: r.id,
+        patientId: r.patientId,
+        providerId: r.providerId,
+        serviceTypeId: r.serviceTypeId,
+        startsAt: r.startsAt,
+        endsAt: r.endsAt,
+        status: r.status,
+        reason: r.reason,
+        notes: r.notes,
+        location: r.location,
+        patientName: p ? `${p.lastName}, ${p.firstName}` : null,
+        providerName: u ? `${u.firstName} ${u.lastName}` : null,
+        serviceName: s?.name || null,
+      };
+    });
+  } catch {
+    appointments = [];
+  }
+
+  const [providers, services] = await Promise.all([
+    db.user.findMany({ where: { role: "provider", active: true }, orderBy: { lastName: "asc" }, select: { id: true, firstName: true, lastName: true, credential: true } }).catch(() => []),
+    db.serviceType.findMany({ where: { active: true }, orderBy: [{ category: "asc" }, { name: "asc" }], select: { id: true, name: true, durationMin: true, category: true, homeEligible: true } }).catch(() => []),
+  ]);
+
+  return NextResponse.json({ appointments, providers, services });
+}
 
 export async function POST(req: Request) {
   await requireSession();
@@ -35,15 +89,44 @@ export async function POST(req: Request) {
   }
 }
 
+// PATCH: update status (check-in/cancel/complete) and/or reschedule
+// (day+time or startsAt, provider, service, reason, notes, location).
 export async function PATCH(req: Request) {
   await requireSession();
   const b = await req.json();
   if (!b.id) return NextResponse.json({ error: "id required" }, { status: 400 });
   try {
-    const updated = await db.appointment.update({
-      where: { id: b.id },
-      data: { status: b.status },
-    });
+    const existing = await db.appointment.findUnique({ where: { id: b.id } });
+    if (!existing) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+
+    const data: any = {};
+    if (typeof b.status === "string") data.status = b.status;
+    if (typeof b.providerId === "string" && b.providerId) data.providerId = b.providerId;
+    if ("serviceTypeId" in b) data.serviceTypeId = b.serviceTypeId || null;
+    if (typeof b.reason === "string") data.reason = b.reason || null;
+    if (typeof b.notes === "string") data.notes = b.notes || null;
+    if (typeof b.location === "string" && b.location) data.location = b.location;
+
+    // Reschedule?
+    let newStart: Date | null = null;
+    if (b.startsAt) newStart = new Date(b.startsAt);
+    else if (b.day && b.time) newStart = new Date(`${b.day}T${b.time}:00`);
+
+    if (newStart && !isNaN(newStart.getTime())) {
+      // duration: from the (new or existing) service type, else preserve current length
+      let durationMin = Math.max(15, Math.round((existing.endsAt.getTime() - existing.startsAt.getTime()) / 60000));
+      const svcId = ("serviceTypeId" in b ? b.serviceTypeId : existing.serviceTypeId) || null;
+      if (svcId) {
+        const s = await db.serviceType.findUnique({ where: { id: svcId } });
+        if (s) durationMin = s.durationMin;
+      }
+      data.startsAt = newStart;
+      data.endsAt = new Date(newStart.getTime() + durationMin * 60000);
+    }
+
+    if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+
+    const updated = await db.appointment.update({ where: { id: b.id }, data });
     return NextResponse.json({ ok: true, appointment: updated });
   } catch {
     return NextResponse.json({ error: "Appointment updates are temporarily unavailable" }, { status: 503 });

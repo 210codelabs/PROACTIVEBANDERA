@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { addDays, format, startOfDay, endOfDay, parseISO, addMinutes } from "date-fns";
+import {
+  addDays, format, startOfDay, endOfDay, parseISO, addMinutes,
+  startOfWeek, endOfWeek, startOfMonth, endOfMonth, addWeeks, addMonths,
+  eachDayOfInterval, isSameMonth, isSameDay,
+} from "date-fns";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Shell from "@/components/Shell";
@@ -12,26 +16,37 @@ import CheckInButton from "@/components/billing/CheckInButton";
 import { getCopayMap } from "@/lib/coverage";
 import { getBalanceMap, fmtCents } from "@/lib/balances";
 
-export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ d?: string; providerId?: string }> }) {
+type View = "day" | "week" | "month" | "staff";
+type Provider = { id: string; firstName: string; lastName: string; credential: string | null };
+type Service = { id: string; name: string; durationMin: number; category: string; homeEligible: boolean };
+type Appt = {
+  id: string; patientId: string; providerId: string;
+  startsAt: Date; endsAt: Date; status: string; reason: string | null; notes: string | null;
+  pFirst: string; pLast: string; provLast: string;
+  svcName: string | null; svcCat: string | null;
+};
+
+const DOT: Record<string, string> = {
+  scheduled: "bg-slate-400", "checked-in": "bg-amber-500", "in-room": "bg-violet-500",
+  completed: "bg-emerald-500", "no-show": "bg-rose-500", cancelled: "bg-slate-300",
+};
+
+export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ d?: string; providerId?: string; view?: string }> }) {
   const sp = await searchParams;
   const user = await requireSession();
   const day = sp.d ? parseISO(sp.d) : new Date();
   const providerId = sp.providerId || "";
+  const view: View = (["day", "week", "month", "staff"].includes(sp.view || "") ? sp.view : "week") as View;
 
-  let providers: Array<{ id: string; firstName: string; lastName: string; credential: string | null }> = [];
-  let services: Array<{ id: string; name: string; durationMin: number; category: string; homeEligible: boolean }> = [];
-  let appts: Array<{
-    id: string;
-    patientId: string;
-    startsAt: Date;
-    endsAt: Date;
-    status: string;
-    notes: string | null;
-    reason: string | null;
-    patient: { firstName: string; lastName: string };
-    provider: { lastName: string };
-    serviceType: { name: string; category: string } | null;
-  }> = [];
+  // Visible range per view
+  let rangeStart: Date, rangeEnd: Date;
+  if (view === "week") { rangeStart = startOfWeek(day, { weekStartsOn: 0 }); rangeEnd = endOfWeek(day, { weekStartsOn: 0 }); }
+  else if (view === "month") { rangeStart = startOfWeek(startOfMonth(day), { weekStartsOn: 0 }); rangeEnd = endOfWeek(endOfMonth(day), { weekStartsOn: 0 }); }
+  else { rangeStart = startOfDay(day); rangeEnd = endOfDay(day); }
+
+  let providers: Provider[] = [];
+  let services: Service[] = [];
+  let appts: Appt[] = [];
   let dataUnavailable = false;
   let copayMap = new Map<string, string>();
   let balanceMap = new Map<string, number>();
@@ -41,65 +56,72 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       db.user.findMany({ where: { role: "provider", active: true }, orderBy: { lastName: "asc" } }),
       db.serviceType.findMany({ where: { active: true }, orderBy: [{ category: "asc" }, { name: "asc" }] }),
       db.appointment.findMany({
-        where: {
-          startsAt: { gte: startOfDay(day), lte: endOfDay(day) },
-          ...(providerId ? { providerId } : {}),
-        },
+        where: { startsAt: { gte: rangeStart, lte: rangeEnd }, ...(providerId ? { providerId } : {}) },
         orderBy: { startsAt: "asc" },
+        take: 1000,
       }),
     ]);
+    providers = results[0].status === "fulfilled" ? (results[0].value as Provider[]) : [];
+    services = results[1].status === "fulfilled" ? (results[1].value as Service[]) : [];
+    const rows = results[2].status === "fulfilled" ? results[2].value : [];
 
-    providers = results[0].status === "fulfilled" ? results[0].value : [];
-    services = results[1].status === "fulfilled" ? results[1].value : [];
-    const apptRows = results[2].status === "fulfilled" ? results[2].value : [];
+    const pMap = await mapByIds("patient", rows.map((r) => r.patientId));
+    const uMap = await mapByIds("user", rows.map((r) => r.providerId));
+    const sMap = await mapByIds("serviceType", rows.map((r) => r.serviceTypeId).filter(Boolean) as string[]);
+    appts = rows.map((r) => {
+      const p: any = pMap.get(r.patientId); const u: any = uMap.get(r.providerId);
+      const s: any = r.serviceTypeId ? sMap.get(r.serviceTypeId) : null;
+      return {
+        id: r.id, patientId: r.patientId, providerId: r.providerId,
+        startsAt: r.startsAt, endsAt: r.endsAt, status: r.status, reason: r.reason, notes: r.notes,
+        pFirst: p?.firstName || "", pLast: p?.lastName || "", provLast: u?.lastName || "",
+        svcName: s?.name || null, svcCat: s?.category || null,
+      } as Appt;
+    }).filter((a) => a.pLast || a.pFirst);
 
-    const pMap = await mapByIds("patient", apptRows.map((r) => r.patientId));
-    const uMap = await mapByIds("user", apptRows.map((r) => r.providerId));
-    const sMap = await mapByIds("serviceType", apptRows.map((r) => r.serviceTypeId));
-    appts = apptRows
-      .map((r) => ({
-        ...r,
-        patient: pMap.get(r.patientId),
-        provider: uMap.get(r.providerId),
-        serviceType: r.serviceTypeId ? (sMap.get(r.serviceTypeId) ?? null) : null,
-      }))
-      .filter((r) => r.patient && r.provider) as typeof appts;
-
-    copayMap = await getCopayMap(appts.map((a) => a.patientId));
-    balanceMap = await getBalanceMap(appts.map((a) => a.patientId));
-
+    if (view === "day" || view === "staff") {
+      const todays = appts.filter((a) => isSameDay(a.startsAt, day));
+      copayMap = await getCopayMap(todays.map((a) => a.patientId));
+      balanceMap = await getBalanceMap(todays.map((a) => a.patientId));
+    }
     dataUnavailable = results.some((r) => r.status === "rejected");
   } catch {
     dataUnavailable = true;
   }
 
-  const prev = format(addDays(day, -1), "yyyy-MM-dd");
-  const next = format(addDays(day, 1), "yyyy-MM-dd");
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  // Navigation deltas depend on the view
+  const step = view === "week" ? { prev: addWeeks(day, -1), next: addWeeks(day, 1) }
+    : view === "month" ? { prev: addMonths(day, -1), next: addMonths(day, 1) }
+    : { prev: addDays(day, -1), next: addDays(day, 1) };
+  const qp = (d: Date, v: View = view) => `/schedule?view=${v}&d=${format(d, "yyyy-MM-dd")}${providerId ? `&providerId=${providerId}` : ""}`;
+  const title = view === "week" ? `Week of ${format(rangeStart, "MMM d")} – ${format(rangeEnd, "MMM d, yyyy")}`
+    : view === "month" ? format(day, "MMMM yyyy")
+    : format(day, "EEEE, MMM d, yyyy");
 
-  // 30-minute slots from 7am to 7pm
-  const slots: Date[] = [];
-  const dayStart = new Date(day);
-  dayStart.setHours(7, 0, 0, 0);
-  for (let i = 0; i < 24; i++) slots.push(addMinutes(dayStart, i * 30));
+  const providersShown = providerId ? providers.filter((p) => p.id === providerId) : providers;
 
   return (
-    <Shell user={user} jellyBeans={<JellyBeans />} pageTitle={`Schedule — ${format(day, "EEEE, MMM d, yyyy")}`}>
+    <Shell user={user} jellyBeans={<JellyBeans />} pageTitle={`Schedule — ${title}`}>
       {dataUnavailable && (
-        <div className="card card-pad mb-3 border-amber-200 bg-amber-50 text-amber-900">
-          Schedule data is temporarily unavailable. Calendar actions are limited.
-        </div>
+        <div className="card card-pad mb-3 border-amber-200 bg-amber-50 text-amber-900">Schedule data is temporarily unavailable. Calendar actions are limited.</div>
       )}
       <div className="card">
         <header className="px-4 py-3 border-b border-slate-200 flex items-center gap-2 flex-wrap">
-          <Link href={`/schedule?d=${prev}${providerId ? `&providerId=${providerId}` : ""}`} className="btn-secondary">← Prev</Link>
-          <Link href={`/schedule?d=${todayStr}${providerId ? `&providerId=${providerId}` : ""}`} className="btn-secondary">Today</Link>
-          <Link href={`/schedule?d=${next}${providerId ? `&providerId=${providerId}` : ""}`} className="btn-secondary">Next →</Link>
+          {/* View toggle */}
+          <div className="inline-flex rounded-lg ring-1 ring-slate-200 overflow-hidden">
+            {(["day", "week", "month", "staff"] as View[]).map((v) => (
+              <Link key={v} href={qp(day, v)} className={`px-3 py-1.5 text-sm font-medium capitalize ${view === v ? "bg-brand-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>{v}</Link>
+            ))}
+          </div>
+          <Link href={qp(step.prev)} className="btn-secondary ml-2">←</Link>
+          <Link href={qp(new Date())} className="btn-secondary">Today</Link>
+          <Link href={qp(step.next)} className="btn-secondary">→</Link>
           <form className="ml-2 flex items-center gap-2">
+            <input type="hidden" name="view" defaultValue={view} />
             <input type="hidden" name="d" defaultValue={format(day, "yyyy-MM-dd")} />
-            <select name="providerId" defaultValue={providerId} className="input min-w-[200px]">
+            <select name="providerId" defaultValue={providerId} className="input min-w-[180px]">
               <option value="">All providers</option>
-              {providers.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}{p.credential ? `, ${p.credential}` : ""}</option>)}
+              {providers.map((p) => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}{p.credential ? `, ${p.credential}` : ""}</option>)}
             </select>
             <button className="btn-secondary">Apply</button>
           </form>
@@ -108,64 +130,176 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
           </div>
         </header>
 
-        <div className="grid grid-cols-12 divide-x divide-slate-100">
-          <div className="col-span-2">
-            {slots.map(s => (
-              <div key={s.toISOString()} className="h-16 px-3 py-1 text-xs font-mono text-slate-500 border-b border-slate-100">{format(s, "h:mm a")}</div>
-            ))}
-          </div>
-          <div className="col-span-10 relative">
-            {slots.map(s => (
-              <div key={s.toISOString()} className="h-16 border-b border-slate-100"></div>
-            ))}
-            <div className="absolute inset-0 p-2 grid gap-1">
-              {appts.map(a => {
-                const startMin = (new Date(a.startsAt).getHours() * 60 + new Date(a.startsAt).getMinutes()) - 7 * 60;
-                const dur = (new Date(a.endsAt).getTime() - new Date(a.startsAt).getTime()) / 60000;
-                const top = (startMin / 30) * 64;
-                const height = Math.max(40, (dur / 30) * 64 - 4);
-                return (
-                  <div key={a.id} className="absolute left-2 right-2" style={{ top, height }}>
-                    <Link href={`/patients/${a.patientId}`}
-                      className="block h-full rounded-md bg-white ring-1 ring-brand-200 shadow-sm hover:shadow-md hover:ring-brand-400 transition px-2 py-1 overflow-hidden"
-                    >
-                    <div className="flex items-center gap-1 text-[11px] text-slate-500">
-                      <span className="font-semibold text-slate-700">{fmtTime(a.startsAt)}</span>
-                      <span>–</span>
-                      <span>{fmtTime(a.endsAt)}</span>
-                      {balanceMap.get(a.patientId) ? (
-                        <span className="chip bg-rose-100 text-rose-800 ring-rose-200 font-semibold" title="Outstanding balance">Bal {fmtCents(balanceMap.get(a.patientId)!)}</span>
-                      ) : null}
-                      <span className={`chip ml-auto ${colorForApptStatus(a.status)}`}>{a.status}</span>
-                    </div>
-                    <div className="text-sm font-semibold text-slate-900 truncate">{a.patient.lastName}, {a.patient.firstName}</div>
-                    <div className="text-xs text-slate-600 truncate flex items-center gap-1">
-                      {a.serviceType && <span className={`chip ${colorForCategory(a.serviceType.category)}`}>{a.serviceType.name}</span>}
-                      {a.reason && !a.serviceType && <span>{a.reason}</span>}
-                      <span className="ml-auto">{a.provider.lastName}</span>
-                    </div>
-                    {a.notes && (
-                      <div className="text-[11px] text-slate-500 truncate" title={a.notes}>
-                        {a.notes}
-                      </div>
-                    )}
-                    </Link>
-                    <div className="absolute bottom-1 left-1 z-10">
-                      <CheckInButton appointmentId={a.id} status={a.status} />
-                    </div>
-                    <div className="absolute bottom-1 right-1 z-10">
-                      <CopayButton patientId={a.patientId} patientName={`${a.patient.lastName}, ${a.patient.firstName}`} amountDefault={copayMap.get(a.patientId) || ""} />
-                    </div>
-                  </div>
-                );
-              })}
-              {appts.length === 0 && (
-                <div className="absolute inset-0 grid place-items-center text-sm text-slate-400">No appointments scheduled for this day.</div>
-              )}
-            </div>
-          </div>
-        </div>
+        {view === "day" && <DayGrid day={day} appts={appts.filter((a) => isSameDay(a.startsAt, day))} copayMap={copayMap} balanceMap={balanceMap} />}
+        {view === "staff" && <StaffGrid day={day} providers={providersShown} appts={appts.filter((a) => isSameDay(a.startsAt, day))} qp={qp} />}
+        {view === "week" && <WeekView start={rangeStart} appts={appts} qp={qp} />}
+        {view === "month" && <MonthView day={day} start={rangeStart} end={rangeEnd} appts={appts} qp={qp} />}
       </div>
     </Shell>
+  );
+}
+
+/* ---------- Day view (rich: check-in / copay / balance) ---------- */
+function buildSlots(day: Date) {
+  const slots: Date[] = [];
+  const s = new Date(day); s.setHours(7, 0, 0, 0);
+  for (let i = 0; i < 24; i++) slots.push(addMinutes(s, i * 30));
+  return slots;
+}
+function posFor(a: Appt) {
+  const startMin = (new Date(a.startsAt).getHours() * 60 + new Date(a.startsAt).getMinutes()) - 7 * 60;
+  const dur = (new Date(a.endsAt).getTime() - new Date(a.startsAt).getTime()) / 60000;
+  return { top: (startMin / 30) * 64, height: Math.max(40, (dur / 30) * 64 - 4) };
+}
+
+function DayGrid({ day, appts, copayMap, balanceMap }: { day: Date; appts: Appt[]; copayMap: Map<string, string>; balanceMap: Map<string, number> }) {
+  const slots = buildSlots(day);
+  return (
+    <div className="grid grid-cols-12 divide-x divide-slate-100">
+      <div className="col-span-2">
+        {slots.map((s) => <div key={s.toISOString()} className="h-16 px-3 py-1 text-xs font-mono text-slate-500 border-b border-slate-100">{format(s, "h:mm a")}</div>)}
+      </div>
+      <div className="col-span-10 relative">
+        {slots.map((s) => <div key={s.toISOString()} className="h-16 border-b border-slate-100" />)}
+        <div className="absolute inset-0 p-2">
+          {appts.map((a) => {
+            const { top, height } = posFor(a);
+            return (
+              <div key={a.id} className="absolute left-2 right-2" style={{ top, height }}>
+                <Link href={`/patients/${a.patientId}`} className="block h-full rounded-md bg-white ring-1 ring-brand-200 shadow-sm hover:shadow-md hover:ring-brand-400 transition px-2 py-1 overflow-hidden">
+                  <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                    <span className="font-semibold text-slate-700">{fmtTime(a.startsAt)}</span><span>–</span><span>{fmtTime(a.endsAt)}</span>
+                    {balanceMap.get(a.patientId) ? <span className="chip bg-rose-100 text-rose-800 ring-rose-200 font-semibold" title="Outstanding balance">Bal {fmtCents(balanceMap.get(a.patientId)!)}</span> : null}
+                    <span className={`chip ml-auto ${colorForApptStatus(a.status)}`}>{a.status}</span>
+                  </div>
+                  <div className="text-sm font-semibold text-slate-900 truncate">{a.pLast}, {a.pFirst}</div>
+                  <div className="text-xs text-slate-600 truncate flex items-center gap-1">
+                    {a.svcName && <span className={`chip ${colorForCategory(a.svcCat || "")}`}>{a.svcName}</span>}
+                    {a.reason && !a.svcName && <span>{a.reason}</span>}
+                    <span className="ml-auto">{a.provLast}</span>
+                  </div>
+                </Link>
+                <div className="absolute bottom-1 left-1 z-10"><CheckInButton appointmentId={a.id} status={a.status} /></div>
+                <div className="absolute bottom-1 right-1 z-10"><CopayButton patientId={a.patientId} patientName={`${a.pLast}, ${a.pFirst}`} amountDefault={copayMap.get(a.patientId) || ""} /></div>
+              </div>
+            );
+          })}
+          {appts.length === 0 && <div className="absolute inset-0 grid place-items-center text-sm text-slate-400">No appointments scheduled for this day.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Staff view (per-provider columns for the day) ---------- */
+function StaffGrid({ day, providers, appts, qp }: { day: Date; providers: Provider[]; appts: Appt[]; qp: (d: Date, v?: View) => string }) {
+  const slots = buildSlots(day);
+  if (providers.length === 0) return <div className="p-8 text-center text-sm text-slate-400">No active providers to display.</div>;
+  return (
+    <div className="overflow-x-auto">
+      <div className="flex min-w-max">
+        {/* time gutter */}
+        <div className="w-20 shrink-0 border-r border-slate-100">
+          <div className="h-10 border-b border-slate-100" />
+          {slots.map((s) => <div key={s.toISOString()} className="h-16 px-2 py-1 text-[11px] font-mono text-slate-500 border-b border-slate-100">{format(s, "h:mm")}</div>)}
+        </div>
+        {providers.map((prov) => {
+          const list = appts.filter((a) => a.providerId === prov.id);
+          return (
+            <div key={prov.id} className="w-56 shrink-0 border-r border-slate-100">
+              <div className="h-10 px-2 grid place-items-center border-b border-slate-100 bg-slate-50 text-xs font-semibold text-slate-700 truncate">{prov.firstName} {prov.lastName}{prov.credential ? `, ${prov.credential}` : ""}</div>
+              <div className="relative">
+                {slots.map((s) => <div key={s.toISOString()} className="h-16 border-b border-slate-100" />)}
+                <div className="absolute inset-0 p-1">
+                  {list.map((a) => {
+                    const { top, height } = posFor(a);
+                    return (
+                      <Link key={a.id} href={`/patients/${a.patientId}`} className="absolute left-1 right-1 rounded-md bg-white ring-1 ring-brand-200 shadow-sm hover:ring-brand-400 px-2 py-1 overflow-hidden" style={{ top, height }}>
+                        <div className="flex items-center gap-1 text-[10px] text-slate-500"><span className="font-semibold text-slate-700">{fmtTime(a.startsAt)}</span><span className={`chip ml-auto ${colorForApptStatus(a.status)}`}>{a.status}</span></div>
+                        <div className="text-xs font-semibold text-slate-900 truncate">{a.pLast}, {a.pFirst}</div>
+                        {a.svcName && <div className="text-[10px] text-slate-500 truncate">{a.svcName}</div>}
+                      </Link>
+                    );
+                  })}
+                  {list.length === 0 && <div className="absolute inset-x-0 top-2 text-center text-[11px] text-slate-300">—</div>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Week view (7 day columns, chip lists) ---------- */
+function WeekView({ start, appts, qp }: { start: Date; appts: Appt[]; qp: (d: Date, v?: View) => string }) {
+  const days = eachDayOfInterval({ start, end: addDays(start, 6) });
+  return (
+    <div className="grid grid-cols-7 divide-x divide-slate-100">
+      {days.map((d) => {
+        const list = appts.filter((a) => isSameDay(a.startsAt, d)).sort((x, y) => x.startsAt.getTime() - y.startsAt.getTime());
+        const today = isSameDay(d, new Date());
+        return (
+          <div key={d.toISOString()} className="min-h-[220px]">
+            <Link href={qp(d, "day")} className={`block px-2 py-2 border-b text-center hover:bg-slate-50 ${today ? "bg-brand-50 border-brand-200" : "border-slate-100"}`}>
+              <div className="text-[11px] uppercase tracking-wide text-slate-400">{format(d, "EEE")}</div>
+              <div className={`text-lg font-semibold ${today ? "text-brand-700" : "text-slate-800"}`}>{format(d, "d")}</div>
+              <div className="text-[10px] text-slate-400">{list.length} appt{list.length === 1 ? "" : "s"}</div>
+            </Link>
+            <div className="p-1.5 space-y-1">
+              {list.map((a) => (
+                <Link key={a.id} href={`/patients/${a.patientId}`} className="block rounded-md ring-1 ring-slate-200 bg-white hover:ring-brand-400 px-2 py-1">
+                  <div className="flex items-center gap-1">
+                    <span className={`h-2 w-2 rounded-full ${DOT[a.status] || DOT.scheduled}`} />
+                    <span className="text-[11px] font-semibold text-slate-700">{fmtTime(a.startsAt)}</span>
+                  </div>
+                  <div className="text-xs font-medium text-slate-900 truncate">{a.pLast}, {a.pFirst}</div>
+                  <div className="text-[10px] text-slate-500 truncate">{a.svcName || a.reason || "Visit"} · {a.provLast}</div>
+                </Link>
+              ))}
+              {list.length === 0 && <div className="text-center text-[11px] text-slate-300 py-4">—</div>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Month view (calendar grid) ---------- */
+function MonthView({ day, start, end, appts, qp }: { day: Date; start: Date; end: Date; appts: Appt[]; qp: (d: Date, v?: View) => string }) {
+  const days = eachDayOfInterval({ start, end });
+  const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return (
+    <div>
+      <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50">
+        {weekdays.map((w) => <div key={w} className="px-2 py-1.5 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">{w}</div>)}
+      </div>
+      <div className="grid grid-cols-7">
+        {days.map((d) => {
+          const inMonth = isSameMonth(d, day);
+          const today = isSameDay(d, new Date());
+          const list = appts.filter((a) => isSameDay(a.startsAt, d)).sort((x, y) => x.startsAt.getTime() - y.startsAt.getTime());
+          return (
+            <div key={d.toISOString()} className={`min-h-[112px] border-b border-r border-slate-100 p-1 ${inMonth ? "bg-white" : "bg-slate-50/60"}`}>
+              <Link href={qp(d, "day")} className="flex items-center justify-between px-1">
+                <span className={`text-xs font-semibold ${today ? "grid place-items-center h-6 w-6 rounded-full bg-brand-600 text-white" : inMonth ? "text-slate-700" : "text-slate-300"}`}>{format(d, "d")}</span>
+                {list.length > 0 && <span className="text-[10px] text-slate-400">{list.length}</span>}
+              </Link>
+              <div className="mt-1 space-y-0.5">
+                {list.slice(0, 3).map((a) => (
+                  <Link key={a.id} href={`/patients/${a.patientId}`} className="flex items-center gap-1 rounded px-1 py-0.5 hover:bg-slate-100">
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${DOT[a.status] || DOT.scheduled}`} />
+                    <span className="text-[10px] text-slate-600 truncate">{fmtTime(a.startsAt)} {a.pLast}</span>
+                  </Link>
+                ))}
+                {list.length > 3 && <Link href={qp(d, "day")} className="block text-[10px] text-brand-600 px-1 hover:underline">+{list.length - 3} more</Link>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
