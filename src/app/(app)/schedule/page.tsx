@@ -8,6 +8,7 @@ import { fmtTime, colorForApptStatus, colorForCategory } from "@/lib/utils";
 import NewApptButton from "./NewApptButton";
 import { mapByIds } from "@/lib/safe-relations";
 import CopayButton from "@/components/billing/CopayButton";
+import { getCopayMap } from "@/lib/coverage";
 
 export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ d?: string; providerId?: string }> }) {
   const sp = await searchParams;
@@ -30,6 +31,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     serviceType: { name: string; category: string } | null;
   }> = [];
   let dataUnavailable = false;
+  let copayMap = new Map<string, string>();
 
   try {
     const results = await Promise.allSettled([
@@ -59,6 +61,8 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         serviceType: r.serviceTypeId ? (sMap.get(r.serviceTypeId) ?? null) : null,
       }))
       .filter((r) => r.patient && r.provider) as typeof appts;
+
+    copayMap = await getCopayMap(appts.map((a) => a.patientId));
 
     dataUnavailable = results.some((r) => r.status === "rejected");
   } catch {
@@ -140,7 +144,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                     )}
                     </Link>
                     <div className="absolute bottom-1 right-1 z-10">
-                      <CopayButton patientId={a.patientId} patientName={`${a.patient.lastName}, ${a.patient.firstName}`} />
+                      <CopayButton patientId={a.patientId} patientName={`${a.patient.lastName}, ${a.patient.firstName}`} amountDefault={copayMap.get(a.patientId) || ""} />
                     </div>
                   </div>
                 );

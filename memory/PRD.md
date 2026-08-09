@@ -144,3 +144,9 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - Right "Coverage & benefits" pane shows status (active/inactive/error), payer/plan, member ID, and benefit summary (copay/coinsurance/deductible/out-of-pocket). The pre-save check is auto-attached to the patient after creation (PATCH /api/stedi/eligibility {checkId, patientId}).
 - Right "Prior authorization" pane = MANUAL tracker (new PriorAuthRequest model + /api/prior-auth CRUD). NOT electronic 278 submission — Stedi's integrated path does not expose self-service PA. Draft entered at registration is linked to the patient on save.
 - Backend tested 17/17 (prior-auth CRUD + eligibility attach). UI verified via screenshot.
+
+## Coverage card + Re-verify + Copay prefill (Iteration 30)
+- Chart header (PatientHeader) now shows a compact Coverage card (PatientCoverage.tsx) with the latest saved eligibility: status badge, payer/plan, copay, "as of" date. Flags coverage that is inactive/error (rose) or stale >30 days (amber). Appears on every patient chart tab.
+- One-click "Re-verify" re-runs a live Stedi eligibility check for the patient (reuses last check's payer + patient insurance) via existing POST /api/stedi/eligibility.
+- Schedule "$ Copay" quick button now prefills the exact verified copay from the patient's latest ACTIVE eligibility check (src/lib/coverage.ts getCopayMap) and shows the amount in the button label (e.g. "$ Copay 25").
+- No new backend endpoints (reuses tested eligibility routes). Verified via screenshots + DOM assertion. Preview only — redeploy to confirm in production.

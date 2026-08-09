@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Patient } from "@prisma/client";
 import { ageFromDob, fmtPhone, initials } from "@/lib/utils";
 import ChartAssistant from "@/components/ChartAssistant";
+import PatientCoverage from "@/components/PatientCoverage";
 
 export default function PatientHeader({
   patient,
@@ -53,6 +54,7 @@ export default function PatientHeader({
               {problems.slice(0, 3).map(p => p.description).join(", ")}{problems.length > 3 ? "…" : ""}
             </div>
           )}
+          <PatientCoverage patientId={patient.id} />
           {rightSlot}
         </div>
       </div>

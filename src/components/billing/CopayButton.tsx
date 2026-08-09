@@ -38,7 +38,7 @@ export default function CopayButton({ patientId, patientName, amountDefault = ""
   return (
     <>
       <button onClick={openModal} title="Collect copay" className="rounded-md bg-emerald-600 text-white text-[10px] font-semibold px-1.5 py-0.5 hover:bg-emerald-700 shadow-sm">
-        $ Copay
+        {amountDefault ? `$ Copay ${Number(amountDefault).toFixed(0)}` : "$ Copay"}
       </button>
       {open && (
         <div onClick={close} className="fixed inset-0 z-50 bg-black/40 grid place-items-center p-4">
