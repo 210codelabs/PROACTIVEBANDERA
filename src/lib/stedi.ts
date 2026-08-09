@@ -113,3 +113,111 @@ export async function stediPing(apiKey?: string): Promise<{ ok: boolean; sample?
   const items = body?.items || body?.payers || [];
   return { ok: true, sample: Array.isArray(items) ? items[0] : undefined };
 }
+
+// ---- Helpers ----
+
+/** Convert an ISO date / Date / YYYY-MM-DD to Stedi's YYYYMMDD format. */
+export function toYYYYMMDD(input: string | Date | null | undefined): string {
+  if (!input) return "";
+  const d = input instanceof Date ? input : new Date(input);
+  if (isNaN(d.getTime())) {
+    // maybe already YYYYMMDD or YYYY-MM-DD string
+    const s = String(input).replace(/-/g, "");
+    return /^\d{8}$/.test(s) ? s : "";
+  }
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}${m}${day}`;
+}
+
+export type EligibilityInput = {
+  payerId: string;
+  memberId?: string;
+  firstName?: string;
+  lastName?: string;
+  dateOfBirth?: string | Date;
+  dateOfService?: string | Date;
+  serviceTypeCodes?: string[];
+};
+
+export type EligibilityResult = {
+  status: "active" | "inactive" | "error" | "unknown";
+  planName?: string;
+  payerName?: string;
+  summary: { label: string; value: string }[];
+  raw: any;
+};
+
+/**
+ * Real-time eligibility & benefits (270/271) via Stedi.
+ * Returns a normalized summary plus the raw payload.
+ */
+export async function checkEligibility(input: EligibilityInput): Promise<EligibilityResult> {
+  const cfg = await getStediConfig();
+  const raw = await stediFetch<any>(STEDI_BASE.healthcare, "/change/medicalnetwork/eligibility/v3", {
+    method: "POST",
+    body: JSON.stringify({
+      tradingPartnerServiceId: input.payerId,
+      provider: {
+        npi: cfg.billingNpi,
+        organizationName: cfg.orgName || "Clinic",
+        providerType: "BillingProvider",
+      },
+      subscriber: {
+        memberId: input.memberId,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        dateOfBirth: toYYYYMMDD(input.dateOfBirth),
+      },
+      encounter: {
+        dateOfService: toYYYYMMDD(input.dateOfService || new Date()),
+        serviceTypeCodes: input.serviceTypeCodes && input.serviceTypeCodes.length ? input.serviceTypeCodes : ["30"],
+      },
+    }),
+  });
+  return normalizeEligibility(raw);
+}
+
+/** Turn a Stedi 271 response into a small human-readable summary. */
+export function normalizeEligibility(raw: any): EligibilityResult {
+  const summary: { label: string; value: string }[] = [];
+  const payerName = raw?.payer?.name || raw?.payer?.organizationName;
+  const planName =
+    raw?.planInformation?.planNumber ||
+    raw?.planDateInformation?.plan ||
+    (Array.isArray(raw?.benefitsInformation)
+      ? raw.benefitsInformation.find((b: any) => b?.planCoverage)?.planCoverage
+      : undefined);
+
+  // AAA rejection → error
+  const aaa = raw?.errors || raw?.aaaErrors || raw?.subscriber?.aaaErrors;
+  if (Array.isArray(aaa) && aaa.length) {
+    return {
+      status: "error",
+      payerName,
+      planName,
+      summary: [{ label: "Rejection", value: aaa.map((a: any) => a?.description || a?.code).join("; ") }],
+      raw,
+    };
+  }
+
+  let status: EligibilityResult["status"] = "unknown";
+  const benefits: any[] = Array.isArray(raw?.benefitsInformation) ? raw.benefitsInformation : [];
+  // 1 = Active Coverage, 6 = Inactive
+  if (benefits.some((b) => b?.code === "1")) status = "active";
+  else if (benefits.some((b) => b?.code === "6" || b?.code === "I")) status = "inactive";
+
+  // Pull a few common benefit lines (copay=B, coinsurance=A, deductible=C, out-of-pocket=G)
+  const codeLabel: Record<string, string> = { B: "Co-payment", A: "Co-insurance", C: "Deductible", G: "Out-of-pocket" };
+  for (const b of benefits) {
+    const label = codeLabel[b?.code];
+    if (!label) continue;
+    const amount = b?.benefitAmount ? `$${b.benefitAmount}` : b?.benefitPercent ? `${b.benefitPercent}%` : "";
+    const svc = Array.isArray(b?.serviceTypes) ? b.serviceTypes[0] : b?.serviceTypeCodes?.[0];
+    if (amount) summary.push({ label: `${label}${svc ? ` (${svc})` : ""}`, value: amount });
+  }
+  if (planName) summary.unshift({ label: "Plan", value: String(planName) });
+
+  return { status, payerName, planName: planName ? String(planName) : undefined, summary, raw };
+}

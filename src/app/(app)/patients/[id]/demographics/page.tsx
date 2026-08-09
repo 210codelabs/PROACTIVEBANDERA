@@ -2,12 +2,15 @@ import { requireSession } from "@/lib/auth";
 import PatientChart, { loadPatientCtx } from "@/components/PatientChart";
 import PatientManage from "@/components/PatientManage";
 import { fmtDate, fmtPhone, ageFromDob } from "@/lib/utils";
+import { getStediConfig } from "@/lib/stedi";
+import EligibilityChecker from "@/components/billing/EligibilityChecker";
 
 export default async function DemoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireSession();
   const ctx = await loadPatientCtx(id);
   const p = ctx.patient;
+  const stedi = await getStediConfig();
 
   return (
     <PatientChart user={user} {...ctx} active="demographics">
@@ -43,6 +46,17 @@ export default async function DemoPage({ params }: { params: Promise<{ id: strin
           <Row k="Group #">{p.groupNumber || "—"}</Row>
         </Card>
       </div>
+      {stedi.enabled && stedi.apiKey && (
+        <section className="card mt-4">
+          <header className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-900">Insurance Eligibility (Stedi)</header>
+          <div className="p-4">
+            <EligibilityChecker
+              defaultPayerId={stedi.defaultPayerId}
+              patient={{ id: p.id, firstName: p.firstName, lastName: p.lastName, dob: typeof p.dob === "string" ? p.dob : new Date(p.dob).toISOString(), memberId: p.memberId, insurerName: p.insurerName }}
+            />
+          </div>
+        </section>
+      )}
     </PatientChart>
   );
 }

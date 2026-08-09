@@ -706,3 +706,118 @@ model AuditLog {
   meta        String?
   createdAt   DateTime  @default(now())
 }
+
+
+// -------------------------------------------------------------
+// Revenue cycle — Stedi clearinghouse (eligibility, enrollment, claims, ERA)
+// Decoupled from other models (plain string ids) for resilience.
+// -------------------------------------------------------------
+
+// Payer directory / per-payer configuration (Stedi payer id + transaction support).
+model Payer {
+  id                String   @id @default(cuid()) @map("_id")
+  stediId           String?  // Stedi payer id / alias (tradingPartnerServiceId)
+  name              String
+  supportsEligibility Boolean @default(true)
+  supportsClaims    Boolean  @default(true)
+  supportsRemittance Boolean @default(false)
+  active            Boolean  @default(true)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@index([active])
+}
+
+// A saved real-time eligibility (270/271) result.
+model EligibilityCheck {
+  id            String   @id @default(cuid()) @map("_id")
+  patientId     String?
+  patientName   String?
+  payerId       String   // tradingPartnerServiceId used
+  payerName     String?
+  memberId      String?
+  status        String   @default("unknown") // active | inactive | error | unknown
+  planName      String?
+  summary       Json?    // normalized benefits summary
+  raw           Json?    // full Stedi response
+  checkedById   String?
+  checkedByName String?
+  createdAt     DateTime @default(now())
+  @@index([patientId])
+  @@index([createdAt])
+}
+
+// Stedi transaction enrollment tracking (provider + payer + transaction type).
+model StediEnrollment {
+  id               String   @id @default(cuid()) @map("_id")
+  stediProviderId  String?  // Stedi provider record id
+  stediEnrollmentId String? // Stedi enrollment id
+  providerName     String
+  npi              String
+  taxId            String?
+  payerId          String?
+  payerName        String?
+  transactions     Json?    // { eligibility, claims, claimPayment ... }
+  status           String   @default("DRAFT") // DRAFT | STEDI_ACTION_REQUIRED | PROVIDER_ACTION_REQUIRED | PROVISIONING | LIVE | REJECTED | CANCELED
+  raw              Json?
+  createdById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  @@index([status])
+}
+
+// A professional claim (837P) and its lifecycle.
+model Claim {
+  id                   String   @id @default(cuid()) @map("_id")
+  patientControlNumber String   @unique
+  patientId            String?
+  patientName          String?
+  encounterId          String?
+  payerId              String
+  payerName            String?
+  status               String   @default("draft") // draft | submitted | accepted | rejected | paid | denied
+  totalChargeCents     Int      @default(0)
+  paidCents            Int      @default(0)
+  diagnoses            Json?    // [{ qualifier, code }]
+  serviceLines         Json?    // [{ serviceDate, procedureCode, chargeCents, units, diagnosisCodePointers, modifier }]
+  submitRequest        Json?    // 837P payload sent
+  submitResponse       Json?    // Stedi response
+  statusResponse       Json?    // last 276/277 response
+  eraTransactionId     String?
+  createdById          String?
+  createdByName        String?
+  submittedAt          DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  @@index([status])
+  @@index([patientId])
+  @@index([createdAt])
+}
+
+// Electronic remittance advice (835 / ERA) — payment tracking.
+model Remittance {
+  id             String   @id @default(cuid()) @map("_id")
+  transactionId  String   @unique
+  payerName      String?
+  totalPaidCents Int      @default(0)
+  checkNumber    String?
+  paidDate       String?
+  matchedClaims  Json?    // [{ patientControlNumber, payerClaimControlNumber, paidCents, status }]
+  raw            Json?
+  createdAt      DateTime @default(now())
+  @@index([createdAt])
+}
+
+// Fee schedule / CPT code catalog (code normalization + default charges).
+model FeeScheduleItem {
+  id          String   @id @default(cuid()) @map("_id")
+  code        String   // CPT/HCPCS code
+  description String
+  feeCents    Int      @default(0)
+  modifier    String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@unique([code, modifier])
+  @@index([active])
+}

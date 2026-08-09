@@ -7,6 +7,7 @@ import { fmtDateTime, fmtMoney } from "@/lib/utils";
 import { canRoleAccess, readAdminConfig } from "@/lib/admin/store";
 import { mapByIds, groupByForeignKey } from "@/lib/safe-relations";
 import { getStediConfig } from "@/lib/stedi";
+import EligibilityChecker from "@/components/billing/EligibilityChecker";
 
 export default async function BillingPage() {
   const user = await requireSession();
@@ -111,6 +112,26 @@ export default async function BillingPage() {
             </p>
           )}
         </section>
+      </div>
+
+      <div className="card mb-4">
+        <header className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="font-semibold text-slate-900">Insurance Eligibility (Stedi)</h2>
+          {stedi.enabled && stedi.apiKey ? (
+            <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200">Live</span>
+          ) : (
+            <span className="chip bg-amber-100 text-amber-800 ring-amber-200">Configure Stedi</span>
+          )}
+        </header>
+        <div className="p-4">
+          {stedi.enabled && stedi.apiKey ? (
+            <EligibilityChecker defaultPayerId={stedi.defaultPayerId} />
+          ) : (
+            <p className="text-sm text-slate-600">
+              Add your Stedi API key and practice details in <Link href="/settings" className="text-brand-700 hover:underline">Settings → External Integrations</Link> to run real-time coverage checks.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="card">
