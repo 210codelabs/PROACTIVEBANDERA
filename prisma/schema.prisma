@@ -821,3 +821,19 @@ model FeeScheduleItem {
   @@unique([code, modifier])
   @@index([active])
 }
+
+// Patient financial ledger — charges, insurance payments (from ERA), adjustments.
+model PatientLedgerEntry {
+  id           String   @id @default(cuid()) @map("_id")
+  patientId    String
+  type         String   // charge | payment | adjustment
+  amountCents  Int      @default(0) // always positive; sign implied by type
+  description  String
+  claimId      String?
+  remittanceId String?
+  refKey       String   @unique // idempotency key e.g. "charge:<claimId>" / "payment:<remittanceId>:<claimId>"
+  date         DateTime @default(now())
+  createdAt    DateTime @default(now())
+  @@index([patientId])
+}
+

@@ -69,5 +69,22 @@ export async function POST(req: Request) {
       createdByName: `${user.firstName} ${user.lastName}`,
     },
   });
+
+  // Payment posting — record the charge on the patient ledger (idempotent).
+  if (claim.patientId && claim.totalChargeCents > 0) {
+    await db.patientLedgerEntry
+      .create({
+        data: {
+          patientId: claim.patientId,
+          type: "charge",
+          amountCents: claim.totalChargeCents,
+          description: `Charge — claim ${claim.patientControlNumber}`,
+          claimId: claim.id,
+          refKey: `charge:${claim.id}`,
+        },
+      })
+      .catch(() => {});
+  }
+
   return NextResponse.json({ ok: true, claim });
 }

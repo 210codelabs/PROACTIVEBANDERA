@@ -4,6 +4,7 @@ import PatientManage from "@/components/PatientManage";
 import { fmtDate, fmtPhone, ageFromDob } from "@/lib/utils";
 import { getStediConfig } from "@/lib/stedi";
 import EligibilityChecker from "@/components/billing/EligibilityChecker";
+import PatientLedger from "@/components/billing/PatientLedger";
 
 export default async function DemoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -57,6 +58,12 @@ export default async function DemoPage({ params }: { params: Promise<{ id: strin
           </div>
         </section>
       )}
+      <section className="card mt-4">
+        <header className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-900">Account / Statement</header>
+        <div className="p-4">
+          <PatientLedger patientId={p.id} />
+        </div>
+      </section>
     </PatientChart>
   );
 }

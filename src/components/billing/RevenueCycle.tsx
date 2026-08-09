@@ -5,10 +5,10 @@ import React, { useCallback, useEffect, useState } from "react";
 type Payer = { id: string; name: string; stediId?: string | null; supportsEligibility: boolean; supportsClaims: boolean; supportsRemittance: boolean; active: boolean };
 type Enrollment = { id: string; providerName: string; npi: string; payerId?: string | null; payerName?: string | null; transactions?: any; status: string; stediEnrollmentId?: string | null; createdAt: string };
 type FeeItem = { id: string; code: string; description: string; modifier?: string | null; feeCents: number; active: boolean };
-type Claim = { id: string; patientControlNumber: string; patientName?: string | null; payerId: string; payerName?: string | null; status: string; totalChargeCents: number; paidCents: number; createdAt: string };
+type Claim = { id: string; patientControlNumber: string; patientName?: string | null; payerId: string; payerName?: string | null; status: string; totalChargeCents: number; paidCents: number; createdAt: string; submitResponse?: any; statusResponse?: any };
 type Remit = { id: string; transactionId: string; payerName?: string | null; totalPaidCents: number; matchedClaims?: any[]; createdAt: string };
 
-const TABS = ["Payers", "Enrollment", "Fee Schedule", "Claims", "Remittances"] as const;
+const TABS = ["Payers", "Enrollment", "Fee Schedule", "Claims", "Denials", "Remittances"] as const;
 type Tab = (typeof TABS)[number];
 
 const money = (c: number) => `$${((c || 0) / 100).toFixed(2)}`;
@@ -41,6 +41,7 @@ export default function RevenueCycle({ configured, defaultPayerId }: { configure
       {tab === "Enrollment" && <EnrollmentTab flash={flash} configured={configured} />}
       {tab === "Fee Schedule" && <FeeScheduleTab flash={flash} />}
       {tab === "Claims" && <ClaimsTab flash={flash} configured={configured} />}
+      {tab === "Denials" && <DenialsTab flash={flash} configured={configured} />}
       {tab === "Remittances" && <RemittancesTab flash={flash} configured={configured} />}
     </div>
   );
@@ -257,6 +258,7 @@ function ClaimsTab({ flash, configured }: { flash: (k: "ok" | "err", t: string) 
                 <td className="px-3 py-2 text-right">{money(c.paidCents)}</td>
                 <td className="px-3 py-2"><span className={`chip ring-1 ${CLAIM_STYLE[c.status] || CLAIM_STYLE.draft}`}>{c.status}</span></td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <a href={`/api/stedi/claims/${c.id}/superbill`} target="_blank" rel="noreferrer" className="text-xs text-slate-600 hover:underline mr-3">Superbill</a>
                   {(c.status === "draft" || c.status === "rejected") && <button disabled={busy !== "" || !configured} onClick={() => submit(c.id)} className="text-xs text-brand-700 hover:underline mr-3">{busy === c.id + "s" ? "…" : "Submit"}</button>}
                   {c.status !== "draft" && <button disabled={busy !== "" || !configured} onClick={() => status(c.id)} className="text-xs text-slate-600 hover:underline">{busy === c.id + "t" ? "…" : "Check status"}</button>}
                 </td>
@@ -265,6 +267,78 @@ function ClaimsTab({ flash, configured }: { flash: (k: "ok" | "err", t: string) 
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Denials ---------------- */
+function reasonOf(c: Claim): string {
+  const pick = (o: any): string => {
+    if (!o) return "";
+    if (typeof o === "string") return o.slice(0, 240);
+    const errs = o.errors || o.error || o.claimStatuses || o.claimStatus || o.status || o.ediErrors;
+    if (errs) return (typeof errs === "string" ? errs : JSON.stringify(errs)).slice(0, 240);
+    return JSON.stringify(o).slice(0, 200);
+  };
+  return pick(c.statusResponse) || pick(c.submitResponse) || "No reason returned yet — run Check status.";
+}
+
+function DenialsTab({ flash, configured }: { flash: (k: "ok" | "err", t: string) => void; configured: boolean }) {
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [edit, setEdit] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState("");
+  const load = useCallback(async () => {
+    const r = await fetch("/api/stedi/claims");
+    if (r.ok) setClaims(((await r.json()).claims || []).filter((c: Claim) => c.status === "rejected" || c.status === "denied"));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function saveAndResubmit(c: Claim) {
+    setBusy(c.id);
+    try {
+      const newPayer = edit[c.id];
+      if (newPayer && newPayer !== c.payerId) {
+        const pr = await fetch(`/api/stedi/claims/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payerId: newPayer }) });
+        if (!pr.ok) { const d = await pr.json(); flash("err", d.error || "Update failed"); return; }
+      } else {
+        // still move rejected/denied -> draft via PATCH (no changes) so it can resubmit
+        await fetch(`/api/stedi/claims/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      }
+      const sr = await fetch(`/api/stedi/claims/${c.id}/submit`, { method: "POST" });
+      const sd = await sr.json();
+      if (sd.error) flash("err", sd.error); else flash("ok", "Corrected & resubmitted");
+      load();
+    } finally { setBusy(""); }
+  }
+
+  return (
+    <div>
+      <h3 className="font-semibold text-slate-800 mb-1">Denials & rejections worklist</h3>
+      <p className="text-xs text-slate-400 mb-3">Fix the payer or details and resubmit. Editing a denied claim returns it to draft before resubmitting.</p>
+      {claims.length === 0 ? (
+        <p className="text-sm text-slate-400">No denied or rejected claims. 🎉</p>
+      ) : (
+        <div className="space-y-3">
+          {claims.map((c) => (
+            <div key={c.id} className="rounded-lg border border-rose-200 bg-rose-50/40 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm">
+                  <span className="font-mono text-xs text-slate-500">{c.patientControlNumber}</span>
+                  <span className="ml-2 font-medium text-slate-800">{c.patientName || "—"}</span>
+                  <span className={`ml-2 chip ring-1 ${CLAIM_STYLE[c.status]}`}>{c.status}</span>
+                </div>
+                <a href={`/api/stedi/claims/${c.id}/superbill`} target="_blank" rel="noreferrer" className="text-xs text-slate-600 hover:underline">Superbill</a>
+              </div>
+              <div className="mt-1 text-xs text-rose-700"><span className="font-semibold">Reason: </span>{reasonOf(c)}</div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <label className="text-xs text-slate-500">Payer ID</label>
+                <input className="input max-w-[180px] py-1" defaultValue={c.payerId} onChange={(e) => setEdit({ ...edit, [c.id]: e.target.value })} />
+                <button disabled={busy !== "" || !configured} onClick={() => saveAndResubmit(c)} className="btn-primary py-1 px-3 text-sm">{busy === c.id ? "Working…" : "Correct & resubmit"}</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

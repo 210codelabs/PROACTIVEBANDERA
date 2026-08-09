@@ -45,6 +45,22 @@ export async function POST(req: Request) {
           if (claim) {
             await db.claim.update({ where: { id: claim.id }, data: { paidCents, status: paidCents > 0 ? "paid" : "denied", eraTransactionId: txId } });
             matched.push({ patientControlNumber: pcn, paidCents, status: paidCents > 0 ? "paid" : "denied" });
+            // Payment posting — record the insurance payment on the patient ledger (idempotent).
+            if (claim.patientId && paidCents > 0) {
+              await db.patientLedgerEntry
+                .create({
+                  data: {
+                    patientId: claim.patientId,
+                    type: "payment",
+                    amountCents: paidCents,
+                    description: `Insurance payment — ${era?.payer?.name || "payer"} (claim ${pcn})`,
+                    claimId: claim.id,
+                    remittanceId: txId,
+                    refKey: `payment:${txId}:${claim.id}`,
+                  },
+                })
+                .catch(() => {});
+            }
           }
         }
       }
