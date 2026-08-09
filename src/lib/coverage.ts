@@ -34,6 +34,35 @@ export async function getLatestCoverage(patientId: string) {
   }
 }
 
+/** Map of patientId -> latest saved eligibility check (or absent if none). */
+export async function getLatestCoverageMap(patientIds: string[]) {
+  const map = new Map<string, any>();
+  const ids = Array.from(new Set(patientIds.filter(Boolean)));
+  if (!ids.length) return map;
+  try {
+    const checks = await db.eligibilityCheck.findMany({
+      where: { patientId: { in: ids } },
+      orderBy: { createdAt: "desc" },
+    });
+    for (const c of checks) {
+      if (c.patientId && !map.has(c.patientId)) map.set(c.patientId, c);
+    }
+  } catch {
+    /* ignore */
+  }
+  return map;
+}
+
+/** Classify a coverage check for worklist purposes. */
+export function classifyCoverage(check: any): { kind: "ok" | "stale" | "lapsed" | "none"; label: string } {
+  if (!check) return { kind: "none", label: "No check on file" };
+  if (check.status === "inactive" || check.status === "error") return { kind: "lapsed", label: "Coverage not confirmed" };
+  const days = check.createdAt ? Math.floor((Date.now() - new Date(check.createdAt).getTime()) / 86_400_000) : 0;
+  if (check.status === "active" && days > COVERAGE_STALE_DAYS) return { kind: "stale", label: `Stale (${days}d old)` };
+  if (check.status === "active") return { kind: "ok", label: "Active" };
+  return { kind: "stale", label: "Unknown status" };
+}
+
 /**
  * Map of patientId -> verified copay dollar amount, using the most recent
  * ACTIVE eligibility check per patient. Patients with no active check (or no

@@ -138,7 +138,10 @@ export default async function BillingPage() {
       <div className="card">
         <header className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <span className="font-semibold">Encounters with charges</span>
-          <Link href="/billing/revenue-cycle" className="btn-secondary text-sm">Revenue Cycle →</Link>
+          <div className="flex items-center gap-2">
+            <Link href="/billing/eligibility-report" className="btn-secondary text-sm">Eligibility worklist →</Link>
+            <Link href="/billing/revenue-cycle" className="btn-secondary text-sm">Revenue Cycle →</Link>
+          </div>
         </header>
         <table className="data">
           <thead><tr><th>Date</th><th>Patient</th><th>Provider</th><th>Dx</th><th>CPT</th><th>Total</th><th>Status</th><th>Claim</th></tr></thead>

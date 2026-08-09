@@ -8,7 +8,9 @@ import { fmtTime, colorForApptStatus, colorForCategory } from "@/lib/utils";
 import NewApptButton from "./NewApptButton";
 import { mapByIds } from "@/lib/safe-relations";
 import CopayButton from "@/components/billing/CopayButton";
+import CheckInButton from "@/components/billing/CheckInButton";
 import { getCopayMap } from "@/lib/coverage";
+import { getBalanceMap, fmtCents } from "@/lib/balances";
 
 export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ d?: string; providerId?: string }> }) {
   const sp = await searchParams;
@@ -32,6 +34,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   }> = [];
   let dataUnavailable = false;
   let copayMap = new Map<string, string>();
+  let balanceMap = new Map<string, number>();
 
   try {
     const results = await Promise.allSettled([
@@ -63,6 +66,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       .filter((r) => r.patient && r.provider) as typeof appts;
 
     copayMap = await getCopayMap(appts.map((a) => a.patientId));
+    balanceMap = await getBalanceMap(appts.map((a) => a.patientId));
 
     dataUnavailable = results.some((r) => r.status === "rejected");
   } catch {
@@ -129,6 +133,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                       <span className="font-semibold text-slate-700">{fmtTime(a.startsAt)}</span>
                       <span>–</span>
                       <span>{fmtTime(a.endsAt)}</span>
+                      {balanceMap.get(a.patientId) ? (
+                        <span className="chip bg-rose-100 text-rose-800 ring-rose-200 font-semibold" title="Outstanding balance">Bal {fmtCents(balanceMap.get(a.patientId)!)}</span>
+                      ) : null}
                       <span className={`chip ml-auto ${colorForApptStatus(a.status)}`}>{a.status}</span>
                     </div>
                     <div className="text-sm font-semibold text-slate-900 truncate">{a.patient.lastName}, {a.patient.firstName}</div>
@@ -143,6 +150,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                       </div>
                     )}
                     </Link>
+                    <div className="absolute bottom-1 left-1 z-10">
+                      <CheckInButton appointmentId={a.id} status={a.status} />
+                    </div>
                     <div className="absolute bottom-1 right-1 z-10">
                       <CopayButton patientId={a.patientId} patientName={`${a.patient.lastName}, ${a.patient.firstName}`} amountDefault={copayMap.get(a.patientId) || ""} />
                     </div>
