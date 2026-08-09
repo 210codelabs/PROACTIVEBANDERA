@@ -20,18 +20,22 @@ export default async function DashboardPage() {
   let dataUnavailable = false;
 
   try {
-    const results = await Promise.allSettled([
+    // Fetch base rows WITHOUT relation includes. Prisma + MongoDB throws an
+    // "inconsistent query result / required relation" error whenever an
+    // include points at a record that no longer exists (a dangling patient or
+    // provider reference). Even one such orphan makes the whole findMany reject
+    // and permanently shows the "metrics unavailable" banner in production.
+    // Hydrating relations separately (below) makes the dashboard resilient.
+    const base = await Promise.allSettled([
       db.appointment.findMany({
         where: {
           startsAt: { gte: startOfDay(today), lte: endOfDay(today) },
           ...(user.role === "provider" ? { providerId: user.id } : {}),
         },
-        include: { patient: true, provider: true, serviceType: true },
         orderBy: { startsAt: "asc" },
       }),
       db.encounter.findMany({
         where: { status: "open", ...(user.role === "provider" ? { providerId: user.id } : {}) },
-        include: { patient: true, provider: true },
         orderBy: { startedAt: "desc" },
         take: 6,
       }),
@@ -41,7 +45,6 @@ export default async function DashboardPage() {
       }),
       db.order.findMany({
         where: { status: "pending", ...(user.role === "provider" ? { providerId: user.id } : {}) },
-        include: { patient: true },
         orderBy: { createdAt: "desc" },
         take: 6,
       }),
@@ -49,15 +52,53 @@ export default async function DashboardPage() {
       db.patient.count(),
     ]);
 
-    todays = results[0].status === "fulfilled" ? results[0].value : [];
-    openEncounters = results[1].status === "fulfilled" ? results[1].value : [];
-    recentPatients = results[2].status === "fulfilled" ? results[2].value : [];
-    openOrders = results[3].status === "fulfilled" ? results[3].value : [];
-    unreadMessages = results[4].status === "fulfilled" ? results[4].value : 0;
-    patientCount = results[5].status === "fulfilled" ? results[5].value : 0;
-    dataUnavailable = results.some((r) => r.status === "rejected");
-  } catch {
+    const apptRows = base[0].status === "fulfilled" ? base[0].value : [];
+    const encRows = base[1].status === "fulfilled" ? base[1].value : [];
+    recentPatients = base[2].status === "fulfilled" ? base[2].value : [];
+    const orderRows = base[3].status === "fulfilled" ? base[3].value : [];
+    unreadMessages = base[4].status === "fulfilled" ? base[4].value : 0;
+    patientCount = base[5].status === "fulfilled" ? base[5].value : 0;
+
+    // Collect the related IDs and load them in bulk.
+    const patientIds = new Set<string>();
+    const providerIds = new Set<string>();
+    const serviceTypeIds = new Set<string>();
+    for (const a of apptRows) { patientIds.add(a.patientId); providerIds.add(a.providerId); if (a.serviceTypeId) serviceTypeIds.add(a.serviceTypeId); }
+    for (const e of encRows) { patientIds.add(e.patientId); }
+    for (const o of orderRows) { patientIds.add(o.patientId); }
+
+    const rel = await Promise.allSettled([
+      patientIds.size ? db.patient.findMany({ where: { id: { in: [...patientIds] } } }) : Promise.resolve([] as any[]),
+      providerIds.size ? db.user.findMany({ where: { id: { in: [...providerIds] } } }) : Promise.resolve([] as any[]),
+      serviceTypeIds.size ? db.serviceType.findMany({ where: { id: { in: [...serviceTypeIds] } } }) : Promise.resolve([] as any[]),
+    ]);
+    const pats = rel[0].status === "fulfilled" ? rel[0].value : [];
+    const provs = rel[1].status === "fulfilled" ? rel[1].value : [];
+    const svcs = rel[2].status === "fulfilled" ? rel[2].value : [];
+    const pMap = new Map(pats.map((p: any) => [p.id, p]));
+    const uMap = new Map(provs.map((u: any) => [u.id, u]));
+    const sMap = new Map(svcs.map((s: any) => [s.id, s]));
+
+    // Attach relations; silently drop rows whose required patient/provider is
+    // missing so the UI never dereferences a null relation.
+    todays = apptRows
+      .map((a: any) => ({ ...a, patient: pMap.get(a.patientId), provider: uMap.get(a.providerId), serviceType: a.serviceTypeId ? (sMap.get(a.serviceTypeId) ?? null) : null }))
+      .filter((a: any) => a.patient && a.provider);
+    openEncounters = encRows
+      .map((e: any) => ({ ...e, patient: pMap.get(e.patientId) }))
+      .filter((e: any) => e.patient);
+    openOrders = orderRows
+      .map((o: any) => ({ ...o, patient: pMap.get(o.patientId) }))
+      .filter((o: any) => o.patient);
+
+    // Only flag "unavailable" for a genuine DB failure on the base queries.
+    dataUnavailable = base.some((r) => r.status === "rejected");
+    if (dataUnavailable) {
+      console.error("[dashboard] base query rejected:", base.filter((r) => r.status === "rejected"));
+    }
+  } catch (err) {
     // Keep dashboard responsive when DB initialization fails in serverless runtime.
+    console.error("[dashboard] data load failed:", err);
     dataUnavailable = true;
   }
 
