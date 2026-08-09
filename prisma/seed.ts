@@ -9,29 +9,35 @@ const PASSWORD = "apex123";
 async function main() {
   console.log("🌱 Seeding Proactive Clinic…");
 
-  // Wipe everything first (dev only)
-  await db.auditLog.deleteMany();
-  await db.posSaleLine.deleteMany();
-  await db.posSale.deleteMany();
-  await db.stockMovement.deleteMany();
-  await db.inventoryItem.deleteMany();
-  await db.message.deleteMany();
-  await db.document.deleteMany();
-  await db.encounterCharge.deleteMany();
-  await db.encounterDiagnosis.deleteMany();
-  await db.encounterNote.deleteMany();
-  await db.order.deleteMany();
-  await db.pharmacy.deleteMany();
-  await db.encounter.deleteMany();
-  await db.appointment.deleteMany();
-  await db.immunization.deleteMany();
-  await db.vital.deleteMany();
-  await db.medication.deleteMany();
-  await db.problem.deleteMany();
-  await db.allergy.deleteMany();
-  await db.patient.deleteMany();
-  await db.serviceType.deleteMany();
-  await db.user.deleteMany();
+  // Destructive reset — ONLY when explicitly requested (SEED_RESET=true).
+  // Prevents an accidental `yarn db:seed` (or a startup reseed) from ever
+  // wiping a populated database. On a genuinely empty DB the creates below run
+  // fine without deleting anything.
+  if (process.env.SEED_RESET === "true") {
+    console.log("⚠️  SEED_RESET=true -> wiping existing data first");
+    await db.auditLog.deleteMany();
+    await db.posSaleLine.deleteMany();
+    await db.posSale.deleteMany();
+    await db.stockMovement.deleteMany();
+    await db.inventoryItem.deleteMany();
+    await db.message.deleteMany();
+    await db.document.deleteMany();
+    await db.encounterCharge.deleteMany();
+    await db.encounterDiagnosis.deleteMany();
+    await db.encounterNote.deleteMany();
+    await db.order.deleteMany();
+    await db.pharmacy.deleteMany();
+    await db.encounter.deleteMany();
+    await db.appointment.deleteMany();
+    await db.immunization.deleteMany();
+    await db.vital.deleteMany();
+    await db.medication.deleteMany();
+    await db.problem.deleteMany();
+    await db.allergy.deleteMany();
+    await db.patient.deleteMany();
+    await db.serviceType.deleteMany();
+    await db.user.deleteMany();
+  }
 
   // ---------------- Users ----------------
   const hash = await bcrypt.hash(PASSWORD, 10);

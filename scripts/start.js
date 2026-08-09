@@ -104,6 +104,16 @@ try {
   console.error("[start] DB init warning (continuing):", err.message);
 }
 
+// Self-healing owner admin. Idempotent + non-destructive: guarantees the
+// practice owner can always sign in, even after a DB reset/reseed. Driven by
+// OWNER_ADMIN_EMAIL / OWNER_ADMIN_PASSWORD env vars (see the script header).
+try {
+  console.log("[start] ensuring owner admin...");
+  run("node scripts/ensure-owner-admin.cjs");
+} catch (err) {
+  console.error("[start] owner-admin warning (continuing):", err.message);
+}
+
 // Self-heal: drop the obsolete UNIQUE index on Encounter.appointmentId.
 // Walk-in encounters have no appointmentId; MongoDB's non-sparse unique index
 // only allows ONE document missing that field, so the 2nd walk-in fails with

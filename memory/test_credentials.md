@@ -3,6 +3,7 @@
 # Testing agent reads this before auth tests. Fork/continuation agents read on startup.
 
 ## Staff / EHR login (demo roster enabled via ALLOW_DEMO_LOGIN=true)
+- Owner admin:         ernesto@210codelabs.com / Proactive2025!   (self-healing via OWNER_ADMIN_* env; created in preview 2026-08)
 - Provider (default): andy.manzano@proactiveclinic.com / apex123
 - Admin:              admin@proactiveclinic.com / apex123
 - Nurse:              nurse.kim@proactiveclinic.com / apex123
