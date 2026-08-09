@@ -822,6 +822,35 @@ model FeeScheduleItem {
   @@index([active])
 }
 
+// Internal prior-authorization request tracker.
+// NOTE: This is a MANUAL tracker for staff — it does NOT electronically submit a
+// 278 authorization to the payer via Stedi (Stedi's integrated path does not
+// expose self-service 278 submission). Staff obtain the auth via the payer
+// portal/phone and record the outcome here so it is wired to the patient chart.
+model PriorAuthRequest {
+  id             String    @id @default(cuid()) @map("_id")
+  patientId      String
+  patientName    String?
+  payerId        String?
+  payerName      String?
+  memberId       String?
+  serviceType    String?   // e.g. PT evaluation, MRI lumbar
+  cptCodes       String?   // comma-separated CPT/HCPCS
+  diagnosisCodes String?   // comma-separated ICD-10
+  units          Int?
+  startDate      DateTime?
+  endDate        DateTime?
+  status         String    @default("draft") // draft | pending | submitted | approved | denied | expired
+  authNumber     String?
+  notes          String?
+  createdById    String?
+  createdByName  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  @@index([patientId])
+  @@index([status])
+}
+
 // Patient financial ledger — charges, insurance payments (from ERA), adjustments.
 model PatientLedgerEntry {
   id           String   @id @default(cuid()) @map("_id")

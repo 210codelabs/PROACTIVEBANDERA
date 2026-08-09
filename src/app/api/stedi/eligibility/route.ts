@@ -17,6 +17,29 @@ export async function GET(req: Request) {
   return NextResponse.json({ checks });
 }
 
+// PATCH /api/stedi/eligibility -> attach a check saved during registration
+// (patientId was null at check time) to the newly created patient.
+export async function PATCH(req: Request) {
+  const user = await getSession();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const b = await req.json().catch(() => null);
+  if (!b?.checkId || !b?.patientId) {
+    return NextResponse.json({ error: "checkId and patientId are required." }, { status: 400 });
+  }
+  const p = await db.patient.findUnique({ where: { id: String(b.patientId) } }).catch(() => null);
+  const check = await db.eligibilityCheck
+    .update({
+      where: { id: String(b.checkId) },
+      data: {
+        patientId: String(b.patientId),
+        patientName: p ? `${p.lastName}, ${p.firstName}` : undefined,
+      },
+    })
+    .catch(() => null);
+  if (!check) return NextResponse.json({ error: "Check not found." }, { status: 404 });
+  return NextResponse.json({ ok: true, check });
+}
+
 // POST /api/stedi/eligibility -> run a real-time 270/271 check and save it
 export async function POST(req: Request) {
   const user = await getSession();
