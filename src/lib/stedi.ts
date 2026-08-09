@@ -109,7 +109,7 @@ export async function stediFetch<T = any>(
  * Works with both test and production keys.
  */
 export async function stediPing(apiKey?: string): Promise<{ ok: boolean; sample?: any }> {
-  const body = await stediFetch<any>(STEDI_BASE.payers, "/payers?pageSize=1", { method: "GET", apiKey });
+  const body = await stediFetch<any>(STEDI_BASE.payers, "/payers?pageSize=10", { method: "GET", apiKey });
   const items = body?.items || body?.payers || [];
   return { ok: true, sample: Array.isArray(items) ? items[0] : undefined };
 }
@@ -162,7 +162,7 @@ export async function checkEligibility(input: EligibilityInput): Promise<Eligibi
       provider: {
         npi: cfg.billingNpi,
         organizationName: cfg.orgName || "Clinic",
-        providerType: "BillingProvider",
+        providerType: "provider",
       },
       subscriber: {
         memberId: input.memberId,
