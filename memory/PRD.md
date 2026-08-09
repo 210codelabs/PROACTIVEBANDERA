@@ -172,3 +172,10 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - CoverageHistory.tsx: per-patient eligibility timeline on Demographics, with "changed from <status>" badges flagging when coverage status changed. Uses existing GET /api/stedi/eligibility?patientId=.
 - Self-service password change: POST /api/auth/change-password (bcrypt verify current + update), /settings/password page + ChangePasswordForm, card on Settings, lock icon in Shell header. Backend 8/8. Rejects demo-only sessions, wrong current pw, <8 char new pw.
 - Note: test restored billing@ DB password to apex123! (endpoint enforces 8-char min); apex123 still works via demo fallback.
+
+## Schedule Day/Week/Month/Staff views + chart booking (Iteration 34 — Phase 1)
+- /schedule now has a Day/Week/Month/Staff view toggle (WEEK is default). Week = 7-day columns with appt chips; Month = calendar grid with chips + "+N more"; Day = rich time grid (keeps Check-in/Copay/Balance); Staff = per-provider columns for the day. Prev/Today/Next step by day/week/month per view. Provider filter + New Appointment preserved.
+- Appointments API rewritten (/api/appointments): GET (?patientId/from/to/providerId returns {appointments, providers, services}); PATCH now supports reschedule (day+time/startsAt, provider, service, reason, notes, location) and status (check-in/cancel/complete), recomputing endsAt.
+- Patient chart summary: new PatientAppointments.tsx replaces the read-only upcoming card — book / modify (reschedule) / cancel directly from the Doctor's view, role-gated.
+- Backend 10/10 passed; all views + chart booking screenshot-verified. Preview only — redeploy to confirm in production.
+- PHASE 2 (pending): patient-portal appointment view + request/cancel via the existing appointment-request approval flow.
