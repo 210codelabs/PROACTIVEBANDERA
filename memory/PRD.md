@@ -166,3 +166,9 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 ## Owner-admin recovery (Iteration 31b)
 - Self-healing owner admin on every production boot (scripts/ensure-owner-admin.cjs via start.js) from OWNER_ADMIN_EMAIL/OWNER_ADMIN_PASSWORD; idempotent + non-destructive.
 - seed.ts destructive wipe now gated behind SEED_RESET=true so a reseed can never nuke a populated DB. Restored ernesto@210codelabs.com in preview.
+
+## Payer autofill + Coverage history + Change password (Iteration 33)
+- PayerAutocomplete.tsx: typeahead on insurer/payer fields that live-searches Stedi payers (falls back to local directory) and fills payer name + Stedi payer ID. Wired into InsuranceCard (chart) and NewPatientForm.
+- CoverageHistory.tsx: per-patient eligibility timeline on Demographics, with "changed from <status>" badges flagging when coverage status changed. Uses existing GET /api/stedi/eligibility?patientId=.
+- Self-service password change: POST /api/auth/change-password (bcrypt verify current + update), /settings/password page + ChangePasswordForm, card on Settings, lock icon in Shell header. Backend 8/8. Rejects demo-only sessions, wrong current pw, <8 char new pw.
+- Note: test restored billing@ DB password to apex123! (endpoint enforces 8-char min); apex123 still works via demo fallback.
