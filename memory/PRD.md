@@ -150,3 +150,9 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - One-click "Re-verify" re-runs a live Stedi eligibility check for the patient (reuses last check's payer + patient insurance) via existing POST /api/stedi/eligibility.
 - Schedule "$ Copay" quick button now prefills the exact verified copay from the patient's latest ACTIVE eligibility check (src/lib/coverage.ts getCopayMap) and shows the amount in the button label (e.g. "$ Copay 25").
 - No new backend endpoints (reuses tested eligibility routes). Verified via screenshots + DOM assertion. Preview only — redeploy to confirm in production.
+
+## Check-in auto-eligibility + Balance badge + Eligibility worklist (Iteration 31)
+- NEW POST /api/appointments/[id]/checkin: sets appointment status to "checked-in" and best-effort runs+saves a Stedi eligibility check (reuses patient's last payer or defaultPayerId; skips silently if Stedi unconfigured/no payer). Backend tested 4/4.
+- Schedule appointment cards now have a "Check in" button (CheckInButton.tsx) that triggers the above and refreshes, plus a rose "Bal $X" outstanding-balance badge (src/lib/balances.ts getBalanceMap from patient ledger).
+- NEW billing page /billing/eligibility-report: daily worklist of appointments whose coverage is lapsed/unverified/stale (src/lib/coverage.ts getLatestCoverageMap + classifyCoverage), with summary stats and per-row Re-verify (ReverifyButton.tsx). Linked from Billing page ("Eligibility worklist →").
+- Verified via screenshots. Preview only — redeploy to confirm in production.
