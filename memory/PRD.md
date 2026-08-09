@@ -156,3 +156,13 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - Schedule appointment cards now have a "Check in" button (CheckInButton.tsx) that triggers the above and refreshes, plus a rose "Bal $X" outstanding-balance badge (src/lib/balances.ts getBalanceMap from patient ledger).
 - NEW billing page /billing/eligibility-report: daily worklist of appointments whose coverage is lapsed/unverified/stale (src/lib/coverage.ts getLatestCoverageMap + classifyCoverage), with summary stats and per-row Re-verify (ReverifyButton.tsx). Linked from Billing page ("Eligibility worklist →").
 - Verified via screenshots. Preview only — redeploy to confirm in production.
+
+## Insurance edit in chart + eligibility payer fallback (Iteration 32)
+- Added Patient.payerId (Stedi trading-partner id). PATCH /api/patients/[id] accepts payerId (role-gated).
+- Patient chart Insurance card is now inline-editable (InsuranceCard.tsx): insurer, plan, member ID, group #, Stedi payer ID, plus a payer-directory picker that fills name + ID. Also added Stedi Payer ID to the full Manage Patient editor.
+- Eligibility now resolves the payer as: explicit payerId -> patient.payerId -> Settings default -> ANY available active directory payer (supportsEligibility, stediId set). Same fallback added to the appointment check-in auto-eligibility. Clear 400 only when truly no payer exists anywhere.
+- Backend tested 7/7; chart edit verified via screenshots. Preview only — redeploy to confirm in production.
+
+## Owner-admin recovery (Iteration 31b)
+- Self-healing owner admin on every production boot (scripts/ensure-owner-admin.cjs via start.js) from OWNER_ADMIN_EMAIL/OWNER_ADMIN_PASSWORD; idempotent + non-destructive.
+- seed.ts destructive wipe now gated behind SEED_RESET=true so a reseed can never nuke a populated DB. Restored ernesto@210codelabs.com in preview.
