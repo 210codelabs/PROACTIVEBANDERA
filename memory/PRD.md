@@ -137,3 +137,10 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - Patient API /api/patients/[id]: GET, PATCH (edit demographics + archive/reactivate via status), DELETE (hard, cascades children). Role gates: edit -> admin/provider/nurse/frontdesk; status -> admin/frontdesk/provider; delete -> admin only. Backend tested 7/7.
 - Demographics page: "Manage Patient" panel (PatientManage.tsx) with Edit form, Archive/Reactivate, and admin-only Delete (double confirm). Read-only notice for billing.
 - PWA install reactivated + broadened (PWAController): always-visible Install button; native beforeinstallprompt for Android/Chrome/Edge + Windows; bilingual (EN/ES) instruction modal for iPhone/iPad Safari (Add to Home Screen) and Mac Safari (Add to Dock); Chrome/Edge desktop hint. Skipped on /kiosk and when already installed.
+
+## Registration eligibility + Prior Auth (Iteration 29)
+- New-patient registration (patients/new) now has a two-column layout: left = form, right = live panels.
+- Insurance section adds a Payer directory dropdown (from Billing → Payers), an editable Stedi payer ID field, and a "Verify coverage" button that runs a real-time Stedi eligibility (270/271) check on the entered (not-yet-saved) insurance data.
+- Right "Coverage & benefits" pane shows status (active/inactive/error), payer/plan, member ID, and benefit summary (copay/coinsurance/deductible/out-of-pocket). The pre-save check is auto-attached to the patient after creation (PATCH /api/stedi/eligibility {checkId, patientId}).
+- Right "Prior authorization" pane = MANUAL tracker (new PriorAuthRequest model + /api/prior-auth CRUD). NOT electronic 278 submission — Stedi's integrated path does not expose self-service PA. Draft entered at registration is linked to the patient on save.
+- Backend tested 17/17 (prior-auth CRUD + eligibility attach). UI verified via screenshot.
