@@ -7,6 +7,7 @@ import JellyBeans from "@/components/JellyBeans";
 import { fmtTime, colorForApptStatus, colorForCategory } from "@/lib/utils";
 import NewApptButton from "./NewApptButton";
 import { mapByIds } from "@/lib/safe-relations";
+import CopayButton from "@/components/billing/CopayButton";
 
 export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ d?: string; providerId?: string }> }) {
   const sp = await searchParams;
@@ -116,10 +117,10 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                 const top = (startMin / 30) * 64;
                 const height = Math.max(40, (dur / 30) * 64 - 4);
                 return (
-                  <Link key={a.id} href={`/patients/${a.patientId}`}
-                    className="absolute left-2 right-2 rounded-md bg-white ring-1 ring-brand-200 shadow-sm hover:shadow-md hover:ring-brand-400 transition px-2 py-1 overflow-hidden"
-                    style={{ top, height }}
-                  >
+                  <div key={a.id} className="absolute left-2 right-2" style={{ top, height }}>
+                    <Link href={`/patients/${a.patientId}`}
+                      className="block h-full rounded-md bg-white ring-1 ring-brand-200 shadow-sm hover:shadow-md hover:ring-brand-400 transition px-2 py-1 overflow-hidden"
+                    >
                     <div className="flex items-center gap-1 text-[11px] text-slate-500">
                       <span className="font-semibold text-slate-700">{fmtTime(a.startsAt)}</span>
                       <span>–</span>
@@ -137,7 +138,11 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                         {a.notes}
                       </div>
                     )}
-                  </Link>
+                    </Link>
+                    <div className="absolute bottom-1 right-1 z-10">
+                      <CopayButton patientId={a.patientId} patientName={`${a.patient.lastName}, ${a.patient.firstName}`} />
+                    </div>
+                  </div>
                 );
               })}
               {appts.length === 0 && (
