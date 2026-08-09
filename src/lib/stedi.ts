@@ -221,3 +221,144 @@ export function normalizeEligibility(raw: any): EligibilityResult {
 
   return { status, payerName, planName: planName ? String(planName) : undefined, summary, raw };
 }
+
+// ---- Payers (Stedi payer directory) ----
+export async function searchStediPayers(query: string): Promise<any[]> {
+  const qs = query ? `?query=${encodeURIComponent(query)}&pageSize=25` : "?pageSize=25";
+  const body = await stediFetch<any>(STEDI_BASE.payers, `/payers${qs}`, { method: "GET" });
+  return body?.items || body?.payers || [];
+}
+
+// ---- Enrollment (transaction enrollment; NOT clinical credentialing) ----
+export async function createStediProvider(input: {
+  name: string; npi: string; taxId: string; taxIdType?: string;
+  contact?: { firstName?: string; lastName?: string; email?: string; phone?: string; streetAddress1?: string; city?: string; state?: string; zipCode?: string };
+}): Promise<any> {
+  const contacts = input.contact
+    ? [{
+        firstName: input.contact.firstName || "Revenue", lastName: input.contact.lastName || "Cycle",
+        email: input.contact.email || "", phone: input.contact.phone || "",
+        streetAddress1: input.contact.streetAddress1 || "", city: input.contact.city || "",
+        state: input.contact.state || "", zipCode: input.contact.zipCode || "",
+      }]
+    : undefined;
+  return stediFetch<any>(STEDI_BASE.enrollments, "/providers", {
+    method: "POST",
+    body: JSON.stringify({ name: input.name, npi: input.npi, taxId: input.taxId, taxIdType: input.taxIdType || "EIN", ...(contacts ? { contacts } : {}) }),
+  });
+}
+
+export async function createStediEnrollment(input: {
+  payerIdOrAlias: string; providerId: string;
+  transactions: Record<string, { enroll: boolean }>;
+  aggregationTaxId?: string; status?: string; userEmail?: string;
+  primaryContact?: Record<string, string>;
+}): Promise<any> {
+  return stediFetch<any>(STEDI_BASE.enrollments, "/enrollments", {
+    method: "POST",
+    body: JSON.stringify({
+      payer: { idOrAlias: input.payerIdOrAlias },
+      provider: { id: input.providerId },
+      ...(input.primaryContact ? { primaryContact: input.primaryContact } : {}),
+      transactions: input.transactions,
+      ...(input.aggregationTaxId ? { aggregationPreference: { taxId: input.aggregationTaxId } } : {}),
+      status: input.status || "DRAFT",
+      ...(input.userEmail ? { userEmail: input.userEmail } : {}),
+    }),
+  });
+}
+
+export async function getStediEnrollment(enrollmentId: string): Promise<any> {
+  return stediFetch<any>(STEDI_BASE.enrollments, `/enrollments/${enrollmentId}`, { method: "GET" });
+}
+
+// ---- Claims (837P) ----
+export function buildClaimPayload(opts: {
+  cfg: StediConfig;
+  payerId: string;
+  patientControlNumber: string;
+  subscriber: { memberId?: string; firstName: string; lastName: string; dateOfBirth?: string | Date; address?: any };
+  diagnoses: { qualifier?: string; code: string }[];
+  serviceLines: { serviceDate: string | Date; procedureCode: string; chargeCents: number; units: number; diagnosisCodePointers?: string[]; modifier?: string }[];
+  usageIndicator?: "P" | "T";
+}): any {
+  const { cfg } = opts;
+  const totalCents = opts.serviceLines.reduce((s, l) => s + l.chargeCents * (l.units || 1), 0);
+  return {
+    usageIndicator: opts.usageIndicator || (cfg.environment === "production" ? "P" : "T"),
+    tradingPartnerServiceId: opts.payerId,
+    submitter: { organizationName: cfg.orgName, contactInformation: { name: cfg.orgName, phoneNumber: cfg.enrollmentContact.phone } },
+    receiver: { organizationName: "Payer" },
+    billing: {
+      organizationName: cfg.orgName,
+      npi: cfg.billingNpi,
+      taxId: cfg.taxId,
+      taxIdType: cfg.taxIdType,
+      address: { streetAddress1: cfg.address.streetAddress1, city: cfg.address.city, state: cfg.address.state, postalCode: cfg.address.zipCode },
+    },
+    subscriber: {
+      memberId: opts.subscriber.memberId,
+      firstName: opts.subscriber.firstName,
+      lastName: opts.subscriber.lastName,
+      dateOfBirth: toYYYYMMDD(opts.subscriber.dateOfBirth),
+      ...(opts.subscriber.address ? { address: opts.subscriber.address } : {}),
+    },
+    claimInformation: {
+      patientControlNumber: opts.patientControlNumber,
+      claimChargeAmount: (totalCents / 100).toFixed(2),
+      claimFrequencyCode: "1",
+      diagnosisCodes: opts.diagnoses.map((d) => ({ qualifier: d.qualifier || "ABK", code: d.code.replace(/\./g, "") })),
+      serviceLines: opts.serviceLines.map((l) => ({
+        serviceDate: toYYYYMMDD(l.serviceDate),
+        chargeAmount: (l.chargeCents * (l.units || 1) / 100).toFixed(2),
+        units: String(l.units || 1),
+        procedureCode: l.procedureCode,
+        ...(l.modifier ? { procedureModifiers: [l.modifier] } : {}),
+        diagnosisCodePointers: l.diagnosisCodePointers && l.diagnosisCodePointers.length ? l.diagnosisCodePointers : ["1"],
+      })),
+    },
+  };
+}
+
+export async function submitProfessionalClaim(payload: any, idempotencyKey: string): Promise<any> {
+  const crypto = await import("node:crypto");
+  const key = crypto.createHash("sha256").update(idempotencyKey).digest("hex");
+  return stediFetch<any>(STEDI_BASE.healthcare, "/change/medicalnetwork/professionalclaims/v3/submission", {
+    method: "POST",
+    headers: { "Idempotency-Key": key },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function checkClaimStatus(input: {
+  trackingNumber: string; payerId: string;
+  beginDate: string | Date; endDate: string | Date;
+  subscriber: { memberId?: string; firstName: string; lastName: string; dateOfBirth?: string | Date };
+}): Promise<any> {
+  const cfg = await getStediConfig();
+  return stediFetch<any>(STEDI_BASE.healthcare, "/change/medicalnetwork/claimstatus/v2", {
+    method: "POST",
+    body: JSON.stringify({
+      trackingNumber: input.trackingNumber,
+      tradingPartnerServiceId: input.payerId,
+      encounter: { beginningDateOfService: toYYYYMMDD(input.beginDate), endDateOfService: toYYYYMMDD(input.endDate) },
+      providers: [{ npi: cfg.billingNpi, organizationName: cfg.orgName, providerType: "BillingProvider" }],
+      subscriber: {
+        memberId: input.subscriber.memberId,
+        firstName: input.subscriber.firstName,
+        lastName: input.subscriber.lastName,
+        dateOfBirth: toYYYYMMDD(input.subscriber.dateOfBirth),
+      },
+    }),
+  });
+}
+
+// ---- Remittances (835 / ERA) ----
+export async function pollTransactions(sinceISO: string, pageToken?: string): Promise<any> {
+  const qs = pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : `?startDateTime=${encodeURIComponent(sinceISO)}`;
+  return stediFetch<any>(STEDI_BASE.core, `/polling/transactions${qs}`, { method: "GET" });
+}
+
+export async function getERA835(transactionId: string): Promise<any> {
+  return stediFetch<any>(STEDI_BASE.healthcare, `/change/medicalnetwork/reports/v2/${transactionId}/835`, { method: "GET" });
+}

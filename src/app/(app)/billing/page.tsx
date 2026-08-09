@@ -8,6 +8,7 @@ import { canRoleAccess, readAdminConfig } from "@/lib/admin/store";
 import { mapByIds, groupByForeignKey } from "@/lib/safe-relations";
 import { getStediConfig } from "@/lib/stedi";
 import EligibilityChecker from "@/components/billing/EligibilityChecker";
+import CreateClaimButton from "@/components/billing/CreateClaimButton";
 
 export default async function BillingPage() {
   const user = await requireSession();
@@ -135,9 +136,12 @@ export default async function BillingPage() {
       </div>
 
       <div className="card">
-        <header className="px-4 py-3 border-b border-slate-200 font-semibold">Encounters with charges</header>
+        <header className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+          <span className="font-semibold">Encounters with charges</span>
+          <Link href="/billing/revenue-cycle" className="btn-secondary text-sm">Revenue Cycle →</Link>
+        </header>
         <table className="data">
-          <thead><tr><th>Date</th><th>Patient</th><th>Provider</th><th>Dx</th><th>CPT</th><th>Total</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Patient</th><th>Provider</th><th>Dx</th><th>CPT</th><th>Total</th><th>Status</th><th>Claim</th></tr></thead>
           <tbody>
             {enc.map(e => {
               const total = e.charges.reduce((s, c) => s + c.feeCents * c.units, 0);
@@ -150,10 +154,11 @@ export default async function BillingPage() {
                   <td className="text-xs">{e.charges.map(c => c.cpt).join(", ")}</td>
                   <td className="font-semibold">{fmtMoney(total)}</td>
                   <td><span className={`chip ${e.status === "signed" ? "bg-emerald-100 text-emerald-800 ring-emerald-200" : "bg-amber-100 text-amber-800 ring-amber-200"}`}>{e.status}</span></td>
+                  <td><CreateClaimButton encounterId={e.id} /></td>
                 </tr>
               );
             })}
-            {enc.length === 0 && <tr><td colSpan={7} className="text-center text-slate-500 py-10">No charges yet.</td></tr>}
+            {enc.length === 0 && <tr><td colSpan={8} className="text-center text-slate-500 py-10">No charges yet.</td></tr>}
           </tbody>
         </table>
       </div>
