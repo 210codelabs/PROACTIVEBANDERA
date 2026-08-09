@@ -146,7 +146,7 @@ export default function NewOrderForm({ patientId, initialType, encounterId }: { 
         <div className="rounded-lg border border-brand-200 bg-brand-50/60 p-3 space-y-2">
           <div className="flex items-center justify-between">
             <span className="label mb-0">Destination pharmacy (e-prescribe)</span>
-            <span className="chip bg-brand-100 text-brand-800 ring-brand-200">Surescripts / Availity</span>
+            <span className="chip bg-brand-100 text-brand-800 ring-brand-200">Surescripts</span>
           </div>
           <PharmacyPicker selected={pharmacy} onSelect={setPharmacy} compact />
           <p className="text-[11px] text-slate-600">

@@ -61,9 +61,9 @@ export default async function PharmacyPage() {
             <div>
               <div className="text-xs uppercase tracking-wider font-semibold text-slate-500">E-prescribe routing</div>
               <div className="font-semibold text-slate-900">{routingEnabled ? "Search the pharmacy network and route pending prescriptions." : "E-prescribe routing is currently disabled by admin controls."}</div>
-              <div className="mt-1 text-xs text-slate-600">Connected to the Surescripts / Availity pharmacy directory for outbound prescriptions.</div>
+              <div className="mt-1 text-xs text-slate-600">Connected to the Surescripts pharmacy directory for outbound prescriptions.</div>
             </div>
-            <span className={`chip ${routingEnabled ? "bg-teal-100 text-teal-800 ring-teal-200" : "bg-slate-100 text-slate-700 ring-slate-200"}`}>Surescripts / Availity</span>
+            <span className={`chip ${routingEnabled ? "bg-teal-100 text-teal-800 ring-teal-200" : "bg-slate-100 text-slate-700 ring-slate-200"}`}>Surescripts</span>
           </div>
           {routingEnabled ? (
             <PharmacyRoutingControls pendingRxCount={pendingRxCount} />

@@ -7,6 +7,7 @@ import {
   setProviderValidation,
   validateProviderConfig,
 } from "@/lib/integrations/store";
+import { stediPing } from "@/lib/stedi";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,24 @@ export async function POST(req: Request) {
   }
 
   const validation = validateProviderConfig(providerKey, providerState);
+
+  // For Stedi, when the config is complete, perform a REAL connectivity test
+  // against the payers API so the admin gets true "connected" confirmation.
+  if (providerKey === "stedi" && validation.status === "success") {
+    try {
+      await stediPing(providerState.credentials.API_KEY || undefined);
+      validation.message = "Live connection to Stedi verified (payers API reachable with your key).";
+    } catch (e: any) {
+      const status = e?.status;
+      validation.status = "error";
+      validation.message =
+        status === 401 || status === 403
+          ? "Stedi rejected the API key (unauthorized). Double-check the key and its environment."
+          : `Could not reach Stedi: ${String(e?.message || e).slice(0, 200)}`;
+    }
+    validation.checkedAt = new Date().toISOString();
+  }
+
   await setProviderValidation(providerKey, validation);
 
   return NextResponse.json({ ok: true, validation });

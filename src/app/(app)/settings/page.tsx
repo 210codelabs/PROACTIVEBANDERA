@@ -173,7 +173,7 @@ export default async function Settings() {
           <h2 className="font-semibold text-slate-900">Integrations and Automation</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             <IntegrationBadge label="Labcorp outbound" enabled={adminConfig.modules.integrations.labcorpOutbound} />
-            <IntegrationBadge label="Availity eligibility" enabled={adminConfig.modules.integrations.availityEligibility} />
+            <IntegrationBadge label="Stedi eligibility" enabled={adminConfig.modules.integrations.availityEligibility} />
             <IntegrationBadge label="Superbill automation" enabled={adminConfig.modules.integrations.superbillAutomation} />
             <IntegrationBadge label="Google Meet telehealth" enabled={adminConfig.modules.integrations.googleMeetTelehealth} />
             <IntegrationBadge label="Claim scrubber" enabled={adminConfig.modules.integrations.claimScrubber} />

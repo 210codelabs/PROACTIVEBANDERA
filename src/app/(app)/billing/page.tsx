@@ -6,10 +6,12 @@ import JellyBeans from "@/components/JellyBeans";
 import { fmtDateTime, fmtMoney } from "@/lib/utils";
 import { canRoleAccess, readAdminConfig } from "@/lib/admin/store";
 import { mapByIds, groupByForeignKey } from "@/lib/safe-relations";
+import { getStediConfig } from "@/lib/stedi";
 
 export default async function BillingPage() {
   const user = await requireSession();
   const adminConfig = await readAdminConfig();
+  const stedi = await getStediConfig();
   const canViewBilling = !adminConfig.modules.enforceRoleAccess || canRoleAccess(adminConfig, user.role, "billingRead");
 
   if (!canViewBilling) {
@@ -90,13 +92,24 @@ export default async function BillingPage() {
 
         <section className="card card-pad space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-semibold text-slate-900">Availity integration</h2>
-            <span className="chip bg-brand-100 text-brand-800 ring-brand-200">Enabled</span>
+            <h2 className="font-semibold text-slate-900">Stedi clearinghouse</h2>
+            {stedi.enabled && stedi.apiKey ? (
+              <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200">Connected</span>
+            ) : (
+              <span className="chip bg-amber-100 text-amber-800 ring-amber-200">Not configured</span>
+            )}
           </div>
-          <ul className="text-sm text-slate-600 space-y-1">
-            <li>Eligibility checks route through Availity for insured and workers comp cases.</li>
-            <li>Claim submission path is configured for Availity billing workflows.</li>
-          </ul>
+          {stedi.enabled && stedi.apiKey ? (
+            <ul className="text-sm text-slate-600 space-y-1">
+              <li>Eligibility (270/271), claims (837P), status (276/277) and remittance (835/ERA) route through Stedi.</li>
+              <li>Billing NPI {stedi.billingNpi || "—"} · Tax ID {stedi.taxId ? `••••${stedi.taxId.slice(-4)}` : "—"}{stedi.defaultPayerId ? ` · Default payer ${stedi.defaultPayerId}` : ""}.</li>
+              <li className="text-xs text-slate-400">Note: a successful submission is not payment. Payer EFT/bank deposit is enrolled per payer.</li>
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-600">
+              Configure your Stedi API key and practice details in <Link href="/settings" className="text-brand-700 hover:underline">Settings → External Integrations</Link> to enable coverage checks, claim submission and payment tracking.
+            </p>
+          )}
         </section>
       </div>
 

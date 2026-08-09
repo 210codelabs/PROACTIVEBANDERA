@@ -68,30 +68,6 @@ export const INTEGRATION_CATALOG: CapabilityDef[] = [
           { key: "USER_ID", label: "Account / User ID", type: "text", required: true, placeholder: "user@clinic" },
         ],
       },
-      {
-        key: "availity-edi",
-        name: "Availity Essentials",
-        description: "Clearinghouse for eligibility, claims, and superbill EDI. Offers several sub-services.",
-        docsUrl: "https://developer.availity.com/partners/page/getting-started",
-        docsLabel: "Where to find your Availity API keys",
-        authMode: "credentials",
-        fields: [
-          { key: "CLIENT_ID", label: "Client ID", type: "text", required: true, placeholder: "av_client_id" },
-          { key: "CLIENT_SECRET", label: "Client Secret", type: "password", required: true, placeholder: "••••••••" },
-        ],
-        subServices: [
-          { key: "coverage", label: "Coverage & Eligibility", description: "Real-time 270/271 eligibility checks." },
-          { key: "superbill", label: "Superbill Automation", description: "Generate superbills from coded encounters." },
-          {
-            key: "claims",
-            label: "Claims Submission",
-            description: "Submit 837 professional claims and track 277 status.",
-            extraFields: [
-              { key: "SUBMITTER_ID", label: "Submitter ID", type: "text", required: true, placeholder: "SUB-00000", help: "Required by the payer for 837 submission." },
-            ],
-          },
-        ],
-      },
     ],
   },
   {
@@ -153,6 +129,46 @@ export const INTEGRATION_CATALOG: CapabilityDef[] = [
         subServices: [
           { key: "ordering", label: "Outbound Lab Ordering", description: "Enables clinical staff to submit lab requisitions electronically." },
           { key: "results", label: "Inbound Results Delivery", description: "Directly retrieves parsed and PDF-formatted patient diagnostics." },
+        ],
+      },
+    ],
+  },
+  {
+    key: "revenue-cycle",
+    title: "Revenue Cycle & Claims (Clearinghouse)",
+    description:
+      "Insurance coverage verification, payer transaction enrollment, claim submission, and remittance/payment tracking. Powered by Stedi (stedi.com) as the clearinghouse.",
+    selection: "single",
+    providers: [
+      {
+        key: "stedi",
+        name: "Stedi Healthcare Clearinghouse",
+        description:
+          "EDI clearinghouse for real-time eligibility (270/271), professional claims (837P), claim status (276/277), and electronic remittance advice (835/ERA). Stedi is not a bank — payer EFT/bank deposit is enrolled per payer.",
+        docsUrl: "https://www.stedi.com/docs/healthcare/api-reference",
+        docsLabel: "Where to find your Stedi API key (Console → API Keys)",
+        authMode: "credentials",
+        fields: [
+          { key: "API_KEY", label: "Stedi API Key", type: "password", required: true, placeholder: "test_… or production_…", help: "Generate in Stedi Console → API Keys. A test key allows mock eligibility; a production key enables live transactions. You can update this any time." },
+          { key: "ENVIRONMENT", label: "Environment", type: "text", required: false, placeholder: "test | production", help: "Informational label for your team. Test vs production is determined by the API key type." },
+          { key: "ORG_NAME", label: "Billing Provider / Practice Legal Name", type: "text", required: true, placeholder: "Proactive Clinic LLC" },
+          { key: "BILLING_NPI", label: "Billing / Group NPI (10 digits)", type: "text", required: true, placeholder: "1999999992", help: "Type 2 organizational NPI used as the billing provider on claims." },
+          { key: "TAX_ID", label: "Tax ID (EIN/TIN, 9 digits)", type: "text", required: true, placeholder: "555123456", help: "Digits only, no dashes." },
+          { key: "TAX_ID_TYPE", label: "Tax ID Type", type: "text", required: false, placeholder: "EIN", help: "EIN (organization) or SSN (individual). Defaults to EIN." },
+          { key: "TAXONOMY", label: "Taxonomy Code", type: "text", required: false, placeholder: "261QP2300X" },
+          { key: "ADDRESS1", label: "Billing Address", type: "text", required: false, placeholder: "123 Main St" },
+          { key: "CITY", label: "City", type: "text", required: false, placeholder: "San Antonio" },
+          { key: "STATE", label: "State", type: "text", required: false, placeholder: "TX" },
+          { key: "ZIP", label: "ZIP Code", type: "text", required: false, placeholder: "78201" },
+          { key: "DEFAULT_PAYER_ID", label: "Default Payer ID (tradingPartnerServiceId)", type: "text", required: false, placeholder: "87726", help: "Optional default payer alias/ID. Preserve leading zeroes." },
+          { key: "ENROLLMENT_CONTACT_EMAIL", label: "Enrollment Contact Email", type: "text", required: false, placeholder: "billing@proactiveclinic.com" },
+          { key: "ENROLLMENT_CONTACT_PHONE", label: "Enrollment Contact Phone", type: "text", required: false, placeholder: "2105550100" },
+        ],
+        subServices: [
+          { key: "coverage", label: "Coverage & Eligibility (270/271)", description: "Real-time insurance eligibility & benefits checks." },
+          { key: "claims", label: "Claims Submission & Status (837P / 276-277)", description: "Submit professional claims and track claim status." },
+          { key: "remittance", label: "Remittance / Payment Tracking (835 / ERA)", description: "Receive electronic remittance advice and reconcile payments." },
+          { key: "enrollment", label: "Payer Transaction Enrollment", description: "Enroll provider + payers for eligibility/claims/ERA. Note: transaction enrollment, not clinical credentialing." },
         ],
       },
     ],
