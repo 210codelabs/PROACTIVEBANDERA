@@ -7,6 +7,7 @@ import { fmtDateTime } from "@/lib/utils";
 import LabcorpRoutingControls from "@/components/orders/LabcorpRoutingControls";
 import PharmacyRoutingControls from "@/components/orders/PharmacyRoutingControls";
 import { canRoleAccess, readAdminConfig } from "@/lib/admin/store";
+import { mapByIds } from "@/lib/safe-relations";
 
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ type?: string; status?: string }> }) {
   const sp = await searchParams;
@@ -46,12 +47,16 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   let dataUnavailable = false;
 
   try {
-    orders = await db.order.findMany({
+    const rows = await db.order.findMany({
       where: { ...(sp.type ? { type: sp.type } : {}), ...(sp.status ? { status: sp.status } : {}) },
-      include: { patient: true, provider: true },
       orderBy: { createdAt: "desc" },
       take: 200,
     });
+    const pMap = await mapByIds("patient", rows.map((r) => r.patientId));
+    const uMap = await mapByIds("user", rows.map((r) => r.providerId));
+    orders = rows
+      .map((r) => ({ ...r, patient: pMap.get(r.patientId), provider: uMap.get(r.providerId) }))
+      .filter((r) => r.patient && r.provider) as typeof orders;
   } catch {
     dataUnavailable = true;
   }

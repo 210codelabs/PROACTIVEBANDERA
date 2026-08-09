@@ -164,3 +164,81 @@ export async function dbRestore(payload: any) {
   }
   return { ok: true, summary, restoredAt: new Date().toISOString() };
 }
+
+// ---- Referential integrity (find / fix orphaned references) ----
+// MongoDB does not enforce foreign keys, so a deleted parent can leave orphaned
+// child rows pointing at ids that no longer exist. A single orphan makes Prisma
+// `include` queries throw and blanks pages with a "temporarily unavailable"
+// banner. These utilities find and (optionally) remove such orphans.
+type IntegrityCheck = { child: string; childDelegate: any; fk: string; parent: string; parentDelegate: any };
+
+const INTEGRITY_CHECKS: IntegrityCheck[] = [
+  { child: "Appointment", childDelegate: db.appointment, fk: "patientId", parent: "Patient", parentDelegate: db.patient },
+  { child: "Appointment", childDelegate: db.appointment, fk: "providerId", parent: "User", parentDelegate: db.user },
+  { child: "Encounter", childDelegate: db.encounter, fk: "patientId", parent: "Patient", parentDelegate: db.patient },
+  { child: "Encounter", childDelegate: db.encounter, fk: "providerId", parent: "User", parentDelegate: db.user },
+  { child: "Order", childDelegate: db.order, fk: "patientId", parent: "Patient", parentDelegate: db.patient },
+  { child: "Order", childDelegate: db.order, fk: "providerId", parent: "User", parentDelegate: db.user },
+  { child: "Message", childDelegate: db.message, fk: "fromUserId", parent: "User", parentDelegate: db.user },
+  { child: "EncounterNote", childDelegate: db.encounterNote, fk: "encounterId", parent: "Encounter", parentDelegate: db.encounter },
+  { child: "EncounterDiagnosis", childDelegate: db.encounterDiagnosis, fk: "encounterId", parent: "Encounter", parentDelegate: db.encounter },
+  { child: "EncounterCharge", childDelegate: db.encounterCharge, fk: "encounterId", parent: "Encounter", parentDelegate: db.encounter },
+  { child: "Document", childDelegate: db.document, fk: "patientId", parent: "Patient", parentDelegate: db.patient },
+  { child: "Problem", childDelegate: db.problem, fk: "patientId", parent: "Patient", parentDelegate: db.patient },
+  { child: "Allergy", childDelegate: db.allergy, fk: "patientId", parent: "Patient", parentDelegate: db.patient },
+  { child: "Medication", childDelegate: db.medication, fk: "patientId", parent: "Patient", parentDelegate: db.patient },
+  { child: "Vital", childDelegate: db.vital, fk: "patientId", parent: "Patient", parentDelegate: db.patient },
+  { child: "Immunization", childDelegate: db.immunization, fk: "patientId", parent: "Patient", parentDelegate: db.patient },
+  { child: "CareTeamMember", childDelegate: db.careTeamMember, fk: "patientId", parent: "Patient", parentDelegate: db.patient },
+  { child: "StockMovement", childDelegate: db.stockMovement, fk: "itemId", parent: "InventoryItem", parentDelegate: db.inventoryItem },
+];
+
+async function findOrphanIds(check: IntegrityCheck): Promise<string[]> {
+  const rows: any[] = await check.childDelegate.findMany({ select: { id: true, [check.fk]: true } });
+  if (rows.length === 0) return [];
+  const fkValues = [...new Set(rows.map((r) => r[check.fk]).filter(Boolean))] as string[];
+  const alive = new Set<string>();
+  if (fkValues.length) {
+    const parents: any[] = await check.parentDelegate.findMany({ where: { id: { in: fkValues } }, select: { id: true } });
+    for (const p of parents) alive.add(p.id);
+  }
+  // Orphan = missing/null required FK OR points to a parent that no longer exists.
+  return rows.filter((r) => !r[check.fk] || !alive.has(r[check.fk])).map((r) => r.id);
+}
+
+export async function dbIntegrityScan() {
+  const report: { child: string; fk: string; parent: string; orphans: number; error?: string }[] = [];
+  let totalOrphans = 0;
+  for (const check of INTEGRITY_CHECKS) {
+    try {
+      const ids = await findOrphanIds(check);
+      totalOrphans += ids.length;
+      report.push({ child: check.child, fk: check.fk, parent: check.parent, orphans: ids.length });
+    } catch (e: any) {
+      report.push({ child: check.child, fk: check.fk, parent: check.parent, orphans: 0, error: String(e?.message || e) });
+    }
+  }
+  return { ok: true, totalOrphans, report, scannedAt: new Date().toISOString() };
+}
+
+export async function dbIntegrityRepair() {
+  const summary: { child: string; fk: string; parent: string; deleted: number; error?: string }[] = [];
+  let totalDeleted = 0;
+  // Parent-level orphans (e.g. Encounter) run before their children so cascaded
+  // deletes are reflected before we re-scan the child collections.
+  for (const check of INTEGRITY_CHECKS) {
+    try {
+      const ids = await findOrphanIds(check);
+      let deleted = 0;
+      if (ids.length) {
+        const res = await check.childDelegate.deleteMany({ where: { id: { in: ids } } });
+        deleted = typeof res?.count === "number" ? res.count : ids.length;
+      }
+      totalDeleted += deleted;
+      summary.push({ child: check.child, fk: check.fk, parent: check.parent, deleted });
+    } catch (e: any) {
+      summary.push({ child: check.child, fk: check.fk, parent: check.parent, deleted: 0, error: String(e?.message || e) });
+    }
+  }
+  return { ok: true, totalDeleted, summary, repairedAt: new Date().toISOString() };
+}

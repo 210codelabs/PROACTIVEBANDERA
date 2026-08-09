@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import { fmtDateTime } from "@/lib/utils";
+import { mapByIds } from "@/lib/safe-relations";
 
 export default async function EncList({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const sp = await searchParams;
@@ -21,12 +22,16 @@ export default async function EncList({ searchParams }: { searchParams: Promise<
   let dataUnavailable = false;
 
   try {
-    enc = await db.encounter.findMany({
+    const rows = await db.encounter.findMany({
       where: status ? { status } : undefined,
-      include: { patient: true, provider: true },
       orderBy: { startedAt: "desc" },
       take: 100,
     });
+    const pMap = await mapByIds("patient", rows.map((r) => r.patientId));
+    const uMap = await mapByIds("user", rows.map((r) => r.providerId));
+    enc = rows
+      .map((r) => ({ ...r, patient: pMap.get(r.patientId), provider: uMap.get(r.providerId) }))
+      .filter((r) => r.patient && r.provider) as typeof enc;
   } catch {
     dataUnavailable = true;
   }

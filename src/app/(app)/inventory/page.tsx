@@ -6,6 +6,7 @@ import JellyBeans from "@/components/JellyBeans";
 import InventoryAdjust from "@/components/inventory/InventoryAdjust";
 import { colorForCategory, fmtDate, fmtMoney, fmtRelative } from "@/lib/utils";
 import { readAdminConfig } from "@/lib/admin/store";
+import { mapByIds } from "@/lib/safe-relations";
 
 const CATEGORY_LABEL: Record<string, string> = {
   medication: "Medications",
@@ -49,10 +50,15 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   let dataUnavailable = false;
 
   try {
-    [items, movements] = await Promise.all([
+    const [items_, moves] = await Promise.all([
       db.inventoryItem.findMany({ where: { active: true }, orderBy: [{ category: "asc" }, { name: "asc" }] }),
-      db.stockMovement.findMany({ include: { item: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 12 }),
+      db.stockMovement.findMany({ orderBy: { createdAt: "desc" }, take: 12 }),
     ]);
+    items = items_;
+    const iMap = await mapByIds("inventoryItem", moves.map((m) => m.itemId));
+    movements = moves
+      .map((m) => ({ ...m, item: iMap.get(m.itemId) ? { name: iMap.get(m.itemId).name } : undefined }))
+      .filter((m) => m.item) as typeof movements;
   } catch {
     dataUnavailable = true;
   }

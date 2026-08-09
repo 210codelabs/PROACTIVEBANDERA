@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import { fmtRelative } from "@/lib/utils";
+import { mapByIds } from "@/lib/safe-relations";
 
 export default async function Messages() {
   const user = await requireSession();
@@ -30,20 +31,28 @@ export default async function Messages() {
     const results = await Promise.allSettled([
       db.message.findMany({
         where: { toUserId: user.id },
-        include: { fromUser: true, patient: true },
         orderBy: { createdAt: "desc" },
         take: 50,
       }),
       db.message.findMany({
         where: { fromUserId: user.id },
-        include: { toUser: true, patient: true },
         orderBy: { createdAt: "desc" },
         take: 25,
       }),
     ]);
 
-    inbox = results[0].status === "fulfilled" ? results[0].value : [];
-    sent = results[1].status === "fulfilled" ? results[1].value : [];
+    const inboxRows = results[0].status === "fulfilled" ? results[0].value : [];
+    const sentRows = results[1].status === "fulfilled" ? results[1].value : [];
+
+    const uMap = await mapByIds("user", [...inboxRows.map((r) => r.fromUserId), ...sentRows.map((r) => r.toUserId)]);
+    const pMap = await mapByIds("patient", [...inboxRows.map((r) => r.patientId), ...sentRows.map((r) => r.patientId)]);
+
+    inbox = inboxRows
+      .map((r) => ({ ...r, fromUser: uMap.get(r.fromUserId), patient: r.patientId ? (pMap.get(r.patientId) ?? null) : null }))
+      .filter((r) => r.fromUser) as typeof inbox;
+    sent = sentRows
+      .map((r) => ({ ...r, toUser: r.toUserId ? (uMap.get(r.toUserId) ?? null) : null, patient: r.patientId ? (pMap.get(r.patientId) ?? null) : null })) as typeof sent;
+
     dataUnavailable = results.some((r) => r.status === "rejected");
   } catch {
     dataUnavailable = true;

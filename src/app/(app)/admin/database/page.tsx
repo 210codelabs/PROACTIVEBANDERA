@@ -12,6 +12,31 @@ export default function DbAdminPage() {
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [auto, setAuto] = useState(true);
+  const [integrity, setIntegrity] = useState<any>(null);
+
+  async function scanIntegrity() {
+    setBusy("scan"); setMsg(null);
+    try {
+      const res = await fetch("/api/admin/db/integrity");
+      const d = await res.json();
+      if (!res.ok) { setMsg({ kind: "err", text: d.error || "Scan failed." }); return; }
+      setIntegrity(d);
+      setMsg({ kind: "ok", text: d.totalOrphans === 0 ? "No broken references found — data is consistent." : `Found ${d.totalOrphans} broken reference(s). Review below, then run Repair to clean them.` });
+    } finally { setBusy(""); }
+  }
+
+  async function repairIntegrity() {
+    if (!confirm("Repair will permanently delete records that point to data which no longer exists (e.g. a note whose patient was deleted). This cannot be undone. Continue?")) return;
+    setBusy("repair"); setMsg(null);
+    try {
+      const res = await fetch("/api/admin/db/integrity", { method: "POST" });
+      const d = await res.json();
+      if (!res.ok || !d.ok) { setMsg({ kind: "err", text: d.error || "Repair failed." }); return; }
+      setMsg({ kind: "ok", text: `Repair complete — ${d.totalDeleted} broken record(s) removed. Pages should load normally now.` });
+      setIntegrity(null);
+      loadHealth();
+    } finally { setBusy(""); }
+  }
 
   async function loadHealth() {
     setLoading(true);
@@ -117,6 +142,51 @@ export default function DbAdminPage() {
         onAction={reindex}
         busy={busy === "reindex"}
       />
+
+      {/* Data integrity */}
+      <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="max-w-xl">
+            <h2 className="font-semibold text-slate-800">Data Integrity — Fix broken references</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Finds records that point to data which no longer exists (an "orphan" — e.g. an appointment whose patient
+              was deleted). A single orphan can make a page show <i>"temporarily unavailable"</i>. Scan is read-only;
+              Repair removes the broken records so pages load normally again.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <button onClick={scanIntegrity} disabled={busy === "scan"} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+              {busy === "scan" ? "Scanning…" : "Scan for issues"}
+            </button>
+            {integrity && integrity.totalOrphans > 0 && (
+              <button onClick={repairIntegrity} disabled={busy === "repair"} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60">
+                {busy === "repair" ? "Repairing…" : `Repair ${integrity.totalOrphans} issue(s)`}
+              </button>
+            )}
+          </div>
+        </div>
+        {integrity && (
+          <div className="mt-3 overflow-hidden rounded-lg border border-slate-100">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-400">
+                <tr><th className="px-3 py-2">Collection</th><th className="px-3 py-2">Missing link</th><th className="px-3 py-2 text-right">Broken</th></tr>
+              </thead>
+              <tbody>
+                {integrity.report.filter((r: any) => r.orphans > 0 || r.error).map((r: any, i: number) => (
+                  <tr key={i} className="border-t border-slate-100">
+                    <td className="px-3 py-2 font-medium text-slate-700">{r.child}</td>
+                    <td className="px-3 py-2 text-slate-500">{r.fk} → {r.parent}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-red-600">{r.error ? "err" : r.orphans}</td>
+                  </tr>
+                ))}
+                {integrity.totalOrphans === 0 && (
+                  <tr><td colSpan={3} className="px-3 py-3 text-center text-slate-400">No broken references — everything is consistent.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       {/* Backup */}
       <Card

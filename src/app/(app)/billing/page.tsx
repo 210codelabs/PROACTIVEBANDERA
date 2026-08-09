@@ -5,6 +5,7 @@ import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import { fmtDateTime, fmtMoney } from "@/lib/utils";
 import { canRoleAccess, readAdminConfig } from "@/lib/admin/store";
+import { mapByIds, groupByForeignKey } from "@/lib/safe-relations";
 
 export default async function BillingPage() {
   const user = await requireSession();
@@ -34,12 +35,24 @@ export default async function BillingPage() {
   let dataUnavailable = false;
 
   try {
-    enc = await db.encounter.findMany({
+    const rows = await db.encounter.findMany({
       where: { charges: { some: {} } },
-      include: { patient: true, provider: true, charges: true, diagnoses: true },
       orderBy: { startedAt: "desc" },
       take: 200,
     });
+    const pMap = await mapByIds("patient", rows.map((r) => r.patientId));
+    const uMap = await mapByIds("user", rows.map((r) => r.providerId));
+    const chargesMap = await groupByForeignKey("encounterCharge", "encounterId", rows.map((r) => r.id));
+    const dxMap = await groupByForeignKey("encounterDiagnosis", "encounterId", rows.map((r) => r.id));
+    enc = rows
+      .map((r) => ({
+        ...r,
+        patient: pMap.get(r.patientId),
+        provider: uMap.get(r.providerId),
+        charges: chargesMap.get(r.id) ?? [],
+        diagnoses: dxMap.get(r.id) ?? [],
+      }))
+      .filter((r) => r.patient && r.provider) as typeof enc;
   } catch {
     dataUnavailable = true;
   }

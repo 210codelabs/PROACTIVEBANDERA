@@ -6,6 +6,7 @@ import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import { fmtTime, colorForApptStatus, colorForCategory } from "@/lib/utils";
 import NewApptButton from "./NewApptButton";
+import { mapByIds } from "@/lib/safe-relations";
 
 export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ d?: string; providerId?: string }> }) {
   const sp = await searchParams;
@@ -38,14 +39,26 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
           startsAt: { gte: startOfDay(day), lte: endOfDay(day) },
           ...(providerId ? { providerId } : {}),
         },
-        include: { patient: true, provider: true, serviceType: true },
         orderBy: { startsAt: "asc" },
       }),
     ]);
 
     providers = results[0].status === "fulfilled" ? results[0].value : [];
     services = results[1].status === "fulfilled" ? results[1].value : [];
-    appts = results[2].status === "fulfilled" ? results[2].value : [];
+    const apptRows = results[2].status === "fulfilled" ? results[2].value : [];
+
+    const pMap = await mapByIds("patient", apptRows.map((r) => r.patientId));
+    const uMap = await mapByIds("user", apptRows.map((r) => r.providerId));
+    const sMap = await mapByIds("serviceType", apptRows.map((r) => r.serviceTypeId));
+    appts = apptRows
+      .map((r) => ({
+        ...r,
+        patient: pMap.get(r.patientId),
+        provider: uMap.get(r.providerId),
+        serviceType: r.serviceTypeId ? (sMap.get(r.serviceTypeId) ?? null) : null,
+      }))
+      .filter((r) => r.patient && r.provider) as typeof appts;
+
     dataUnavailable = results.some((r) => r.status === "rejected");
   } catch {
     dataUnavailable = true;
