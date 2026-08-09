@@ -30,6 +30,7 @@ const FIELDS: { id: string; label: string; type?: string; full?: boolean }[] = [
   { id: "insurerPlan", label: "Plan" },
   { id: "memberId", label: "Member ID" },
   { id: "groupNumber", label: "Group #" },
+  { id: "payerId", label: "Stedi Payer ID (eligibility)" },
   { id: "ecName", label: "Emergency Contact Name" },
   { id: "ecRelation", label: "Emergency Relation" },
   { id: "ecPhone", label: "Emergency Phone" },

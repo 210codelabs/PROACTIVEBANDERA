@@ -5,6 +5,7 @@ import { fmtDate, fmtPhone, ageFromDob } from "@/lib/utils";
 import { getStediConfig } from "@/lib/stedi";
 import EligibilityChecker from "@/components/billing/EligibilityChecker";
 import PatientLedger from "@/components/billing/PatientLedger";
+import InsuranceCard from "@/components/billing/InsuranceCard";
 
 export default async function DemoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -40,12 +41,10 @@ export default async function DemoPage({ params }: { params: Promise<{ id: strin
           </Row>
           <Row k="Emergency">{p.ecName ? `${p.ecName} (${p.ecRelation || "—"}) · ${fmtPhone(p.ecPhone)}` : "—"}</Row>
         </Card>
-        <Card title="Insurance">
-          <Row k="Insurer">{p.insurerName || "—"}</Row>
-          <Row k="Plan">{p.insurerPlan || "—"}</Row>
-          <Row k="Member ID">{p.memberId || "—"}</Row>
-          <Row k="Group #">{p.groupNumber || "—"}</Row>
-        </Card>
+        <InsuranceCard
+          patient={{ id: p.id, insurerName: p.insurerName, insurerPlan: p.insurerPlan, memberId: p.memberId, groupNumber: p.groupNumber, payerId: (p as any).payerId }}
+          role={user.role}
+        />
       </div>
       {stedi.enabled && stedi.apiKey && (
         <section className="card mt-4">

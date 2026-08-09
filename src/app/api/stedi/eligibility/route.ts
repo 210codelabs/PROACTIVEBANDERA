@@ -80,11 +80,24 @@ export async function POST(req: Request) {
       dateOfBirth = dateOfBirth || p.dob;
       memberId = memberId || (p as any).memberId || undefined;
       payerName = payerName || (p as any).insurerName || undefined;
+      payerId = payerId || (p as any).payerId || undefined;
     }
   }
 
   payerId = (payerId || cfg.defaultPayerId || "").trim();
-  if (!payerId) return NextResponse.json({ error: "A payer ID is required." }, { status: 400 });
+  if (!payerId) {
+    // Fallback: use ANY available payer from the local directory that supports
+    // eligibility, so a coverage/validation check can still run when no specific
+    // payer id is on file.
+    const anyPayer = await db.payer
+      .findFirst({ where: { active: true, supportsEligibility: true, stediId: { not: null } }, orderBy: { name: "asc" } })
+      .catch(() => null);
+    if (anyPayer?.stediId) {
+      payerId = anyPayer.stediId.trim();
+      payerName = payerName || anyPayer.name;
+    }
+  }
+  if (!payerId) return NextResponse.json({ error: "No payer ID available. Set the patient's Stedi payer ID, a default payer in Settings, or add a payer to the directory." }, { status: 400 });
   if (!lastName || !firstName) return NextResponse.json({ error: "Member first and last name are required." }, { status: 400 });
 
   try {

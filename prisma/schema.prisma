@@ -235,6 +235,7 @@ model Patient {
   insurerPlan    String?
   memberId       String?
   groupNumber    String?
+  payerId        String?  // Stedi trading-partner / payer id used for eligibility & claims
 
   // emergency contact
   ecName         String?

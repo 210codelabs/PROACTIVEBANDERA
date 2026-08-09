@@ -10,7 +10,7 @@ const EDITABLE = [
   "firstName", "lastName", "sex", "pronouns", "email", "phone",
   "addressLine1", "addressLine2", "city", "state", "postalCode", "country",
   "preferredLang", "ethnicity", "race", "maritalStatus",
-  "insurerName", "insurerPlan", "memberId", "groupNumber",
+  "insurerName", "insurerPlan", "memberId", "groupNumber", "payerId",
   "ecName", "ecRelation", "ecPhone",
 ];
 const VALID_STATUS = ["active", "inactive", "archived", "deceased"];

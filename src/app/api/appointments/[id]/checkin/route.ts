@@ -38,7 +38,15 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       const last = await db.eligibilityCheck
         .findFirst({ where: { patientId: patient.id }, orderBy: { createdAt: "desc" } })
         .catch(() => null);
-      const payerId = (last?.payerId || cfg.defaultPayerId || "").trim();
+      // Reuse the payer from the patient record, then the most recent saved
+      // check, then the default payer, then ANY available directory payer.
+      let payerId = ((patient as any).payerId || last?.payerId || cfg.defaultPayerId || "").trim();
+      if (!payerId) {
+        const anyPayer = await db.payer
+          .findFirst({ where: { active: true, supportsEligibility: true, stediId: { not: null } }, orderBy: { name: "asc" } })
+          .catch(() => null);
+        if (anyPayer?.stediId) payerId = anyPayer.stediId.trim();
+      }
       const memberId = (patient as any).memberId || last?.memberId || undefined;
       if (!payerId) {
         coverageNote = "No payer on file — verify coverage manually.";
