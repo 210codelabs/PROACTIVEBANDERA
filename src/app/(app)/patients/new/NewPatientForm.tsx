@@ -2,9 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import RefSelect from "@/components/RefSelect";
+import PayerAutocomplete from "@/components/billing/PayerAutocomplete";
 
 type Attorney = { id: string; name: string; firm: string | null; email: string };
-type Payer = { id: string; name: string; stediId?: string | null; supportsEligibility?: boolean };
 type Summary = { label: string; value: string };
 type EligCheck = {
   id: string;
@@ -52,7 +52,6 @@ export default function NewPatientForm() {
   const [lawFirm, setLawFirm] = useState("");
 
   // Insurance / payer state
-  const [payers, setPayers] = useState<Payer[]>([]);
   const [payerId, setPayerId] = useState("");
   const [payerName, setPayerName] = useState("");
 
@@ -73,22 +72,6 @@ export default function NewPatientForm() {
       .then((d) => setAttorneys(d.attorneys || []))
       .catch(() => {});
   }, [type, attorneys.length]);
-
-  // Load local payer directory (wired to Billing → Payers module).
-  useEffect(() => {
-    fetch("/api/stedi/payers")
-      .then((r) => (r.ok ? r.json() : { payers: [] }))
-      .then((d) => setPayers(d.payers || []))
-      .catch(() => {});
-  }, []);
-
-  function onPayerSelect(id: string) {
-    const p = payers.find((x) => x.id === id);
-    if (p) {
-      setPayerId(p.stediId || "");
-      setPayerName(p.name);
-    }
-  }
 
   async function verifyCoverage() {
     setEligError(null);
@@ -284,16 +267,14 @@ export default function NewPatientForm() {
             <Field label="Member ID" name="memberId" />
             <Field label="Group #" name="groupNumber" />
             <label className="block">
-              <span className="label">Payer (eligibility)</span>
-              <select className="input" onChange={(e) => onPayerSelect(e.target.value)} defaultValue="">
-                <option value="">— Select payer from directory —</option>
-                {payers.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}{p.stediId ? ` · ${p.stediId}` : ""}</option>
-                ))}
-              </select>
-              {payers.length === 0 && (
-                <span className="text-[11px] text-slate-500">No payers in directory yet — add them in Billing → Revenue Cycle → Payers, or type a Stedi payer ID.</span>
-              )}
+              <span className="label">Payer (search Stedi)</span>
+              <PayerAutocomplete
+                value={payerName}
+                onChange={(v) => setPayerName(v)}
+                onSelect={({ name, payerId }) => { setPayerName(name); setPayerId(payerId); }}
+                placeholder="Type payer / insurer name…"
+              />
+              <span className="text-[11px] text-slate-500">Picking a match fills the Stedi payer ID below.</span>
             </label>
             <label className="block">
               <span className="label">Stedi payer ID</span>

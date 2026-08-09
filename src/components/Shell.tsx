@@ -268,6 +268,9 @@ export default function Shell({
                 <div className="text-xs font-semibold text-slate-900">{user.firstName} {user.lastName}{user.credential ? `, ${user.credential}` : ""}</div>
                 <div className="text-[10px] text-slate-500">{roleLabel(user.role)}</div>
               </div>
+              <Link href="/settings/password" prefetch={false} title="Change password" className="h-8 w-8 rounded-full hover:bg-slate-100 grid place-items-center text-slate-500">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </Link>
               <LogoutButton />
             </div>
           </div>

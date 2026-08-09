@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import PayerAutocomplete from "@/components/billing/PayerAutocomplete";
 
 /**
  * Insurance card on the patient chart — view + inline edit of insurer, plan,
@@ -19,10 +20,8 @@ type Patient = {
   groupNumber?: string | null;
   payerId?: string | null;
 };
-type Payer = { id: string; name: string; stediId?: string | null };
 
 const FIELDS: { id: keyof Patient; label: string; placeholder?: string }[] = [
-  { id: "insurerName", label: "Insurer" },
   { id: "insurerPlan", label: "Plan" },
   { id: "memberId", label: "Member ID" },
   { id: "groupNumber", label: "Group #" },
@@ -35,7 +34,6 @@ export default function InsuranceCard({ patient, role }: { patient: Patient; rol
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  const [payers, setPayers] = useState<Payer[]>([]);
   const [form, setForm] = useState<Record<string, string>>(() => ({
     insurerName: patient.insurerName || "",
     insurerPlan: patient.insurerPlan || "",
@@ -45,19 +43,6 @@ export default function InsuranceCard({ patient, role }: { patient: Patient; rol
   }));
 
   const set = (id: string, v: string) => setForm((p) => ({ ...p, [id]: v }));
-
-  const loadPayers = useCallback(async () => {
-    try {
-      const r = await fetch("/api/stedi/payers");
-      if (r.ok) { const d = await r.json(); setPayers(d.payers || []); }
-    } catch { /* ignore */ }
-  }, []);
-  useEffect(() => { if (editing && payers.length === 0) loadPayers(); }, [editing, payers.length, loadPayers]);
-
-  function onPickPayer(id: string) {
-    const p = payers.find((x) => x.id === id);
-    if (p) setForm((f) => ({ ...f, insurerName: p.name, payerId: p.stediId || f.payerId }));
-  }
 
   async function save() {
     setBusy(true); setMsg("");
@@ -94,11 +79,13 @@ export default function InsuranceCard({ patient, role }: { patient: Patient; rol
         ) : (
           <div className="space-y-3">
             <label className="block text-sm">
-              <span className="mb-1 block text-xs font-semibold text-slate-600">Payer directory</span>
-              <select className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" defaultValue="" onChange={(e) => onPickPayer(e.target.value)}>
-                <option value="">— Pick a payer to fill name + ID —</option>
-                {payers.map((p) => <option key={p.id} value={p.id}>{p.name}{p.stediId ? ` · ${p.stediId}` : ""}</option>)}
-              </select>
+              <span className="mb-1 block text-xs font-semibold text-slate-600">Insurer</span>
+              <PayerAutocomplete
+                value={form.insurerName || ""}
+                onChange={(v) => set("insurerName", v)}
+                onSelect={({ name, payerId }) => setForm((f) => ({ ...f, insurerName: name, payerId: payerId || f.payerId }))}
+              />
+              <span className="mt-1 block text-[11px] text-slate-400">Type an insurer name to search Stedi payers — picking one fills the Stedi Payer ID.</span>
             </label>
             {FIELDS.map((f) => (
               <label key={f.id as string} className="block text-sm">
