@@ -424,9 +424,6 @@ export function PortalAccess({ L, t }: { L: LandingDict; t: (k: string) => strin
                 {L.newPatientDesc}{" "}
                 <a href="tel:+12105002914" className="text-brand-700 font-medium">(210) 500-2914</a>
               </p>
-              <p className="text-xs text-slate-500">
-                {L.demoMrn}: <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">PC-100000</code> (DOB: 1958-04-12)
-              </p>
             </div>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

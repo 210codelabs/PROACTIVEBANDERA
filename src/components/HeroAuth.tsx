@@ -190,7 +190,7 @@ function AuthCard({ lang }: { lang: "es" | "en" }) {
         {tab === "portal" ? (
           <form onSubmit={submitPortal} className="mt-5 space-y-4">
             <Field icon="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z">
-              <input className="hero-input" placeholder={tt(lang, "Medical Record Number (e.g. PC-100000)", "N.º de expediente (ej. PC-100000)")} value={mrn} onChange={(e) => setMrn(e.target.value)} required suppressHydrationWarning />
+              <input className="hero-input" placeholder={tt(lang, "Medical Record Number (e.g. PC-XXXXXX)", "N.º de expediente (ej. PC-XXXXXX)")} value={mrn} onChange={(e) => setMrn(e.target.value)} required suppressHydrationWarning />
             </Field>
             <Field icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
               <input type="date" className="hero-input" value={dob} onChange={(e) => setDob(e.target.value)} required suppressHydrationWarning />
@@ -200,7 +200,6 @@ function AuthCard({ lang }: { lang: "es" | "en" }) {
             </button>
             <div className="flex items-center gap-3 text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200" />{tt(lang, "or", "o")}<span className="h-px flex-1 bg-slate-200" /></div>
             <a href="tel:+13055550148" className="btn-secondary w-full py-3 text-center block">{tt(lang, "New patient? Call to register", "¿Paciente nuevo? Llama para registrarte")}</a>
-            <p className="text-[11px] text-slate-400 text-center">{tt(lang, "Demo:", "Demo:")} PC-100000 · 1958-04-12</p>
           </form>
         ) : (
           <form onSubmit={submitStaff} className="mt-5 space-y-4">
@@ -218,7 +217,6 @@ function AuthCard({ lang }: { lang: "es" | "en" }) {
             <button className="btn-primary w-full py-3 text-base" disabled={busy} suppressHydrationWarning>
               {busy ? tt(lang, "Signing in...", "Ingresando...") : tt(lang, "Login", "Ingresar")}
             </button>
-            <p className="text-[11px] text-slate-400 text-center">{tt(lang, "Demo:", "Demo:")} andy.manzano@proactiveclinic.com · apex123</p>
           </form>
         )}
       </div>

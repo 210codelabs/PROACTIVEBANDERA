@@ -66,19 +66,6 @@ export default async function LoginPage({
               <LoginForm next={sp.next} />
             </div>
 
-            <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs text-slate-600 space-y-2">
-              <div className="font-semibold text-slate-700">{t("login.demoAccounts")} <code className="font-mono bg-white px-1 rounded">apex123</code>)</div>
-              <ul className="space-y-1 text-[11px] leading-tight">
-                <li><code className="font-mono">andy.manzano@proactiveclinic.com</code> — Practice Director</li>
-                <li><code className="font-mono">np.tan@proactiveclinic.com</code> — NP, Primary Care</li>
-                <li><code className="font-mono">dpt.jones@proactiveclinic.com</code> — DPT, Physical Therapy</li>
-                <li><code className="font-mono">md.smith@proactiveclinic.com</code> — MD, Wound Care</li>
-                <li><code className="font-mono">nurse.kim@proactiveclinic.com</code> — RN</li>
-                <li><code className="font-mono">front.lopez@proactiveclinic.com</code> — Front Desk</li>
-                <li><code className="font-mono">admin@proactiveclinic.com</code> — Administrator</li>
-              </ul>
-            </div>
-
             <div className="text-center text-xs text-slate-400 space-y-1">
               <Link href="/" className="text-brand-700 hover:underline">{t("common.backHome")}</Link>
               <div>&copy; {t("login.footer")}</div>

@@ -41,6 +41,27 @@ function buildDatabaseUrl(): string {
   return qs ? `${base}?${qs}` : base;
 }
 
+/**
+ * Add connection-pool / resilience params so many concurrent users don't
+ * exhaust the MongoDB connection cap (the usual cause of "some resources
+ * become inaccessible under load"). Tunable via env without code changes.
+ */
+function withPool(url: string): string {
+  if (!url) return url;
+  try {
+    const [base, query] = url.split("?");
+    const p = new URLSearchParams(query || "");
+    if (!p.has("maxPoolSize")) p.set("maxPoolSize", process.env.MONGO_MAX_POOL || "20");
+    if (!p.has("minPoolSize")) p.set("minPoolSize", process.env.MONGO_MIN_POOL || "0");
+    if (!p.has("maxIdleTimeMS")) p.set("maxIdleTimeMS", "60000");
+    if (!p.has("serverSelectionTimeoutMS")) p.set("serverSelectionTimeoutMS", "10000");
+    if (!p.has("waitQueueTimeoutMS")) p.set("waitQueueTimeoutMS", "10000");
+    return `${base}?${p.toString()}`;
+  } catch {
+    return url;
+  }
+}
+
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
@@ -50,8 +71,11 @@ export const db =
   new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
     datasources: {
-      db: { url: buildDatabaseUrl() },
+      db: { url: withPool(buildDatabaseUrl()) },
     },
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+// Cache the singleton in ALL environments (including production) so we never
+// create multiple PrismaClients — each extra client opens its own pool and can
+// blow past the cluster's connection limit.
+globalForPrisma.prisma = db;

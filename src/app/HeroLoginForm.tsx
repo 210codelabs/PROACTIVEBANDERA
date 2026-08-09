@@ -105,7 +105,7 @@ function PatientForm({ router }: { router: ReturnType<typeof useRouter> }) {
             className="input border-brand-200 focus:border-brand-500 focus:ring-brand-500"
             value={mrn}
             onChange={(e) => setMrn(e.target.value)}
-            placeholder="e.g. PC-100000"
+            placeholder="e.g. PC-XXXXXX"
             required
             suppressHydrationWarning
           />
@@ -139,17 +139,14 @@ function PatientForm({ router }: { router: ReturnType<typeof useRouter> }) {
         <p className="text-xs text-slate-500 text-center">
           New patient? Your MRN is provided at your first visit.
         </p>
-        <p className="text-xs text-slate-400 text-center mt-1">
-          Demo: <code className="font-mono bg-slate-100 px-1 rounded">PC-100000</code> / DOB: 1958-04-12
-        </p>
       </div>
     </div>
   );
 }
 
 function StaffForm({ router }: { router: ReturnType<typeof useRouter> }) {
-  const [email, setEmail] = useState("andy.manzano@proactiveclinic.com");
-  const [password, setPassword] = useState("apex123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -231,12 +228,6 @@ function StaffForm({ router }: { router: ReturnType<typeof useRouter> }) {
           {loading ? "Signing in..." : "Sign In to EHR"}
         </button>
       </form>
-
-      <div className="pt-3 border-t border-indigo-100">
-        <p className="text-xs text-slate-500 text-center">
-          Demo: <code className="font-mono bg-slate-100 px-1 rounded">andy.manzano@proactiveclinic.com</code> / <code className="font-mono bg-slate-100 px-1 rounded">apex123</code>
-        </p>
-      </div>
     </div>
   );
 }

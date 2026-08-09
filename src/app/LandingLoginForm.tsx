@@ -46,7 +46,7 @@ export default function LandingLoginForm() {
           className="input"
           value={mrn}
           onChange={(e) => setMrn(e.target.value)}
-          placeholder="e.g. PC-100000"
+          placeholder="e.g. PC-XXXXXX"
           required
           suppressHydrationWarning
         />
