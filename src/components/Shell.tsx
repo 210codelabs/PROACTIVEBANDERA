@@ -94,8 +94,15 @@ export default function Shell({
     { label: t("nav.patients"), href: "/patients", icon: <Icon.Users /> },
     { label: t("nav.encounters"), href: "/encounters", icon: <Icon.Clipboard /> },
     { label: t("nav.orders"), href: "/orders", icon: <Icon.Beaker /> },
-    { label: "Intake Forms", href: "/intake-forms", icon: <Icon.Clipboard /> },
-    { label: "Intake Inbox", href: "/intake-inbox", icon: <Icon.Inbox /> },
+    {
+      label: "Intake",
+      href: "/intake-forms",
+      icon: <Icon.Clipboard />,
+      children: [
+        { label: "Intake Forms", href: "/intake-forms" },
+        { label: "Intake Inbox", href: "/intake-inbox" },
+      ],
+    },
     { label: t("nav.npiLookup"), href: "/npi-lookup", icon: <Icon.Shield /> },
     { label: t("nav.chartingSetup"), href: "/settings/charting", icon: <Icon.Beaker /> },
     {
@@ -110,7 +117,17 @@ export default function Shell({
     { label: t("nav.pharmacy"), href: "/pharmacy", icon: <Icon.Pill /> },
     { label: t("nav.pos"), href: "/pos", icon: <Icon.Register /> },
     { label: t("nav.inventory"), href: "/inventory", icon: <Icon.Box /> },
-    { label: t("nav.billing"), href: "/billing", icon: <Icon.Dollar /> },
+    {
+      label: t("nav.billing"),
+      href: "/billing",
+      icon: <Icon.Dollar />,
+      children: [
+        { label: "Overview", href: "/billing" },
+        { label: "Eligibility worklist", href: "/billing/eligibility-report" },
+        { label: "Revenue Cycle", href: "/billing/revenue-cycle" },
+        { label: "Bank & EFT", href: "/billing/bank-eft" },
+      ],
+    },
     { label: t("nav.messages"), href: "/messages", icon: <Icon.Mail /> },
     { label: t("nav.services"), href: "/services", icon: <Icon.Sparkle /> },
     { label: t("nav.settings"), href: "/settings", icon: <Icon.Cog /> },
@@ -126,7 +143,7 @@ export default function Shell({
   const groupedNav: NavSection[] = [
     {
       title: t("sections.clinical"),
-      items: NAV.filter((item) => ["/dashboard", "/schedule", "/appointment-requests", "/patients", "/encounters", "/orders", "/intake-forms", "/intake-inbox", "/npi-lookup", "/settings/charting", "/modules"].includes(item.href)),
+      items: NAV.filter((item) => ["/dashboard", "/schedule", "/appointment-requests", "/patients", "/encounters", "/orders", "/intake-forms", "/npi-lookup", "/settings/charting", "/modules"].includes(item.href)),
     },
     {
       title: t("sections.pharmacyRetail"),
@@ -162,7 +179,7 @@ export default function Shell({
         <div className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300/70">{section.title}</div>
         <div className="space-y-0.5">
           {section.items.map((item) => {
-            const active = isItemActive(item.href);
+            const active = isItemActive(item.href) || (item.children?.some((c) => isItemActive(c.href)) ?? false);
             return (
               <div key={item.href}>
                 <Link

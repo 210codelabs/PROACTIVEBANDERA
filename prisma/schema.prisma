@@ -823,6 +823,45 @@ model FeeScheduleItem {
   @@index([active])
 }
 
+// Organization bank account for payer EFT/ACH deposits. Sensitive numbers are
+// stored server-side and only exposed masked (last4) to clients.
+model BankAccount {
+  id                String   @id @default(cuid()) @map("_id")
+  label             String
+  bankName          String?
+  accountHolder     String?
+  routingNumber     String?
+  accountNumber     String?
+  accountType       String   @default("checking") // checking | savings
+  isDefault         Boolean  @default(false)
+  active            Boolean  @default(true)
+  createdById       String?
+  createdByName     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// Per-payer EFT / ERA / claims enrollment tracking so remittances reconcile.
+model PayerEftEnrollment {
+  id             String    @id @default(cuid()) @map("_id")
+  payerId        String?   // Stedi trading-partner id
+  payerName      String
+  enrollmentType String    @default("eft") // eft | era | claims
+  bankAccountId  String?
+  status         String    @default("not_started") // not_started | submitted | pending | active | rejected | cancelled
+  effectiveDate  DateTime?
+  traceNumber    String?
+  contactEmail   String?
+  contactPhone   String?
+  notes          String?
+  createdById    String?
+  createdByName  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  @@index([payerId])
+  @@index([status])
+}
+
 // Internal prior-authorization request tracker.
 // NOTE: This is a MANUAL tracker for staff — it does NOT electronically submit a
 // 278 authorization to the payer via Stedi (Stedi's integrated path does not

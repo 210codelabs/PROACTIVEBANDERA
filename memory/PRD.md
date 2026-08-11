@@ -187,3 +187,8 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - Billing page: added "Superbill AI assistant & claim scrubber" card (AiCodingAssistant.tsx).
 - ⚠️ WARNING: Stedi is PRODUCTION in PREVIEW DB now — real 837 claim submission from preview would send REAL claims. Eligibility (270/271) is read-only/safe.
 - REMAINING PHASES (not started): B Bank/EFT config + payer EFT enrollment forms; C sidebar/nav restructure w/ submenus; D intake forms rebuild (Clinical + PT, branded PDFs, body/pain diagram, HIPAA, deep research); E Kiosk mode w/ temp ID + secure send.
+
+## Phase B (Bank/EFT) + Phase C (sidebar submenus) — Iteration 36
+- Phase B: new BankAccount + PayerEftEnrollment models. APIs /api/billing/bank-accounts and /api/billing/eft-enrollments (admin/billing only). Routing/account numbers stored server-side, returned MASKED (last4) only. New page /billing/bank-eft (BankEft.tsx) manages bank accounts + per-payer EFT/ERA enrollment status. ERA remittances already auto-reconcile to ledger. Backend 10/10.
+- Phase C: Shell sidebar now uses collapsible submenus. Billing → Overview, Eligibility worklist, Revenue Cycle, Bank & EFT. Intake → Intake Forms, Intake Inbox. Parent highlights/expands when any child route is active.
+- REMAINING: Phase D intake forms rebuild (Clinical + PT, branded fillable PDFs, body/pain diagram, HIPAA, deep research); Phase E Kiosk mode (temp ID + secure send from chart).
