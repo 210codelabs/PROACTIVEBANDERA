@@ -53,7 +53,7 @@ export async function getStediConfig(): Promise<StediConfig> {
   }
   return {
     apiKey: (creds.API_KEY || process.env.STEDI_API_KEY || "").trim(),
-    environment: creds.ENVIRONMENT || "test",
+    environment: creds.ENVIRONMENT || process.env.STEDI_ENVIRONMENT || "test",
     orgName: creds.ORG_NAME || "",
     billingNpi: creds.BILLING_NPI || "",
     taxId: creds.TAX_ID || "",

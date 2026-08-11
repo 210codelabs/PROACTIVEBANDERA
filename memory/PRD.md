@@ -179,3 +179,11 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - Patient chart summary: new PatientAppointments.tsx replaces the read-only upcoming card — book / modify (reschedule) / cancel directly from the Doctor's view, role-gated.
 - Backend 10/10 passed; all views + chart booking screenshot-verified. Preview only — redeploy to confirm in production.
 - PHASE 2 (pending): patient-portal appointment view + request/cancel via the existing appointment-request approval flow.
+
+## Phase A — Stedi PRODUCTION wiring + Superbill AI + claim scrubber (Iteration 35)
+- Stedi activated in PRODUCTION mode: prod API key stored in integrations AppSetting (env=production, enabled); added STEDI_ENVIRONMENT env fallback in getStediConfig. Payer directory verified HTTP 200 with prod key. Billing card shows Connected · PRODUCTION/TEST badge.
+- NEW POST /api/billing/ai-coding (GPT-4o via emergentintegrations): reviews CPT/ICD linkage vs clinical note, suggests codes/modifiers, flags medical-necessity issues, returns cleanClaimReady. Backend tested.
+- NEW POST /api/billing/scrub: deterministic clean-claim validation (billing NPI/TaxID/taxonomy from Stedi config + per-claim member/payer/CPT/ICD format + POS + env). Backend tested.
+- Billing page: added "Superbill AI assistant & claim scrubber" card (AiCodingAssistant.tsx).
+- ⚠️ WARNING: Stedi is PRODUCTION in PREVIEW DB now — real 837 claim submission from preview would send REAL claims. Eligibility (270/271) is read-only/safe.
+- REMAINING PHASES (not started): B Bank/EFT config + payer EFT enrollment forms; C sidebar/nav restructure w/ submenus; D intake forms rebuild (Clinical + PT, branded PDFs, body/pain diagram, HIPAA, deep research); E Kiosk mode w/ temp ID + secure send.

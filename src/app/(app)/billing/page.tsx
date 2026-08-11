@@ -9,6 +9,7 @@ import { mapByIds, groupByForeignKey } from "@/lib/safe-relations";
 import { getStediConfig } from "@/lib/stedi";
 import EligibilityChecker from "@/components/billing/EligibilityChecker";
 import CreateClaimButton from "@/components/billing/CreateClaimButton";
+import AiCodingAssistant from "@/components/billing/AiCodingAssistant";
 
 export default async function BillingPage() {
   const user = await requireSession();
@@ -96,7 +97,7 @@ export default async function BillingPage() {
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-semibold text-slate-900">Stedi clearinghouse</h2>
             {stedi.enabled && stedi.apiKey ? (
-              <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200">Connected</span>
+              <span className={`chip ring-1 ${stedi.environment === "production" ? "bg-emerald-100 text-emerald-800 ring-emerald-200" : "bg-amber-100 text-amber-800 ring-amber-200"}`}>Connected · {stedi.environment === "production" ? "PRODUCTION" : "TEST"}</span>
             ) : (
               <span className="chip bg-amber-100 text-amber-800 ring-amber-200">Not configured</span>
             )}
@@ -113,6 +114,10 @@ export default async function BillingPage() {
             </p>
           )}
         </section>
+      </div>
+
+      <div className="mb-4">
+        <AiCodingAssistant />
       </div>
 
       <div className="card mb-4">
