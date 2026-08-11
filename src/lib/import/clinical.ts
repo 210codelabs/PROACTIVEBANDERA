@@ -16,12 +16,21 @@ export type ExtractedPatient = {
 export type ExtractedProblem = { description: string; icd10?: string; status?: string; onsetDate?: string };
 export type ExtractedMed = { name: string; sig?: string; status?: string };
 export type ExtractedAllergy = { substance: string; reaction?: string; severity?: string; status?: string };
+export type ExtractedVital = {
+  takenAt?: string;
+  heightCm?: number; weightKg?: number; bmi?: number;
+  systolic?: number; diastolic?: number; pulse?: number;
+  temperatureC?: number; respRate?: number; spo2?: number; painScore?: number;
+};
+export type ExtractedImmunization = { vaccine: string; cvxCode?: string; givenAt?: string; lot?: string; site?: string };
 export type Extracted = {
   format: "ccda" | "fhir";
   patient: ExtractedPatient;
   problems: ExtractedProblem[];
   medications: ExtractedMed[];
   allergies: ExtractedAllergy[];
+  vitals: ExtractedVital[];
+  immunizations: ExtractedImmunization[];
 };
 
 const toArr = <T>(x: T | T[] | undefined | null): T[] => (x == null ? [] : Array.isArray(x) ? x : [x]);
@@ -67,6 +76,33 @@ function findSectionByCode(sections: any[], code: string): any | null {
     if (c === code) return s;
   }
   return null;
+}
+
+const round = (v: number, d = 1) => { const f = Math.pow(10, d); return Math.round(v * f) / f; };
+
+// Map a vital-sign LOINC code + raw value/unit onto a Vital field (with unit conversion).
+function mapVital(code: string | undefined, value: number, unit?: string): { field: keyof ExtractedVital; value: number } | null {
+  if (!code || !isFinite(value)) return null;
+  const u = (unit || "").toLowerCase();
+  switch (code) {
+    case "8302-2": // body height
+    case "3137-7":
+      return { field: "heightCm", value: /(\bin\b|\[in_i\]|inch)/.test(u) ? round(value * 2.54, 1) : round(value, 1) };
+    case "29463-7": // body weight
+    case "3141-9":
+      return { field: "weightKg", value: /(lb|\[lb)/.test(u) ? round(value * 0.45359237, 1) : round(value, 1) };
+    case "39156-5": return { field: "bmi", value: round(value, 1) };
+    case "8480-6": return { field: "systolic", value: Math.round(value) };
+    case "8462-4": return { field: "diastolic", value: Math.round(value) };
+    case "8867-4": return { field: "pulse", value: Math.round(value) };
+    case "8310-5": // body temperature
+    case "8331-1":
+      return { field: "temperatureC", value: /f/.test(u) && !/cel/.test(u) ? round((value - 32) * 5 / 9, 1) : round(value, 1) };
+    case "9279-1": return { field: "respRate", value: Math.round(value) };
+    case "2708-6": case "59408-5": return { field: "spo2", value: Math.round(value) };
+    case "38208-5": case "72514-3": case "72133-2": return { field: "painScore", value: Math.round(value) };
+    default: return null;
+  }
 }
 
 export function parseCcda(xml: string): Extracted {
@@ -145,7 +181,52 @@ export function parseCcda(xml: string): Extracted {
     }
   }
 
-  return { format: "ccda", patient, problems: dedupeBy(problems, (x) => x.description.toLowerCase()), medications: dedupeBy(medications, (x) => x.name.toLowerCase()), allergies: dedupeBy(allergies, (x) => x.substance.toLowerCase()) };
+  // Vital signs (LOINC 8716-3) — grouped per organizer (one reading set each)
+  const vitals: ExtractedVital[] = [];
+  const vitSec = findSectionByCode(sections, "8716-3");
+  if (vitSec) {
+    const organizers = collect(vitSec, "organizer");
+    const groups = organizers.length ? organizers : [vitSec];
+    for (const org of groups) {
+      const takenAt = ccdaDate(org?.effectiveTime?.["@_value"] || org?.effectiveTime?.low?.["@_value"]);
+      const rec: ExtractedVital = { takenAt };
+      let any = false;
+      for (const o of collect(org, "observation")) {
+        const code = o?.code?.["@_code"];
+        const raw = o?.value?.["@_value"];
+        if (code == null || raw == null) continue;
+        const mapped = mapVital(String(code), Number(raw), o?.value?.["@_unit"]);
+        if (mapped) { (rec as any)[mapped.field] = mapped.value; any = true; }
+      }
+      if (any) vitals.push(rec);
+    }
+  }
+
+  // Immunizations (LOINC 11369-6)
+  const immunizations: ExtractedImmunization[] = [];
+  const immSec = findSectionByCode(sections, "11369-6");
+  if (immSec) {
+    for (const sa of collect(immSec, "substanceAdministration")) {
+      const mm = collect(sa, "manufacturedMaterial")[0];
+      const vaccine = mm?.code?.["@_displayName"] || str(mm?.code?.originalText);
+      if (!vaccine) continue;
+      immunizations.push({
+        vaccine: String(vaccine),
+        cvxCode: mm?.code?.["@_code"] ? String(mm.code["@_code"]) : undefined,
+        givenAt: ccdaDate(sa?.effectiveTime?.["@_value"] || sa?.effectiveTime?.low?.["@_value"]),
+        lot: str(sa?.lotNumberText) || str(mm?.lotNumberText),
+      });
+    }
+  }
+
+  return {
+    format: "ccda", patient,
+    problems: dedupeBy(problems, (x) => x.description.toLowerCase()),
+    medications: dedupeBy(medications, (x) => x.name.toLowerCase()),
+    allergies: dedupeBy(allergies, (x) => x.substance.toLowerCase()),
+    vitals,
+    immunizations: dedupeBy(immunizations, (x) => `${x.cvxCode || x.vaccine.toLowerCase()}|${x.givenAt || ""}`),
+  };
 }
 
 function dedupeBy<T>(arr: T[], key: (x: T) => string): T[] {
@@ -180,6 +261,16 @@ export function parseFhirBundle(jsonText: string): Extracted {
   const problems: ExtractedProblem[] = [];
   const medications: ExtractedMed[] = [];
   const allergies: ExtractedAllergy[] = [];
+  const immunizations: ExtractedImmunization[] = [];
+  const vitalsByKey = new Map<string, ExtractedVital>();
+  let vitalSeq = 0;
+
+  const applyVital = (rec: ExtractedVital, coding: any, vq: any) => {
+    if (!vq || vq.value == null) return false;
+    const m = mapVital(coding?.code, Number(vq.value), vq.unit || vq.code);
+    if (m) { (rec as any)[m.field] = m.value; return true; }
+    return false;
+  };
 
   for (const r of resources) {
     switch (r?.resourceType) {
@@ -233,10 +324,48 @@ export function parseFhirBundle(jsonText: string): Extracted {
         });
         break;
       }
+      case "Observation": {
+        // Vital signs (single value or BP panel with components), grouped by reading time.
+        const when = r.effectiveDateTime || r.effectivePeriod?.start || r.issued;
+        const key = when ? String(when) : `seq-${vitalSeq++}`;
+        const rec = vitalsByKey.get(key) || { takenAt: when ? String(when).slice(0, 19) : undefined };
+        let any = false;
+        if (Array.isArray(r.component) && r.component.length) {
+          for (const c of r.component) any = applyVital(rec, toArr(c.code?.coding)[0], c.valueQuantity) || any;
+        } else if (r.valueQuantity) {
+          any = applyVital(rec, toArr(r.code?.coding)[0], r.valueQuantity) || any;
+        }
+        if (any) vitalsByKey.set(key, rec);
+        break;
+      }
+      case "Immunization": {
+        const vaccine = fhirDisplay(r.vaccineCode);
+        if (vaccine) {
+          const cvx = toArr(r.vaccineCode?.coding).find((c: any) => String(c?.system || "").toLowerCase().includes("cvx"))?.code
+            || toArr(r.vaccineCode?.coding)[0]?.code;
+          immunizations.push({
+            vaccine,
+            cvxCode: cvx ? String(cvx) : undefined,
+            givenAt: r.occurrenceDateTime ? String(r.occurrenceDateTime).slice(0, 10) : undefined,
+            lot: r.lotNumber || undefined,
+            site: fhirDisplay(r.site) || undefined,
+          });
+        }
+        break;
+      }
     }
   }
 
-  return { format: "fhir", patient, problems: dedupeBy(problems, (x) => x.description.toLowerCase()), medications: dedupeBy(medications, (x) => x.name.toLowerCase()), allergies: dedupeBy(allergies, (x) => x.substance.toLowerCase()) };
+  const vitals = [...vitalsByKey.values()];
+
+  return {
+    format: "fhir", patient,
+    problems: dedupeBy(problems, (x) => x.description.toLowerCase()),
+    medications: dedupeBy(medications, (x) => x.name.toLowerCase()),
+    allergies: dedupeBy(allergies, (x) => x.substance.toLowerCase()),
+    vitals,
+    immunizations: dedupeBy(immunizations, (x) => `${x.cvxCode || x.vaccine.toLowerCase()}|${x.givenAt || ""}`),
+  };
 }
 
 export function parseClinicalDocument(content: string): Extracted {

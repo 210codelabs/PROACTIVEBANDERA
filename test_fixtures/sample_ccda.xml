@@ -86,6 +86,50 @@
           </entry>
         </section>
       </component>
+      <component>
+        <section>
+          <code code="8716-3"/>
+          <title>Vital Signs</title>
+          <entry>
+            <organizer>
+              <effectiveTime value="20230310"/>
+              <component><observation><code code="8302-2"/><value value="180" unit="cm"/></observation></component>
+              <component><observation><code code="29463-7"/><value value="82" unit="kg"/></observation></component>
+              <component><observation><code code="39156-5"/><value value="25.3" unit="kg/m2"/></observation></component>
+              <component><observation><code code="8480-6"/><value value="128" unit="mm[Hg]"/></observation></component>
+              <component><observation><code code="8462-4"/><value value="82" unit="mm[Hg]"/></observation></component>
+              <component><observation><code code="8867-4"/><value value="72" unit="/min"/></observation></component>
+              <component><observation><code code="8310-5"/><value value="37.0" unit="Cel"/></observation></component>
+              <component><observation><code code="9279-1"/><value value="16" unit="/min"/></observation></component>
+              <component><observation><code code="2708-6"/><value value="98" unit="%"/></observation></component>
+            </organizer>
+          </entry>
+        </section>
+      </component>
+      <component>
+        <section>
+          <code code="11369-6"/>
+          <title>Immunizations</title>
+          <entry>
+            <substanceAdministration>
+              <effectiveTime value="20221001"/>
+              <consumable><manufacturedProduct><manufacturedMaterial>
+                <code code="140" displayName="Influenza, seasonal, injectable"/>
+              </manufacturedMaterial></manufacturedProduct></consumable>
+              <lotNumberText>FLU2022-88</lotNumberText>
+            </substanceAdministration>
+          </entry>
+          <entry>
+            <substanceAdministration>
+              <effectiveTime value="20210115"/>
+              <consumable><manufacturedProduct><manufacturedMaterial>
+                <code code="208" displayName="COVID-19, mRNA, Pfizer"/>
+              </manufacturedMaterial></manufacturedProduct></consumable>
+              <lotNumberText>PFZ-771</lotNumberText>
+            </substanceAdministration>
+          </entry>
+        </section>
+      </component>
     </structuredBody>
   </component>
 </ClinicalDocument>

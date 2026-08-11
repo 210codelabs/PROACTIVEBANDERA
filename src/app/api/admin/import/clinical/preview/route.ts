@@ -45,10 +45,12 @@ export async function POST(req: Request) {
     ok: true,
     format: ex.format,
     patient: p,
-    counts: { problems: ex.problems.length, medications: ex.medications.length, allergies: ex.allergies.length },
+    counts: { problems: ex.problems.length, medications: ex.medications.length, allergies: ex.allergies.length, vitals: ex.vitals.length, immunizations: ex.immunizations.length },
     problems: ex.problems.slice(0, 25),
     medications: ex.medications.slice(0, 25),
     allergies: ex.allergies.slice(0, 25),
+    vitals: ex.vitals.slice(0, 25),
+    immunizations: ex.immunizations.slice(0, 25),
     missingRequired: missing,
     match,
   });

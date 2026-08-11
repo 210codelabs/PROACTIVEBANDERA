@@ -46,6 +46,64 @@
         "criticality": "high",
         "reaction": [{ "manifestation": [{ "text": "Anaphylaxis" }], "severity": "severe" }]
       }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "category": [{ "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs" }] }],
+        "code": { "coding": [{ "system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel" }] },
+        "effectiveDateTime": "2023-05-20T10:15:00",
+        "component": [
+          { "code": { "coding": [{ "system": "http://loinc.org", "code": "8480-6" }] }, "valueQuantity": { "value": 122, "unit": "mmHg" } },
+          { "code": { "coding": [{ "system": "http://loinc.org", "code": "8462-4" }] }, "valueQuantity": { "value": 78, "unit": "mmHg" } }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "category": [{ "coding": [{ "code": "vital-signs" }] }],
+        "code": { "coding": [{ "system": "http://loinc.org", "code": "8867-4", "display": "Heart rate" }] },
+        "effectiveDateTime": "2023-05-20T10:15:00",
+        "valueQuantity": { "value": 68, "unit": "/min" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "category": [{ "coding": [{ "code": "vital-signs" }] }],
+        "code": { "coding": [{ "system": "http://loinc.org", "code": "29463-7", "display": "Body weight" }] },
+        "effectiveDateTime": "2023-05-20T10:15:00",
+        "valueQuantity": { "value": 135, "unit": "[lb_av]" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "category": [{ "coding": [{ "code": "vital-signs" }] }],
+        "code": { "coding": [{ "system": "http://loinc.org", "code": "8310-5", "display": "Body temperature" }] },
+        "effectiveDateTime": "2023-05-20T10:15:00",
+        "valueQuantity": { "value": 98.6, "unit": "[degF]" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "category": [{ "coding": [{ "code": "vital-signs" }] }],
+        "code": { "coding": [{ "system": "http://loinc.org", "code": "2708-6", "display": "Oxygen saturation" }] },
+        "effectiveDateTime": "2023-05-20T10:15:00",
+        "valueQuantity": { "value": 99, "unit": "%" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Immunization",
+        "status": "completed",
+        "vaccineCode": { "text": "Tdap", "coding": [{ "system": "http://hl7.org/fhir/sid/cvx", "code": "115", "display": "Tdap" }] },
+        "occurrenceDateTime": "2020-09-10",
+        "lotNumber": "TDAP-55",
+        "site": { "text": "Left deltoid" }
+      }
     }
   ]
 }

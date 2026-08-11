@@ -208,3 +208,11 @@ User picked these three from the import backlog (order 1→2→3, each backend-t
 - Data Tools "Recent imports" table now shows a Type column (patients/appointments/clinical). No Prisma schema change beyond reusing existing models. UI screenshot-verified (3 tabs + FHIR preview rendering demographics + clinical lists). Preview only — redeploy to confirm in production.
 - LIMITATIONS: C-CDA/FHIR parsing is best-effort across common export layouts; unusual vendor variants may need mapping tweaks with a sanitized sample. Imported clinical data must be clinician-reviewed before it is relied upon.
 - STILL PENDING from broader roadmap: Phase D intake forms rebuild (Clinical + PT, branded PDFs, body/pain diagram, HIPAA); Phase E Kiosk (temp ID + secure send).
+
+## Clinical Import — Vitals & Immunizations (Iteration 39)
+- Extended the C-CDA/FHIR clinical importer (Feature 3) to ALSO bring across Vital signs and Immunization history, alongside demographics + problems + meds + allergies.
+- C-CDA: Vital Signs section (LOINC 8716-3) -> one Vital per organizer (LOINC->field map: height 8302-2, weight 29463-7/3141-9, BMI 39156-5, systolic 8480-6, diastolic 8462-4, pulse 8867-4, temp 8310-5, resp 9279-1, SpO2 2708-6/59408-5, pain 38208-5); Immunizations section (LOINC 11369-6) -> vaccine/CVX code/givenAt/lot.
+- FHIR: Observation resources (vital-signs, incl. BP panel via component[]) grouped by effectiveDateTime into one Vital each; Immunization resources -> vaccine/CVX/occurrence/lot/site.
+- Unit conversions handled: lb->kg, degF->degC, inch->cm.
+- preview now returns counts.vitals + counts.immunizations + lists; commit attaches Vital + Immunization records, deduped & idempotent (vitals by takenAt+values signature; immunizations by cvx/vaccine+date). ImportJob entity='clinical'. No Prisma schema change (reuses Vital + Immunization models).
+- Fixtures updated (sample_ccda.xml: 1 vital + 2 immunizations; sample_fhir.json: 1 vital + 1 immunization). Backend 6/6 incl. unit conversions + 100% idempotency. UI (ClinicalImport) now shows 5 categories: Problems, Medications, Allergies, Vitals, Immunizations — screenshot-verified. Preview only — redeploy to confirm in production.

@@ -62,21 +62,30 @@ export async function POST(req: Request) {
   }
 
   const pid = patient.id;
-  const res = { problems: { created: 0, skipped: 0 }, medications: { created: 0, skipped: 0 }, allergies: { created: 0, skipped: 0 } };
+  const res = { problems: { created: 0, skipped: 0 }, medications: { created: 0, skipped: 0 }, allergies: { created: 0, skipped: 0 }, vitals: { created: 0, skipped: 0 }, immunizations: { created: 0, skipped: 0 } };
 
   // Preload existing records for this patient and dedupe in JS (case-insensitive,
   // exact match). We avoid Prisma's insensitive `equals` here because on MongoDB it
   // builds an UNESCAPED regex, so values with regex-special chars (e.g. "Essential
   // (primary) hypertension", "Metformin (extended release)") would fail to match.
   const norm = (s: string) => s.trim().toLowerCase();
-  const [existingProblems, existingMeds, existingAllergies] = await Promise.all([
+  const [existingProblems, existingMeds, existingAllergies, existingVitals, existingImms] = await Promise.all([
     db.problem.findMany({ where: { patientId: pid }, select: { description: true } }),
     db.medication.findMany({ where: { patientId: pid }, select: { name: true } }),
     db.allergy.findMany({ where: { patientId: pid }, select: { substance: true } }),
+    db.vital.findMany({ where: { patientId: pid }, select: { takenAt: true, heightCm: true, weightKg: true, bmi: true, systolic: true, diastolic: true, pulse: true, temperatureC: true, respRate: true, spo2: true, painScore: true } }),
+    db.immunization.findMany({ where: { patientId: pid }, select: { vaccine: true, cvxCode: true, givenAt: true } }),
   ]);
   const problemSet = new Set(existingProblems.map((x) => norm(x.description)));
   const medSet = new Set(existingMeds.map((x) => norm(x.name)));
   const allergySet = new Set(existingAllergies.map((x) => norm(x.substance)));
+  const vitalSig = (v: any) => [
+    v.takenAt ? new Date(v.takenAt).toISOString() : "",
+    v.heightCm, v.weightKg, v.bmi, v.systolic, v.diastolic, v.pulse, v.temperatureC, v.respRate, v.spo2, v.painScore,
+  ].map((x) => (x == null ? "" : String(x))).join("|");
+  const vitalSet = new Set(existingVitals.map(vitalSig));
+  const immSig = (i: { vaccine: string; cvxCode?: string | null; givenAt?: any }) => `${(i.cvxCode || i.vaccine.toLowerCase()).trim()}|${i.givenAt ? new Date(i.givenAt).toISOString().slice(0, 10) : ""}`;
+  const immSet = new Set(existingImms.map(immSig));
 
   // Problems (dedupe by description, case-insensitive)
   for (const pr of ex.problems) {
@@ -99,10 +108,36 @@ export async function POST(req: Request) {
     allergySet.add(norm(a.substance));
     res.allergies.created++;
   }
+  // Vitals (dedupe by full reading signature incl. takenAt)
+  for (const v of ex.vitals) {
+    const takenAt = v.takenAt ? new Date(v.takenAt) : new Date();
+    const sig = vitalSig({ ...v, takenAt });
+    if (vitalSet.has(sig)) { res.vitals.skipped++; continue; }
+    await db.vital.create({ data: {
+      patientId: pid, takenAt,
+      heightCm: v.heightCm ?? null, weightKg: v.weightKg ?? null, bmi: v.bmi ?? null,
+      systolic: v.systolic ?? null, diastolic: v.diastolic ?? null, pulse: v.pulse ?? null,
+      temperatureC: v.temperatureC ?? null, respRate: v.respRate ?? null, spo2: v.spo2 ?? null, painScore: v.painScore ?? null,
+    } });
+    vitalSet.add(sig);
+    res.vitals.created++;
+  }
+  // Immunizations (dedupe by cvx/vaccine + date)
+  for (const im of ex.immunizations) {
+    const sig = immSig({ vaccine: im.vaccine, cvxCode: im.cvxCode, givenAt: im.givenAt });
+    if (immSet.has(sig)) { res.immunizations.skipped++; continue; }
+    await db.immunization.create({ data: {
+      patientId: pid, vaccine: im.vaccine, cvxCode: im.cvxCode || null,
+      givenAt: im.givenAt ? new Date(im.givenAt) : new Date(),
+      lot: im.lot || null, site: im.site || null,
+    } });
+    immSet.add(sig);
+    res.immunizations.created++;
+  }
 
-  const totalCreated = res.problems.created + res.medications.created + res.allergies.created;
-  const totalSkipped = res.problems.skipped + res.medications.skipped + res.allergies.skipped;
-  const total = ex.problems.length + ex.medications.length + ex.allergies.length;
+  const totalCreated = res.problems.created + res.medications.created + res.allergies.created + res.vitals.created + res.immunizations.created;
+  const totalSkipped = res.problems.skipped + res.medications.skipped + res.allergies.skipped + res.vitals.skipped + res.immunizations.skipped;
+  const total = ex.problems.length + ex.medications.length + ex.allergies.length + ex.vitals.length + ex.immunizations.length;
 
   const job = await db.importJob.create({
     data: {
