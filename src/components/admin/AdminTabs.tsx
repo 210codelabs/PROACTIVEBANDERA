@@ -8,6 +8,7 @@ const TABS = [
   { href: "/admin/branding", label: "Branding" },
   { href: "/admin/landing", label: "Landing Page" },
   { href: "/admin/settings", label: "Ops Settings" },
+  { href: "/admin/data-tools", label: "Data Tools" },
 ];
 
 export default function AdminTabs({ active }: { active: string }) {

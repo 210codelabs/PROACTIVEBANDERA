@@ -823,6 +823,23 @@ model FeeScheduleItem {
   @@index([active])
 }
 
+// External-EMR data import job tracking (Practice Fusion, eCW, generic CSV).
+model ImportJob {
+  id            String   @id @default(cuid()) @map("_id")
+  source        String   // practice_fusion | ecw | csv
+  entity        String   @default("patients")
+  status        String   @default("completed") // completed | partial | failed
+  total         Int      @default(0)
+  created       Int      @default(0)
+  skipped       Int      @default(0)
+  failed        Int      @default(0)
+  errors        Json?
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime @default(now())
+  @@index([source])
+}
+
 // Organization bank account for payer EFT/ACH deposits. Sensitive numbers are
 // stored server-side and only exposed masked (last4) to clients.
 model BankAccount {

@@ -192,3 +192,10 @@ Goal: make the app easy to re-deploy for a new clinic with a guided, admin-only 
 - Phase B: new BankAccount + PayerEftEnrollment models. APIs /api/billing/bank-accounts and /api/billing/eft-enrollments (admin/billing only). Routing/account numbers stored server-side, returned MASKED (last4) only. New page /billing/bank-eft (BankEft.tsx) manages bank accounts + per-payer EFT/ERA enrollment status. ERA remittances already auto-reconcile to ledger. Backend 10/10.
 - Phase C: Shell sidebar now uses collapsible submenus. Billing → Overview, Eligibility worklist, Revenue Cycle, Bank & EFT. Intake → Intake Forms, Intake Inbox. Parent highlights/expands when any child route is active.
 - REMAINING: Phase D intake forms rebuild (Clinical + PT, branded fillable PDFs, body/pain diagram, HIPAA, deep research); Phase E Kiosk mode (temp ID + secure send from chart).
+
+## Admin Data Tools + EMR Data Import (Iteration 37) — top priority feature
+- New Admin tab "Data Tools" (/admin/data-tools). Backup, Restore, Reindex, Integrity-scan moved/consolidated here (full repair remains on /admin/database).
+- EMR DATA IMPORT (patients): sources Practice Fusion, eClinicalWorks (eCW), Generic CSV. Upload/paste CSV -> Preview (auto-maps headers via broad alias map, normalizes DOB & sex, shows sample + counts + missing-required) -> Import (creates patients, dedupe by MRN or name+DOB, additive/never overwrites). ImportJob model tracks runs; recent imports table shown.
+- APIs (admin-only via requireAdminSession): POST /api/admin/import/preview, POST/GET /api/admin/import/commit. lib: src/lib/import/emr.ts (RFC-4180 CSV parser + mapping).
+- Backend 7/7 passed (auth, mapping, DOB normalization MM/DD/YYYY->ISO, dedupe skip-on-rerun, job history, search verify). UI screenshot-verified. Cleaned test patients from preview.
+- NOTE: Practice Fusion / eCW import is FILE-BASED (their CSV/demographics export) — not a live vendor API pull (that needs partner OAuth/BAAs). C-CDA/FHIR import is a future enhancement.
