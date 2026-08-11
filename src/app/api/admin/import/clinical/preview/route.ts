@@ -41,16 +41,24 @@ export async function POST(req: Request) {
     else if (narrowed.length > 1) match = { by: "ambiguous", count: narrowed.length };
   }
 
+  // Provider roster (for the "default provider for imported visits" picker,
+  // only relevant when the document carries encounters/notes).
+  const providers = ex.encounters.length
+    ? await db.user.findMany({ where: { role: "provider", active: true }, select: { id: true, firstName: true, lastName: true, npi: true, credential: true }, orderBy: { lastName: "asc" } }).catch(() => [])
+    : [];
+
   return NextResponse.json({
     ok: true,
     format: ex.format,
     patient: p,
-    counts: { problems: ex.problems.length, medications: ex.medications.length, allergies: ex.allergies.length, vitals: ex.vitals.length, immunizations: ex.immunizations.length },
+    counts: { problems: ex.problems.length, medications: ex.medications.length, allergies: ex.allergies.length, vitals: ex.vitals.length, immunizations: ex.immunizations.length, encounters: ex.encounters.length },
     problems: ex.problems.slice(0, 25),
     medications: ex.medications.slice(0, 25),
     allergies: ex.allergies.slice(0, 25),
     vitals: ex.vitals.slice(0, 25),
     immunizations: ex.immunizations.slice(0, 25),
+    encounters: ex.encounters.slice(0, 25),
+    providers: providers.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}${p.credential ? ", " + p.credential : ""}`, npi: p.npi || null })),
     missingRequired: missing,
     match,
   });

@@ -130,6 +130,19 @@
           </entry>
         </section>
       </component>
+      <component>
+        <section>
+          <code code="46240-8"/>
+          <title>Encounters</title>
+          <entry>
+            <encounter>
+              <effectiveTime value="20230310"/>
+              <code displayName="Office outpatient visit"/>
+              <text>Follow-up visit. Patient reports improved glucose control on metformin. Blood pressure well controlled. Continue current regimen; recheck A1c in 3 months.</text>
+            </encounter>
+          </entry>
+        </section>
+      </component>
     </structuredBody>
   </component>
 </ClinicalDocument>

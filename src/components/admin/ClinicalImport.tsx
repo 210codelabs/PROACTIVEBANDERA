@@ -8,6 +8,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
   const [content, setContent] = useState("");
   const [fileName, setFileName] = useState("");
   const [preview, setPreview] = useState<any>(null);
+  const [defaultProviderId, setDefaultProviderId] = useState("");
   const [result, setResult] = useState<any>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -23,7 +24,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
       const r = await fetch("/api/admin/import/clinical/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
       const d = await r.json();
       if (!r.ok) { setMsg({ kind: "err", text: d.error || "Preview failed." }); setPreview(null); }
-      else setPreview(d);
+      else { setPreview(d); if (!defaultProviderId && d.providers?.length) setDefaultProviderId(d.providers[0].id); }
     } finally { setBusy(""); }
   }
 
@@ -31,7 +32,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
     const c = preview?.counts || {};
     const parts = [
       `${c.problems ?? 0} problem(s)`, `${c.medications ?? 0} medication(s)`, `${c.allergies ?? 0} allergy(ies)`,
-      `${c.vitals ?? 0} vital reading(s)`, `${c.immunizations ?? 0} immunization(s)`,
+      `${c.vitals ?? 0} vital reading(s)`, `${c.immunizations ?? 0} immunization(s)`, `${c.encounters ?? 0} visit note(s)`,
     ].join(", ");
     const p = preview?.patient || {};
     const who = [p.firstName, p.lastName].filter(Boolean).join(" ") || "this patient";
@@ -39,7 +40,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
     if (!confirm(`Import ${parts} ${verb} ${who}? Existing records are skipped, never overwritten.`)) return;
     setBusy("import"); setMsg(null);
     try {
-      const r = await fetch("/api/admin/import/clinical/commit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
+      const r = await fetch("/api/admin/import/clinical/commit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, defaultProviderId: defaultProviderId || null }) });
       const d = await r.json();
       if (!r.ok) setMsg({ kind: "err", text: d.error || "Import failed." });
       else {
@@ -52,6 +53,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
 
   const p = preview?.patient || {};
   const missing = preview?.missingRequired || [];
+  const providers: any[] = preview?.providers || [];
 
   return (
     <div className="p-4 space-y-4">
@@ -96,13 +98,25 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
             <Field label="ZIP" value={p.postalCode} />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <ClinList title="Problems" count={preview.counts.problems} items={(preview.problems || []).map((x: any) => `${x.description}${x.icd10 ? ` (${x.icd10})` : ""}`)} />
             <ClinList title="Medications" count={preview.counts.medications} items={(preview.medications || []).map((x: any) => x.name + (x.sig ? ` — ${x.sig}` : ""))} />
             <ClinList title="Allergies" count={preview.counts.allergies} items={(preview.allergies || []).map((x: any) => x.substance + (x.reaction ? ` — ${x.reaction}` : ""))} />
             <ClinList title="Vitals" count={preview.counts.vitals} items={(preview.vitals || []).map(vitalSummary)} />
             <ClinList title="Immunizations" count={preview.counts.immunizations} items={(preview.immunizations || []).map((x: any) => `${x.vaccine}${x.cvxCode ? ` (CVX ${x.cvxCode})` : ""}${x.givenAt ? ` — ${x.givenAt}` : ""}`)} />
+            <ClinList title="Visit notes" count={preview.counts.encounters ?? 0} items={(preview.encounters || []).map(encounterSummary)} />
           </div>
+
+          {(preview.counts.encounters ?? 0) > 0 && (
+            <label className="flex flex-wrap items-center gap-2 text-sm rounded-lg bg-amber-50 ring-1 ring-amber-200 px-3 py-2">
+              <span className="font-semibold text-amber-900">Default provider for imported visits</span>
+              <select className="input py-1 text-sm" value={defaultProviderId} onChange={(e) => setDefaultProviderId(e.target.value)}>
+                <option value="">— none (skip unmatched visits) —</option>
+                {providers.map((pr) => <option key={pr.id} value={pr.id}>{pr.name}{pr.npi ? ` · NPI ${pr.npi}` : ""}</option>)}
+              </select>
+              <span className="text-[11px] text-amber-700">Historical visit notes need a provider on file; used when the document&apos;s provider can&apos;t be matched.</span>
+            </label>
+          )}
 
           <button onClick={runImport} disabled={busy !== "" || missing.length > 0 || preview.match?.by === "ambiguous"} className="btn-primary">
             {busy === "import" ? "Importing…" : preview.match?.id ? "Merge into existing chart" : "Create chart & import"}
@@ -114,12 +128,20 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
       {result && (
         <div className="rounded-lg ring-1 ring-emerald-200 bg-emerald-50 p-3 text-sm">
           <div className="font-semibold text-slate-800">Import complete</div>
-          <div className="text-slate-600">{result.patientCreated ? "New chart created." : "Merged into existing chart."} Problems +{result.counts.problems.created} ({result.counts.problems.skipped} skipped) · Meds +{result.counts.medications.created} ({result.counts.medications.skipped} skipped) · Allergies +{result.counts.allergies.created} ({result.counts.allergies.skipped} skipped) · Vitals +{result.counts.vitals.created} ({result.counts.vitals.skipped} skipped) · Immunizations +{result.counts.immunizations.created} ({result.counts.immunizations.skipped} skipped)</div>
+          <div className="text-slate-600">{result.patientCreated ? "New chart created." : "Merged into existing chart."} Problems +{result.counts.problems.created} ({result.counts.problems.skipped} skipped) · Meds +{result.counts.medications.created} ({result.counts.medications.skipped} skipped) · Allergies +{result.counts.allergies.created} ({result.counts.allergies.skipped} skipped) · Vitals +{result.counts.vitals.created} ({result.counts.vitals.skipped} skipped) · Immunizations +{result.counts.immunizations.created} ({result.counts.immunizations.skipped} skipped) · Visit notes +{result.counts.encounters?.created ?? 0} ({result.counts.encounters?.skipped ?? 0} skipped)</div>
+          {result.notice && <div className="mt-1 text-amber-700">{result.notice}</div>}
           {result.patientId && <a href={`/patients/${result.patientId}`} className="text-brand-600 hover:underline">Open patient chart →</a>}
         </div>
       )}
     </div>
   );
+}
+
+function encounterSummary(e: any): string {
+  const when = e.date ? new Date(e.date).toLocaleDateString() : "";
+  const head = [when, e.type].filter(Boolean).join(" · ");
+  const body = e.note || e.reason || "";
+  return `${head}${head && body ? " — " : ""}${body.length > 80 ? body.slice(0, 80) + "…" : body}`.trim() || "—";
 }
 
 function vitalSummary(v: any): string {

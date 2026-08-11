@@ -23,6 +23,14 @@ export type ExtractedVital = {
   temperatureC?: number; respRate?: number; spo2?: number; painScore?: number;
 };
 export type ExtractedImmunization = { vaccine: string; cvxCode?: string; givenAt?: string; lot?: string; site?: string };
+export type ExtractedEncounter = {
+  date?: string;         // visit date (ISO)
+  type?: string;         // encounter/visit type e.g. "Office Visit", "Progress Note"
+  reason?: string;       // chief complaint / reason for visit
+  note?: string;         // narrative note body
+  provider?: string;     // free-text provider name (matched at commit)
+  providerNpi?: string;
+};
 export type Extracted = {
   format: "ccda" | "fhir";
   patient: ExtractedPatient;
@@ -31,6 +39,7 @@ export type Extracted = {
   allergies: ExtractedAllergy[];
   vitals: ExtractedVital[];
   immunizations: ExtractedImmunization[];
+  encounters: ExtractedEncounter[];
 };
 
 const toArr = <T>(x: T | T[] | undefined | null): T[] => (x == null ? [] : Array.isArray(x) ? x : [x]);
@@ -219,6 +228,30 @@ export function parseCcda(xml: string): Extracted {
     }
   }
 
+  // Encounters / visit history (LOINC 46240-8 "History of encounters")
+  const encounters: ExtractedEncounter[] = [];
+  const encSec = findSectionByCode(sections, "46240-8");
+  if (encSec) {
+    for (const enc of collect(encSec, "encounter")) {
+      const date = ccdaDate(enc?.effectiveTime?.["@_value"] || enc?.effectiveTime?.low?.["@_value"]);
+      const type = enc?.code?.["@_displayName"] || str(enc?.code?.originalText);
+      // reason: nested observation value display, or entryRelationship act code
+      let reason: string | undefined;
+      for (const o of collect(enc, "observation")) {
+        const d = o?.value?.["@_displayName"];
+        if (d) { reason = String(d); break; }
+      }
+      // narrative note: a <text> child of the encounter act
+      const note = str(enc?.text);
+      // provider name from assignedPerson
+      const ap = collect(enc, "assignedPerson")[0];
+      const nameNode2 = Array.isArray(ap?.name) ? ap.name[0] : ap?.name;
+      const g = toArr(nameNode2?.given).map(str).filter(Boolean) as string[];
+      const provider = ap ? [g.join(" "), str(nameNode2?.family)].filter(Boolean).join(" ").trim() || undefined : undefined;
+      if (date || type || note) encounters.push({ date, type: type ? String(type) : undefined, reason, note, provider });
+    }
+  }
+
   return {
     format: "ccda", patient,
     problems: dedupeBy(problems, (x) => x.description.toLowerCase()),
@@ -226,6 +259,7 @@ export function parseCcda(xml: string): Extracted {
     allergies: dedupeBy(allergies, (x) => x.substance.toLowerCase()),
     vitals,
     immunizations: dedupeBy(immunizations, (x) => `${x.cvxCode || x.vaccine.toLowerCase()}|${x.givenAt || ""}`),
+    encounters,
   };
 }
 
@@ -256,12 +290,19 @@ export function parseFhirBundle(jsonText: string): Extracted {
   const resources: any[] = bundle?.resourceType === "Bundle"
     ? toArr(bundle.entry).map((e: any) => e?.resource).filter(Boolean)
     : bundle?.resourceType ? [bundle] : [];
+  return extractFromFhirResources(resources);
+}
 
+// Normalize an array of already-parsed FHIR resources (from a bundle OR from a
+// live FHIR API import) into our Extracted shape. Shared by the file importer
+// and the connected (SMART-on-FHIR) importer.
+export function extractFromFhirResources(resources: any[]): Extracted {
   const patient: ExtractedPatient = {};
   const problems: ExtractedProblem[] = [];
   const medications: ExtractedMed[] = [];
   const allergies: ExtractedAllergy[] = [];
   const immunizations: ExtractedImmunization[] = [];
+  const encounters: ExtractedEncounter[] = [];
   const vitalsByKey = new Map<string, ExtractedVital>();
   let vitalSeq = 0;
 
@@ -353,6 +394,44 @@ export function parseFhirBundle(jsonText: string): Extracted {
         }
         break;
       }
+      case "Encounter": {
+        const date = r.period?.start || r.period?.end || r.plannedStartDate;
+        const type = fhirDisplay(toArr(r.type)[0]) || r.class?.display || r.class?.code;
+        const reason = fhirDisplay(toArr(r.reasonCode)[0]);
+        const provider = toArr(r.participant).map((pt: any) => pt?.individual?.display).filter(Boolean)[0];
+        if (date || type || reason) encounters.push({
+          date: date ? String(date).slice(0, 19) : undefined,
+          type: type ? String(type) : undefined,
+          reason: reason || undefined,
+          provider: provider || undefined,
+        });
+        break;
+      }
+      case "DocumentReference":
+      case "Composition": {
+        // Clinical notes -> imported as an encounter with a note body.
+        const date = r.date || r.context?.period?.start || r.effectiveDateTime;
+        const type = fhirDisplay(r.type) || "Clinical note";
+        let note: string | undefined = r.description || undefined;
+        const attach = toArr(r.content)[0]?.attachment;
+        if (attach?.data) {
+          try {
+            const decoded = Buffer.from(String(attach.data), "base64").toString("utf8").trim();
+            if (decoded) note = decoded;
+          } catch { /* keep description */ }
+        } else if (r.resourceType === "Composition") {
+          const secText = toArr(r.section).map((s: any) => (s?.text?.div ? String(s.text.div).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : "")).filter(Boolean).join("\n");
+          if (secText) note = secText;
+        }
+        const provider = toArr(r.author)[0]?.display;
+        if (note || type) encounters.push({
+          date: date ? String(date).slice(0, 19) : undefined,
+          type: type ? String(type) : undefined,
+          note,
+          provider: provider || undefined,
+        });
+        break;
+      }
     }
   }
 
@@ -365,6 +444,7 @@ export function parseFhirBundle(jsonText: string): Extracted {
     allergies: dedupeBy(allergies, (x) => x.substance.toLowerCase()),
     vitals,
     immunizations: dedupeBy(immunizations, (x) => `${x.cvxCode || x.vaccine.toLowerCase()}|${x.givenAt || ""}`),
+    encounters,
   };
 }
 

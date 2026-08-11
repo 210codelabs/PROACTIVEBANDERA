@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import AppointmentImport from "./AppointmentImport";
 import ClinicalImport from "./ClinicalImport";
+import FhirConnect from "./FhirConnect";
 
 const SOURCES = [
   { value: "practice_fusion", label: "Practice Fusion", hint: "Export patients from Practice Fusion (Reports → Patient List → CSV) and upload here." },
@@ -56,7 +57,7 @@ export default function DataTools() {
   }
 
   // ---- Import ----
-  const [entity, setEntity] = useState<"patients" | "appointments" | "clinical">("patients");
+  const [entity, setEntity] = useState<"patients" | "appointments" | "clinical" | "connected">("patients");
   const [source, setSource] = useState("practice_fusion");
   const [csv, setCsv] = useState("");
   const [fileName, setFileName] = useState("");
@@ -149,12 +150,13 @@ export default function DataTools() {
         <header className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-slate-900">Data Import — migrate from another EMR</h2>
-            <p className="text-xs text-slate-500">Bring {entity === "patients" ? "patients" : entity === "appointments" ? "upcoming appointments" : "clinical records (problems, meds, allergies)"} over from Practice Fusion, eClinicalWorks, or any CSV / C-CDA / FHIR export. Additive &amp; non-destructive — duplicates are skipped.</p>
+            <p className="text-xs text-slate-500">Bring {entity === "patients" ? "patients" : entity === "appointments" ? "upcoming appointments" : entity === "clinical" ? "clinical records (problems, meds, allergies)" : "charts live over the vendor FHIR API"} over from Practice Fusion, eClinicalWorks, or any CSV / C-CDA / FHIR export. Additive &amp; non-destructive — duplicates are skipped.</p>
           </div>
           <div className="inline-flex rounded-lg ring-1 ring-slate-200 overflow-hidden text-sm">
             <button type="button" onClick={() => setEntity("patients")} className={`px-3 py-1.5 ${entity === "patients" ? "bg-brand-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>Patients</button>
             <button type="button" onClick={() => setEntity("appointments")} className={`px-3 py-1.5 border-l border-slate-200 ${entity === "appointments" ? "bg-brand-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>Appointments</button>
             <button type="button" onClick={() => setEntity("clinical")} className={`px-3 py-1.5 border-l border-slate-200 ${entity === "clinical" ? "bg-brand-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>Clinical (C-CDA/FHIR)</button>
+            <button type="button" onClick={() => setEntity("connected")} className={`px-3 py-1.5 border-l border-slate-200 ${entity === "connected" ? "bg-brand-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>Connected (live API)</button>
           </div>
         </header>
 
@@ -162,6 +164,8 @@ export default function DataTools() {
           <AppointmentImport onImported={loadJobs} />
         ) : entity === "clinical" ? (
           <ClinicalImport onImported={loadJobs} />
+        ) : entity === "connected" ? (
+          <FhirConnect />
         ) : (
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

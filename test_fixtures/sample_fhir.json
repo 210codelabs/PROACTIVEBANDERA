@@ -104,6 +104,27 @@
         "lotNumber": "TDAP-55",
         "site": { "text": "Left deltoid" }
       }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "status": "finished",
+        "class": { "code": "AMB", "display": "ambulatory" },
+        "type": [{ "text": "Office Visit" }],
+        "period": { "start": "2023-05-20T10:00:00" },
+        "reasonCode": [{ "text": "Annual physical" }],
+        "participant": [{ "individual": { "display": "Dr. Andy Manzano" } }]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DocumentReference",
+        "status": "current",
+        "type": { "text": "Progress note" },
+        "date": "2023-05-20T10:30:00",
+        "author": [{ "display": "Andy Manzano" }],
+        "content": [{ "attachment": { "contentType": "text/plain", "data": "UGF0aWVudCBzZWVuIGZvciBhbm51YWwgcGh5c2ljYWwuIE5vIGFjdXRlIGNvbmNlcm5zOyBjb250aW51ZSBoZWFsdGh5IGRpZXQgYW5kIGV4ZXJjaXNlLg==" } }]
+      }
     }
   ]
 }

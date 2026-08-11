@@ -923,3 +923,33 @@ model PatientLedgerEntry {
   @@index([patientId])
 }
 
+
+// Live FHIR (SMART-on-FHIR) connection to an external EHR (Practice Fusion /
+// Veradigm, or eClinicalWorks). Stores OAuth endpoint config + issued tokens.
+// Secrets/tokens are only ever returned to clients MASKED.
+model FhirConnection {
+  id            String    @id @default(cuid()) @map("_id")
+  provider      String    @unique // veradigm | ecw
+  label         String?
+  baseUrl       String?   // FHIR R4 base URL for the practice
+  authUrl       String?   // SMART authorization endpoint
+  tokenUrl      String?   // SMART token endpoint
+  clientId      String?
+  clientSecret  String?   // confidential apps only
+  scopes        String?   // requested scopes, space-delimited
+  // OAuth transaction state (short-lived, for the in-flight authorize->callback)
+  pkceVerifier  String?
+  oauthState    String?
+  // Issued tokens after a successful connect
+  accessToken   String?
+  refreshToken  String?
+  grantedScope  String?
+  expiresAt     DateTime?
+  status        String    @default("unconfigured") // unconfigured | configured | connected | error
+  lastError     String?
+  lastImportAt  DateTime?
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
