@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import AppointmentImport from "./AppointmentImport";
+import ClinicalImport from "./ClinicalImport";
 
 const SOURCES = [
   { value: "practice_fusion", label: "Practice Fusion", hint: "Export patients from Practice Fusion (Reports → Patient List → CSV) and upload here." },
@@ -54,10 +56,12 @@ export default function DataTools() {
   }
 
   // ---- Import ----
+  const [entity, setEntity] = useState<"patients" | "appointments" | "clinical">("patients");
   const [source, setSource] = useState("practice_fusion");
   const [csv, setCsv] = useState("");
   const [fileName, setFileName] = useState("");
   const [preview, setPreview] = useState<any>(null);
+  const [mapping, setMapping] = useState<Record<string, number>>({});
   const [result, setResult] = useState<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
   const csvFileRef = useRef<HTMLInputElement | null>(null);
@@ -80,7 +84,7 @@ export default function DataTools() {
       const r = await fetch("/api/admin/import/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source, entity: "patients", csv }) });
       const d = await r.json();
       if (!r.ok) { setMsg({ kind: "err", text: d.error || "Preview failed." }); setPreview(null); }
-      else setPreview(d);
+      else { setPreview(d); setMapping(d.mapping || {}); }
     } finally { setBusy(""); }
   }
 
@@ -88,12 +92,51 @@ export default function DataTools() {
     if (!confirm(`Import ${preview?.rowCount ?? ""} patient record(s) from ${SOURCES.find((s) => s.value === source)?.label}? This is additive — existing patients are skipped, never overwritten.`)) return;
     setBusy("import"); setMsg(null);
     try {
-      const r = await fetch("/api/admin/import/commit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source, entity: "patients", csv, mapping: preview?.mapping }) });
+      const r = await fetch("/api/admin/import/commit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source, entity: "patients", csv, mapping }) });
       const d = await r.json();
       if (!r.ok) { setMsg({ kind: "err", text: d.error || "Import failed." }); }
       else { setResult(d); setMsg({ kind: "ok", text: `Import ${d.status}: ${d.created} created, ${d.skipped} skipped, ${d.failed} failed.` }); loadJobs(); }
     } finally { setBusy(""); }
   }
+
+  // ----- Column remap helpers (client-side, live) -----
+  function setFieldColumn(field: string, colIdx: number) {
+    setMapping((m) => {
+      const next = { ...m };
+      // A CSV column can only feed one field: clear any other field pointing at it.
+      if (colIdx >= 0) {
+        for (const k of Object.keys(next)) { if (next[k] === colIdx) delete next[k]; }
+        next[field] = colIdx;
+      } else {
+        delete next[field];
+      }
+      return next;
+    });
+  }
+  function normDobClient(v: string): string {
+    const t = (v || "").trim(); if (!t) return "";
+    const iso = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
+    const us = t.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})$/);
+    if (us) { let y = us[3]; if (y.length === 2) y = (Number(y) > 30 ? "19" : "20") + y; return `${y}-${us[1].padStart(2, "0")}-${us[2].padStart(2, "0")}`; }
+    return t;
+  }
+  function normSexClient(v: string): string {
+    const t = (v || "").trim().toLowerCase(); if (!t) return "";
+    if (["m", "male"].includes(t)) return "M";
+    if (["f", "female"].includes(t)) return "F";
+    return "U";
+  }
+  function cell(row: string[], field: string): string {
+    const idx = mapping[field];
+    if (idx == null) return "";
+    const raw = (row?.[idx] ?? "").trim();
+    if (field === "dob") return normDobClient(raw);
+    if (field === "sex") return normSexClient(raw);
+    return raw;
+  }
+  const missingRequired = ["firstName", "lastName"].filter((f) => mapping[f] == null);
+  const usedCols = new Set(Object.values(mapping));
 
   const activeSrc = SOURCES.find((s) => s.value === source)!;
 
@@ -103,13 +146,23 @@ export default function DataTools() {
 
       {/* DATA IMPORT (top priority) */}
       <section className="card">
-        <header className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+        <header className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-slate-900">Data Import — migrate from another EMR</h2>
-            <p className="text-xs text-slate-500">Bring patients over from Practice Fusion, eClinicalWorks, or any CSV. Additive &amp; non-destructive — duplicates are skipped.</p>
+            <p className="text-xs text-slate-500">Bring {entity === "patients" ? "patients" : entity === "appointments" ? "upcoming appointments" : "clinical records (problems, meds, allergies)"} over from Practice Fusion, eClinicalWorks, or any CSV / C-CDA / FHIR export. Additive &amp; non-destructive — duplicates are skipped.</p>
           </div>
-          <span className="chip bg-brand-100 text-brand-800 ring-brand-200">Patients</span>
+          <div className="inline-flex rounded-lg ring-1 ring-slate-200 overflow-hidden text-sm">
+            <button type="button" onClick={() => setEntity("patients")} className={`px-3 py-1.5 ${entity === "patients" ? "bg-brand-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>Patients</button>
+            <button type="button" onClick={() => setEntity("appointments")} className={`px-3 py-1.5 border-l border-slate-200 ${entity === "appointments" ? "bg-brand-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>Appointments</button>
+            <button type="button" onClick={() => setEntity("clinical")} className={`px-3 py-1.5 border-l border-slate-200 ${entity === "clinical" ? "bg-brand-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>Clinical (C-CDA/FHIR)</button>
+          </div>
         </header>
+
+        {entity === "appointments" ? (
+          <AppointmentImport onImported={loadJobs} />
+        ) : entity === "clinical" ? (
+          <ClinicalImport onImported={loadJobs} />
+        ) : (
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {SOURCES.map((s) => (
@@ -137,30 +190,57 @@ export default function DataTools() {
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="chip bg-slate-100 text-slate-700 ring-slate-200">{preview.sourceLabel}</span>
                 <span className="text-slate-600">{preview.rowCount} data row(s)</span>
-                {preview.missingRequired?.length > 0
-                  ? <span className="chip bg-rose-100 text-rose-800 ring-rose-200">Missing: {preview.missingRequired.join(", ")}</span>
-                  : <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200">Name columns detected</span>}
+                {missingRequired.length > 0
+                  ? <span className="chip bg-rose-100 text-rose-800 ring-rose-200">Map required: {missingRequired.map((f) => FIELD_LABELS[f] || f).join(", ")}</span>
+                  : <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200">Ready — name columns mapped</span>}
               </div>
+
+              {/* Editable column mapping — admins can hand-correct any auto-detected column */}
               <div>
-                <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Detected mapping</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {Object.keys(preview.mapping).map((f) => (
-                    <span key={f} className="chip bg-slate-100 text-slate-700 ring-slate-200">{FIELD_LABELS[f] || f} ← <span className="font-mono ml-1">{preview.headers[preview.mapping[f]]}</span></span>
-                  ))}
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-xs font-semibold text-slate-500 uppercase">Column mapping <span className="text-slate-400 normal-case font-normal">— adjust any field below</span></div>
+                  <button type="button" onClick={() => setMapping(preview.mapping || {})} className="text-[11px] text-brand-600 hover:underline">Reset to auto-detected</button>
                 </div>
-                {preview.unmappedHeaders?.length > 0 && <div className="mt-1 text-[11px] text-slate-400">Ignored columns: {preview.unmappedHeaders.join(", ")}</div>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2">
+                  {Object.keys(FIELD_LABELS).map((f) => {
+                    const req = f === "firstName" || f === "lastName";
+                    const cur = mapping[f];
+                    return (
+                      <label key={f} className="flex items-center gap-2 text-xs">
+                        <span className={`w-24 shrink-0 ${req ? "font-semibold text-slate-800" : "text-slate-600"}`}>{FIELD_LABELS[f]}{req && <span className="text-rose-500"> *</span>}</span>
+                        <select
+                          value={cur == null ? -1 : cur}
+                          onChange={(e) => setFieldColumn(f, Number(e.target.value))}
+                          className={`input py-1 text-xs flex-1 ${req && cur == null ? "ring-1 ring-rose-300" : ""}`}
+                        >
+                          <option value={-1}>— ignore —</option>
+                          {preview.headers.map((h: string, i: number) => (
+                            <option key={i} value={i} disabled={usedCols.has(i) && cur !== i}>{h || `(column ${i + 1})`}</option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-              {preview.sample?.length > 0 && (
+
+              {preview.sampleRows?.length > 0 && (
                 <div className="overflow-x-auto">
+                  <div className="text-[11px] text-slate-400 mb-1">Live preview of the first {preview.sampleRows.length} row(s) using the mapping above:</div>
                   <table className="data w-full text-xs">
-                    <thead><tr><th>First</th><th>Last</th><th>DOB</th><th>Sex</th><th>Phone</th><th>MRN</th><th>Insurer</th></tr></thead>
-                    <tbody>{preview.sample.map((r: any, i: number) => (
-                      <tr key={i}><td>{r.firstName || "—"}</td><td>{r.lastName || "—"}</td><td>{r.dob || "—"}</td><td>{r.sex || "—"}</td><td>{r.phone || "—"}</td><td>{r.mrn || "—"}</td><td>{r.insurerName || "—"}</td></tr>
+                    <thead><tr><th>First</th><th>Last</th><th>DOB</th><th>Sex</th><th>Phone</th><th>Email</th><th>MRN</th><th>Insurer</th><th>Member ID</th></tr></thead>
+                    <tbody>{preview.sampleRows.map((r: string[], i: number) => (
+                      <tr key={i}>
+                        <td>{cell(r, "firstName") || "—"}</td><td>{cell(r, "lastName") || "—"}</td>
+                        <td>{cell(r, "dob") || "—"}</td><td>{cell(r, "sex") || "—"}</td>
+                        <td>{cell(r, "phone") || "—"}</td><td>{cell(r, "email") || "—"}</td>
+                        <td>{cell(r, "mrn") || "—"}</td><td>{cell(r, "insurerName") || "—"}</td><td>{cell(r, "memberId") || "—"}</td>
+                      </tr>
                     ))}</tbody>
                   </table>
                 </div>
               )}
-              <button onClick={runImport} disabled={busy !== "" || preview.missingRequired?.length > 0} className="btn-primary">{busy === "import" ? "Importing…" : `Import ${preview.rowCount} patient(s)`}</button>
+              <button onClick={runImport} disabled={busy !== "" || missingRequired.length > 0} className="btn-primary">{busy === "import" ? "Importing…" : `Import ${preview.rowCount} patient(s)`}</button>
             </div>
           )}
 
@@ -174,17 +254,20 @@ export default function DataTools() {
             </div>
           )}
 
-          {jobs.length > 0 && (
-            <div>
-              <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Recent imports</div>
-              <table className="data w-full text-xs"><thead><tr><th>When</th><th>Source</th><th>Total</th><th>Created</th><th>Skipped</th><th>Failed</th><th>Status</th></tr></thead>
-                <tbody>{jobs.map((j) => (
-                  <tr key={j.id}><td>{new Date(j.createdAt).toLocaleString()}</td><td>{j.source}</td><td>{j.total}</td><td>{j.created}</td><td>{j.skipped}</td><td>{j.failed}</td><td>{j.status}</td></tr>
-                ))}</tbody>
-              </table>
-            </div>
-          )}
         </div>
+        )}
+
+        {/* Recent imports (shared across Patients + Appointments) */}
+        {jobs.length > 0 && (
+          <div className="px-4 pb-4">
+            <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Recent imports</div>
+            <table className="data w-full text-xs"><thead><tr><th>When</th><th>Source</th><th>Type</th><th>Total</th><th>Created</th><th>Skipped</th><th>Failed</th><th>Status</th></tr></thead>
+              <tbody>{jobs.map((j) => (
+                <tr key={j.id}><td>{new Date(j.createdAt).toLocaleString()}</td><td>{j.source}</td><td>{j.entity || "patients"}</td><td>{j.total}</td><td>{j.created}</td><td>{j.skipped}</td><td>{j.failed}</td><td>{j.status}</td></tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {/* BACKUP & RECOVERY (moved here) */}

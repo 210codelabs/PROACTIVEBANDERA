@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ClinicalDocument xmlns="urn:hl7-org:v3">
+  <recordTarget>
+    <patientRole>
+      <id extension="CCDA-5001" root="2.16.840.1.113883.19.5"/>
+      <addr>
+        <streetAddressLine>500 Elm St</streetAddressLine>
+        <city>San Antonio</city>
+        <state>TX</state>
+        <postalCode>78209</postalCode>
+      </addr>
+      <telecom value="tel:210-555-0199"/>
+      <telecom value="mailto:marco.ccda@example.com"/>
+      <patient>
+        <name>
+          <given>Marco</given>
+          <given>Luis</given>
+          <family>Verdana</family>
+        </name>
+        <administrativeGenderCode code="M"/>
+        <birthTime value="19770815"/>
+      </patient>
+    </patientRole>
+  </recordTarget>
+  <component>
+    <structuredBody>
+      <component>
+        <section>
+          <code code="11450-4"/>
+          <title>Problems</title>
+          <entry>
+            <act>
+              <entryRelationship>
+                <observation>
+                  <value code="E11.9" codeSystem="2.16.840.1.113883.6.90" displayName="Type 2 diabetes mellitus without complications"/>
+                  <effectiveTime><low value="20180101"/></effectiveTime>
+                </observation>
+              </entryRelationship>
+            </act>
+          </entry>
+          <entry>
+            <act>
+              <entryRelationship>
+                <observation>
+                  <value code="I10" codeSystem="2.16.840.1.113883.6.90" displayName="Essential (primary) hypertension"/>
+                </observation>
+              </entryRelationship>
+            </act>
+          </entry>
+        </section>
+      </component>
+      <component>
+        <section>
+          <code code="10160-0"/>
+          <title>Medications</title>
+          <entry>
+            <substanceAdministration>
+              <consumable><manufacturedProduct><manufacturedMaterial>
+                <code displayName="Metformin 500 MG Oral Tablet"/>
+              </manufacturedMaterial></manufacturedProduct></consumable>
+            </substanceAdministration>
+          </entry>
+          <entry>
+            <substanceAdministration>
+              <consumable><manufacturedProduct><manufacturedMaterial>
+                <code displayName="Lisinopril 10 MG Oral Tablet"/>
+              </manufacturedMaterial></manufacturedProduct></consumable>
+            </substanceAdministration>
+          </entry>
+        </section>
+      </component>
+      <component>
+        <section>
+          <code code="48765-2"/>
+          <title>Allergies</title>
+          <entry>
+            <act>
+              <entryRelationship>
+                <observation>
+                  <participant><participantRole><playingEntity>
+                    <code displayName="Penicillin"/>
+                  </playingEntity></participantRole></participant>
+                </observation>
+              </entryRelationship>
+            </act>
+          </entry>
+        </section>
+      </component>
+    </structuredBody>
+  </component>
+</ClinicalDocument>

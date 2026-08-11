@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin/auth";
-import { parseCsv, autoMap, rowToPatient, SOURCE_LABEL } from "@/lib/import/emr";
+import { parseCsv, autoMap, rowToPatient, SOURCE_LABEL, type Mapping } from "@/lib/import/emr";
 
-// POST /api/admin/import/preview { source, entity, csv }
-// Parses the CSV, auto-detects the column mapping, and returns a preview
-// (detected headers, mapping, first rows mapped, counts) — no data is written.
+// POST /api/admin/import/preview { source, entity, csv, mapping? }
+// Parses the CSV, auto-detects the column mapping (or applies an admin-supplied
+// override mapping), and returns a preview (detected headers, mapping, first rows
+// mapped, raw sample rows, counts) — no data is written.
 export async function POST(req: Request) {
   try {
     await requireAdminSession();
@@ -21,9 +22,12 @@ export async function POST(req: Request) {
   if (rows.length < 2) return NextResponse.json({ error: "CSV must have a header row and at least one data row." }, { status: 400 });
 
   const headers = rows[0];
-  const mapping = autoMap(headers);
+  // Admin can hand-correct the mapping; otherwise auto-detect.
+  const override = (b.mapping && typeof b.mapping === "object") ? (b.mapping as Mapping) : null;
+  const mapping: Mapping = override && Object.keys(override).length ? override : autoMap(headers);
   const dataRows = rows.slice(1);
-  const sample = dataRows.slice(0, 5).map((r) => rowToPatient(r, mapping));
+  const sampleRows = dataRows.slice(0, 5); // raw string rows (for the remap UI)
+  const sample = sampleRows.map((r) => rowToPatient(r, mapping));
 
   const mappedFields = Object.keys(mapping);
   const missingRequired = ["firstName", "lastName"].filter((f) => !mappedFields.includes(f));
@@ -39,5 +43,6 @@ export async function POST(req: Request) {
     missingRequired,
     rowCount: dataRows.length,
     sample,
+    sampleRows,
   });
 }

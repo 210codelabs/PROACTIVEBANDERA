@@ -1,0 +1,51 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "identifier": [{ "system": "urn:mrn", "value": "FHIR-6001" }],
+        "name": [{ "given": ["Nadia", "R"], "family": "Okonkwo" }],
+        "gender": "female",
+        "birthDate": "1990-04-22",
+        "telecom": [
+          { "system": "phone", "value": "210-555-0170" },
+          { "system": "email", "value": "nadia.fhir@example.com" }
+        ],
+        "address": [{ "line": ["12 Oak Ave"], "city": "San Antonio", "state": "TX", "postalCode": "78210" }]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "code": { "text": "Asthma", "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "J45.909", "display": "Unspecified asthma, uncomplicated" }] },
+        "clinicalStatus": { "coding": [{ "code": "active" }] },
+        "onsetDateTime": "2015-06-01"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "code": { "text": "Migraine without aura" },
+        "clinicalStatus": { "coding": [{ "code": "active" }] }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "status": "active",
+        "medicationCodeableConcept": { "text": "Albuterol 90 mcg inhaler" },
+        "dosageInstruction": [{ "text": "2 puffs inhaled every 4 hours as needed" }]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "code": { "text": "Peanuts" },
+        "criticality": "high",
+        "reaction": [{ "manifestation": [{ "text": "Anaphylaxis" }], "severity": "severe" }]
+      }
+    }
+  ]
+}
