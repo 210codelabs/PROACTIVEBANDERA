@@ -953,3 +953,33 @@ model FhirConnection {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
+
+// Progress tracker for a "pull every patient" bulk migration from a connected
+// EHR over its FHIR API. One row per bulk run; the background worker updates it
+// as it pages through patients so the admin UI can show live progress.
+model FhirBulkJob {
+  id                String    @id @default(cuid()) @map("_id")
+  provider          String    // veradigm | ecw
+  status            String    @default("running") // running | completed | failed | cancelled
+  totalPatients     Int       @default(0)  // 0 = unknown / still estimating
+  processed         Int       @default(0)
+  patientsCreated   Int       @default(0)
+  patientsMerged    Int       @default(0)
+  recordsCreated    Int       @default(0)
+  recordsSkipped    Int       @default(0)
+  failed            Int       @default(0)
+  limit             Int?      // optional cap for a trial run; null = import everyone
+  currentPatient    String?
+  errors            Json?     // [{ name, message }] (capped)
+  notice            String?
+  cancelRequested   Boolean   @default(false)
+  defaultProviderId String?
+  createdById       String?
+  createdByName     String?
+  startedAt         DateTime  @default(now())
+  finishedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  @@index([provider])
+  @@index([status])
+}

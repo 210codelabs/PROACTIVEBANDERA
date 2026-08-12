@@ -211,6 +211,35 @@ export async function searchPatients(conn: any, token: string, q: { mrn?: string
   return pageAll(`${base}/Patient?${params.toString()}`, token, 3);
 }
 
+/** Best-effort total patient count via _summary=count. Returns null if the
+ * server doesn't report bundle.total (some servers omit it). */
+export async function countPatients(conn: any, token: string): Promise<number | null> {
+  const base = String(conn.baseUrl).replace(/\/$/, "");
+  try {
+    const b = await fhirGet(`${base}/Patient?_summary=count`, token);
+    return typeof b?.total === "number" ? b.total : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Async generator that yields EVERY Patient resource, paging through the whole
+ * server by following Bundle `next` links. Used by the bulk migration worker.
+ * A high page cap guards against a runaway loop on a misbehaving server. */
+export async function* iteratePatients(conn: any, token: string, pageSize = 50, maxPages = 5000): AsyncGenerator<any> {
+  const base = String(conn.baseUrl).replace(/\/$/, "");
+  let next: string | undefined = `${base}/Patient?_count=${pageSize}`;
+  let pages = 0;
+  while (next && pages < maxPages) {
+    const bundle: any = await fhirGet(next, token);
+    for (const e of (bundle.entry || [])) {
+      if (e?.resource?.resourceType === "Patient") yield e.resource;
+    }
+    next = (bundle.link || []).find((l: any) => l.relation === "next")?.url;
+    pages++;
+  }
+}
+
 const IMPORT_TYPES: { type: string; extra?: string }[] = [
   { type: "Condition" },
   { type: "MedicationRequest" },

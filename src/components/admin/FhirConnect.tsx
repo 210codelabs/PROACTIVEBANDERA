@@ -28,6 +28,10 @@ export default function FhirConnect() {
   const [importResult, setImportResult] = useState<Record<string, any>>({});
   const [dirQuery, setDirQuery] = useState("");
   const [dirResults, setDirResults] = useState<any[]>([]);
+  // Bulk "pull every patient" migration state (keyed by provider)
+  const [bulkForm, setBulkForm] = useState<Record<string, any>>({});
+  const [bulkJob, setBulkJob] = useState<Record<string, any>>({});
+  const pollRef = React.useRef<Record<string, any>>({});
 
   async function load() {
     const r = await fetch("/api/admin/fhir/connections");
@@ -53,6 +57,25 @@ export default function FhirConnect() {
     const m = u.searchParams.get("msg");
     if (m) { setMsg({ kind: /fail|denied|mismatch|missing|no access/i.test(m) ? "err" : "ok", text: m }); }
   }, []);
+
+  // When connected providers appear, fetch their latest bulk job so an in-flight
+  // migration keeps showing live progress across page reloads.
+  useEffect(() => {
+    for (const p of providers) {
+      if (p.connection?.connected && !bulkJob[p.provider]) {
+        fetch(`/api/admin/fhir/${p.provider}/bulk-import`).then((r) => r.ok ? r.json() : null).then((d) => {
+          if (d?.job) {
+            setBulkJob((prev) => ({ ...prev, [p.provider]: d.job }));
+            if (d.job.status === "running" && !pollRef.current[p.provider]) pollBulk(p.provider);
+          }
+        }).catch(() => {});
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providers]);
+
+  // Clear any polling timers on unmount.
+  useEffect(() => () => { for (const k of Object.keys(pollRef.current)) if (pollRef.current[k]) clearTimeout(pollRef.current[k]); }, []);
 
   function setField(provider: string, key: string, val: string) {
     setForms((prev) => ({ ...prev, [provider]: { ...prev[provider], [key]: val } }));
@@ -127,6 +150,51 @@ export default function FhirConnect() {
     } finally { setBusy(""); }
   }
 
+  // ---- Bulk "pull every patient" migration ----
+  function setBulk(provider: string, key: string, val: string) {
+    setBulkForm((prev) => ({ ...prev, [provider]: { ...prev[provider], [key]: val } }));
+  }
+  function stopPoll(provider: string) {
+    if (pollRef.current[provider]) { clearTimeout(pollRef.current[provider]); pollRef.current[provider] = null; }
+  }
+  async function pollBulk(provider: string) {
+    try {
+      const r = await fetch(`/api/admin/fhir/${provider}/bulk-import`);
+      const d = await r.json();
+      if (r.ok && d.job) {
+        setBulkJob((prev) => ({ ...prev, [provider]: d.job }));
+        if (d.job.status === "running") { pollRef.current[provider] = setTimeout(() => pollBulk(provider), 2000); return; }
+      }
+    } catch { /* transient — retry once more */ pollRef.current[provider] = setTimeout(() => pollBulk(provider), 3000); return; }
+    stopPoll(provider);
+  }
+  async function startBulk(provider: string) {
+    const f = bulkForm[provider] || {};
+    const trial = (f.limit || "").toString().trim();
+    const scope = trial ? `the first ${trial} patient(s)` : "EVERY patient";
+    if (!confirm(`Pull ${scope} from this EHR into Proactive Clinic? This is additive — existing charts and records are merged, never overwritten. It runs in the background and may take a while for a large practice.`)) return;
+    setBusy(`bulk-${provider}`); setMsg(null);
+    try {
+      const r = await fetch(`/api/admin/fhir/${provider}/bulk-import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limit: trial || undefined, defaultProviderId: f.defaultProviderId || undefined }) });
+      const d = await r.json();
+      if (!r.ok) {
+        setMsg({ kind: "err", text: d.error || "Could not start the bulk import." });
+        if (d.job) { setBulkJob((prev) => ({ ...prev, [provider]: d.job })); if (d.job.status === "running") pollBulk(provider); }
+      } else {
+        setBulkJob((prev) => ({ ...prev, [provider]: d.job }));
+        setMsg({ kind: "ok", text: "Bulk import started — progress updates live below." });
+        pollBulk(provider);
+      }
+    } finally { setBusy(""); }
+  }
+  async function cancelBulk(provider: string) {
+    const job = bulkJob[provider];
+    if (!job?.id) return;
+    if (!confirm("Stop this bulk import? Patients already brought over are kept.")) return;
+    await fetch(`/api/admin/fhir/${provider}/bulk-import?jobId=${encodeURIComponent(job.id)}`, { method: "DELETE" }).catch(() => {});
+    setBulkJob((prev) => ({ ...prev, [provider]: { ...prev[provider], cancelRequested: true } }));
+  }
+
   return (
     <div className="p-4 space-y-4">
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -140,6 +208,8 @@ export default function FhirConnect() {
         const f = forms[p.provider] || {};
         const imp = importForm[p.provider] || {};
         const ir = importResult[p.provider];
+        const bf = bulkForm[p.provider] || {};
+        const bj = bulkJob[p.provider];
         return (
           <div key={p.provider} className="rounded-xl ring-1 ring-slate-200">
             <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-200">
@@ -237,6 +307,64 @@ export default function FhirConnect() {
                   )}
                 </div>
               )}
+
+              {c?.connected && (
+                <div className="rounded-lg bg-brand-50/40 ring-1 ring-brand-200 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium text-slate-700">Bulk import — pull every patient</div>
+                    {bj?.status && <span className={`chip ${bulkChip(bj.status)}`}>{bulkLabel(bj)}</span>}
+                  </div>
+                  <p className="text-[11px] text-slate-500">Migrate the whole practice in one run. Additive &amp; non-destructive — existing charts are merged and duplicates skipped. It runs in the background, so you can leave this page and return.</p>
+
+                  {(!bj || bj.status !== "running") && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 items-end">
+                      <L label="Trial run — first N (blank = everyone)"><input className="input" type="number" min={1} placeholder="e.g. 10" value={bf.limit || ""} onChange={(e) => setBulk(p.provider, "limit", e.target.value)} /></L>
+                      <L label="Default provider (for visit notes)">
+                        <select className="input" value={bf.defaultProviderId || ""} onChange={(e) => setBulk(p.provider, "defaultProviderId", e.target.value)}>
+                          <option value="">— none —</option>
+                          {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      </L>
+                      <button onClick={() => startBulk(p.provider)} disabled={busy !== ""} className="btn-primary">{busy === `bulk-${p.provider}` ? "Starting…" : bf.limit ? `Import first ${bf.limit}` : "Pull all patients"}</button>
+                    </div>
+                  )}
+
+                  {bj && (
+                    <div className="space-y-2">
+                      <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                        <div className={`h-full ${bj.status === "failed" ? "bg-rose-500" : bj.status === "cancelled" ? "bg-amber-500" : "bg-brand-600"} ${bj.status === "running" ? "animate-pulse" : ""} transition-all`} style={{ width: `${bulkPct(bj)}%` }} />
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                        <span><b>{bj.processed}</b>{bj.totalPatients ? ` / ${bj.totalPatients}` : ""} patients processed</span>
+                        <span><b>{bj.patientsCreated}</b> new charts</span>
+                        <span><b>{bj.patientsMerged}</b> merged</span>
+                        <span><b>{bj.recordsCreated}</b> records added</span>
+                        <span><b>{bj.recordsSkipped}</b> skipped</span>
+                        {bj.failed > 0 && <span className="text-rose-600"><b>{bj.failed}</b> failed</span>}
+                      </div>
+                      {bj.status === "running" && (
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+                          {bj.currentPatient ? `Importing ${bj.currentPatient}…` : "Working…"}
+                          <button onClick={() => cancelBulk(p.provider)} className="ml-2 text-rose-600 hover:underline" disabled={bj.cancelRequested}>{bj.cancelRequested ? "Stopping…" : "Cancel"}</button>
+                        </div>
+                      )}
+                      {bj.status === "completed" && <div className="text-sm text-emerald-700">Migration complete — {bj.processed} patient(s) processed, {bj.recordsCreated} record(s) added.</div>}
+                      {bj.status === "cancelled" && <div className="text-sm text-amber-700">Stopped — {bj.processed} patient(s) were brought over before cancelling.</div>}
+                      {bj.status === "failed" && <div className="text-sm text-rose-700">Bulk import failed: {bj.notice || "unknown error"}.</div>}
+                      {bj.notice && bj.status === "completed" && <div className="text-xs text-amber-700">{bj.notice}</div>}
+                      {bj.errors?.length > 0 && (
+                        <details className="text-xs">
+                          <summary className="cursor-pointer text-slate-500">{bj.errors.length} patient(s) had issues</summary>
+                          <ul className="mt-1 list-disc ml-5 max-h-32 overflow-auto text-rose-700">
+                            {bj.errors.map((e: any, i: number) => <li key={i}>{e.name}: {e.message}</li>)}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         );
@@ -253,4 +381,20 @@ function L({ label, children }: { label: string; children: React.ReactNode }) {
       {children}
     </label>
   );
+}
+
+function bulkChip(status: string): string {
+  return status === "completed" ? "bg-emerald-100 text-emerald-800 ring-emerald-200"
+    : status === "running" ? "bg-sky-100 text-sky-800 ring-sky-200"
+    : status === "cancelled" ? "bg-amber-100 text-amber-800 ring-amber-200"
+    : status === "failed" ? "bg-rose-100 text-rose-800 ring-rose-200"
+    : "bg-slate-100 text-slate-600 ring-slate-200";
+}
+function bulkLabel(bj: any): string {
+  const map: Record<string, string> = { running: "Running", completed: "Completed", cancelled: "Cancelled", failed: "Failed" };
+  return map[bj?.status] || bj?.status || "";
+}
+function bulkPct(bj: any): number {
+  if (bj?.totalPatients > 0) return Math.min(100, Math.round((bj.processed / bj.totalPatients) * 100));
+  return 100; // unknown total: show a full, pulsing bar while running / done
 }
