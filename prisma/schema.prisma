@@ -931,12 +931,19 @@ model FhirConnection {
   id            String    @id @default(cuid()) @map("_id")
   provider      String    @unique // veradigm | ecw
   label         String?
+  authMode      String    @default("user") // user (authorization_code + PKCE) | system (SMART Backend Services)
   baseUrl       String?   // FHIR R4 base URL for the practice
-  authUrl       String?   // SMART authorization endpoint
+  authUrl       String?   // SMART authorization endpoint (user mode only)
   tokenUrl      String?   // SMART token endpoint
   clientId      String?
-  clientSecret  String?   // confidential apps only
+  clientSecret  String?   // confidential apps only (user mode)
   scopes        String?   // requested scopes, space-delimited
+  // SMART Backend Services signing key (system mode). privateJwk is server-only
+  // and NEVER returned to clients; publicJwk is served at the JWKS endpoint.
+  privateJwk    String?
+  publicJwk     String?
+  keyId         String?   // kid
+  jwkAlg        String?   @default("RS384")
   // OAuth transaction state (short-lived, for the in-flight authorize->callback)
   pkceVerifier  String?
   oauthState    String?

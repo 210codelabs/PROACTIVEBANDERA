@@ -33,7 +33,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ provide
 
   const conn = await getConnection(provider);
   if (!conn) return NextResponse.json({ error: "This provider is not configured yet." }, { status: 400 });
-  if (conn.status !== "connected" || !conn.accessToken) {
+  const mode = (conn as any).authMode || "user";
+  if (mode === "system") {
+    if (!conn.baseUrl || !conn.tokenUrl || !conn.clientId || !(conn as any).privateJwk) {
+      return NextResponse.json({ error: "System access is not fully configured — set the FHIR base URL, token URL and client ID, and generate a signing key." }, { status: 400 });
+    }
+  } else if (conn.status !== "connected" || !conn.accessToken) {
     return NextResponse.json({ error: "Not connected. Click Connect to authorize this practice before importing." }, { status: 400 });
   }
 

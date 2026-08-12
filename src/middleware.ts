@@ -15,6 +15,7 @@ const PUBLIC_PREFIX = [
   "/api/attorney",
   "/api/assistant",
   "/api/appointments/request",
+  "/api/fhir/jwks",
   "/api/auth/login",
   "/api/auth/logout",
   "/api/admin/config/public",

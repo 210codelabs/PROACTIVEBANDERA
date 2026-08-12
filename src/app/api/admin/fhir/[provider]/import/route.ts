@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin/auth";
 import { db } from "@/lib/db";
-import { ensureAccessToken, fetchPatientEverything, getConnection, isProvider, searchPatients } from "@/lib/fhir/client";
+import { fetchPatientEverything, getConnection, isProvider, searchPatients } from "@/lib/fhir/client";
+import { getValidToken } from "@/lib/fhir/backend";
 import { extractFromFhirResources } from "@/lib/import/clinical";
 import { persistExtracted } from "@/lib/import/persist";
 
@@ -21,7 +22,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ provide
 
   const conn = await getConnection(provider);
   if (!conn) return NextResponse.json({ error: "This provider is not configured yet." }, { status: 400 });
-  if (conn.status !== "connected" || !conn.accessToken) {
+  const mode = (conn as any).authMode || "user";
+  if (mode === "system") {
+    if (!conn.baseUrl || !conn.tokenUrl || !conn.clientId || !(conn as any).privateJwk) {
+      return NextResponse.json({ error: "System access is not fully configured — set the FHIR base URL, token URL and client ID, and generate a signing key." }, { status: 400 });
+    }
+  } else if (conn.status !== "connected" || !conn.accessToken) {
     return NextResponse.json({ error: "Not connected. Click Connect to authorize this practice before importing." }, { status: 400 });
   }
 
@@ -29,7 +35,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ provide
   const defaultProviderId = b.defaultProviderId ? String(b.defaultProviderId) : null;
 
   let token: string;
-  try { token = await ensureAccessToken(conn); }
+  try { token = await getValidToken(conn); }
   catch (e: any) { return NextResponse.json({ error: String(e?.message || e) }, { status: 400 }); }
 
   // Resolve the FHIR patient id

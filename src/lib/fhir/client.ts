@@ -85,9 +85,11 @@ export async function getConnection(provider: ProviderKey) {
 export function maskConnection(c: any) {
   if (!c) return null;
   const mask = (v?: string | null) => (v ? `••••${String(v).slice(-4)}` : null);
+  const base = (process.env.NEXT_PUBLIC_BASE_URL || "").replace(/\/$/, "");
   return {
     provider: c.provider,
     label: c.label || FHIR_PROVIDERS[c.provider as ProviderKey]?.label || c.provider,
+    authMode: c.authMode || "user",
     baseUrl: c.baseUrl || null,
     authUrl: c.authUrl || null,
     tokenUrl: c.tokenUrl || null,
@@ -102,6 +104,12 @@ export function maskConnection(c: any) {
     lastError: c.lastError || null,
     lastImportAt: c.lastImportAt || null,
     redirectUri: redirectUriFor(c.provider as ProviderKey),
+    // Backend Services signing key (public only — private JWK is NEVER exposed)
+    keySet: !!c.privateJwk,
+    keyId: c.keyId || null,
+    jwkAlg: c.jwkAlg || "RS384",
+    jwkThumbprint: c.keyId ? `••••${String(c.keyId).slice(-8)}` : null,
+    jwksUrl: `${base}/api/fhir/jwks/${c.provider}`,
   };
 }
 

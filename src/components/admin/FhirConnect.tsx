@@ -43,6 +43,7 @@ export default function FhirConnect() {
       for (const p of d.providers || []) {
         const c = p.connection || {};
         f[p.provider] = {
+          authMode: c.authMode || "user",
           baseUrl: c.baseUrl || "", authUrl: c.authUrl || "", tokenUrl: c.tokenUrl || "",
           clientId: c.clientId || "", clientSecret: "", scopes: c.scopes || p.defaultScopes,
         };
@@ -58,11 +59,17 @@ export default function FhirConnect() {
     if (m) { setMsg({ kind: /fail|denied|mismatch|missing|no access/i.test(m) ? "err" : "ok", text: m }); }
   }, []);
 
-  // When connected providers appear, fetch their latest bulk job so an in-flight
+  // A connection can run imports when it's connected (user mode) OR fully
+  // configured with a signing key (system / Backend Services mode).
+  function canImport(c: any) {
+    return !!c && (c.connected || (c.authMode === "system" && c.keySet && c.baseUrl && c.tokenUrl && c.clientId));
+  }
+
+  // When importable providers appear, fetch their latest bulk job so an in-flight
   // migration keeps showing live progress across page reloads.
   useEffect(() => {
     for (const p of providers) {
-      if (p.connection?.connected && !bulkJob[p.provider]) {
+      if (canImport(p.connection) && !bulkJob[p.provider]) {
         fetch(`/api/admin/fhir/${p.provider}/bulk-import`).then((r) => r.ok ? r.json() : null).then((d) => {
           if (d?.job) {
             setBulkJob((prev) => ({ ...prev, [p.provider]: d.job }));
@@ -84,13 +91,29 @@ export default function FhirConnect() {
     setImportForm((prev) => ({ ...prev, [provider]: { ...prev[provider], [key]: val } }));
   }
 
-  async function saveConfig(provider: string) {
+  async function saveConfig(provider: string, extra: any = {}) {
     setBusy(`save-${provider}`); setMsg(null);
     try {
-      const r = await fetch("/api/admin/fhir/connections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, ...forms[provider] }) });
+      const r = await fetch("/api/admin/fhir/connections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, ...forms[provider], ...extra }) });
       const d = await r.json();
       if (!r.ok) setMsg({ kind: "err", text: d.error || "Save failed." });
-      else { setMsg({ kind: "ok", text: "Configuration saved. Click Connect to authorize." }); await load(); }
+      else {
+        const sys = (forms[provider]?.authMode === "system");
+        setMsg({ kind: "ok", text: extra.regenerateKey ? "New signing key generated — re-share the JWKS URL with the vendor." : sys ? "Saved. Register the JWKS URL with the vendor, then click Test system connection." : "Configuration saved. Click Connect to authorize." });
+        await load();
+      }
+    } finally { setBusy(""); }
+  }
+
+  async function testSystem(provider: string) {
+    setBusy(`test-${provider}`); setMsg(null);
+    try {
+      // Save latest form values first so the test uses them.
+      await fetch("/api/admin/fhir/connections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, ...forms[provider] }) });
+      const r = await fetch(`/api/admin/fhir/${provider}/system/test`, { method: "POST" });
+      const d = await r.json();
+      if (!r.ok) setMsg({ kind: "err", text: d.error || "System connection test failed." });
+      else { setMsg({ kind: "ok", text: `Connected via System access ✓  Granted scope: ${d.grantedScope || "n/a"}${d.fhirVersion ? ` · FHIR ${d.fhirVersion}` : ""}. You can now pull patients below.` }); await load(); }
     } finally { setBusy(""); }
   }
 
@@ -210,6 +233,7 @@ export default function FhirConnect() {
         const ir = importResult[p.provider];
         const bf = bulkForm[p.provider] || {};
         const bj = bulkJob[p.provider];
+        const mode = f.authMode || c?.authMode || "user";
         return (
           <div key={p.provider} className="rounded-xl ring-1 ring-slate-200">
             <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-200">
@@ -225,6 +249,13 @@ export default function FhirConnect() {
 
               <details open={!c?.connected}>
                 <summary className="cursor-pointer text-sm font-medium text-slate-700">Connection settings</summary>
+                <div className="mt-2 inline-flex rounded-lg ring-1 ring-slate-200 overflow-hidden text-xs">
+                  <button type="button" onClick={() => setField(p.provider, "authMode", "user")} className={`px-3 py-1.5 ${mode === "user" ? "bg-brand-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>Provider login (SMART)</button>
+                  <button type="button" onClick={() => setField(p.provider, "authMode", "system")} className={`px-3 py-1.5 border-l border-slate-200 ${mode === "system" ? "bg-brand-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}>System access (Bulk Data)</button>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">{mode === "system"
+                  ? "Unattended, practice-level import via SMART Backend Services (client_credentials + a signed JWT). No user login — the practice registers our public key (JWKS URL below) with the vendor."
+                  : "Interactive migration: an authorized provider logs in at the vendor and consents (authorization_code + PKCE)."}</p>
                 {p.provider === "veradigm" && (
                   <div className="mt-2 rounded-lg bg-sky-50 ring-1 ring-sky-200 p-2">
                     <div className="text-xs font-medium text-sky-900 mb-1">Find your practice (Practice Fusion directory)</div>
@@ -248,24 +279,58 @@ export default function FhirConnect() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                   <L label="FHIR base URL"><input className="input" value={f.baseUrl || ""} onChange={(e) => setField(p.provider, "baseUrl", e.target.value)} placeholder="https://…/fhir/r4/…" /></L>
                   <L label="Client ID"><input className="input" value={f.clientId || ""} onChange={(e) => setField(p.provider, "clientId", e.target.value)} /></L>
-                  <L label="Authorization URL"><input className="input" value={f.authUrl || ""} onChange={(e) => setField(p.provider, "authUrl", e.target.value)} placeholder="https://…/authorize" /></L>
+                  {mode === "user" && (
+                    <L label="Authorization URL"><input className="input" value={f.authUrl || ""} onChange={(e) => setField(p.provider, "authUrl", e.target.value)} placeholder="https://…/authorize" /></L>
+                  )}
                   <L label="Token URL"><input className="input" value={f.tokenUrl || ""} onChange={(e) => setField(p.provider, "tokenUrl", e.target.value)} placeholder="https://…/token" /></L>
-                  <L label={`Client secret ${c?.clientSecretSet ? "(saved — leave blank to keep)" : "(if confidential app)"}`}><input className="input" type="password" value={f.clientSecret || ""} onChange={(e) => setField(p.provider, "clientSecret", e.target.value)} placeholder={c?.clientSecretSet ? c.clientSecretMasked || "••••" : ""} /></L>
-                  <L label="Scopes"><input className="input" value={f.scopes || ""} onChange={(e) => setField(p.provider, "scopes", e.target.value)} /></L>
-                  <div className="md:col-span-2 text-[11px] text-slate-500">Register this <b>Redirect URI</b> with the vendor: <span className="font-mono break-all">{p.redirectUri}</span></div>
+                  {mode === "user" && (
+                    <L label={`Client secret ${c?.clientSecretSet ? "(saved — leave blank to keep)" : "(if confidential app)"}`}><input className="input" type="password" value={f.clientSecret || ""} onChange={(e) => setField(p.provider, "clientSecret", e.target.value)} placeholder={c?.clientSecretSet ? c.clientSecretMasked || "••••" : ""} /></L>
+                  )}
+                  <L label="Scopes"><input className="input" value={f.scopes || ""} onChange={(e) => setField(p.provider, "scopes", e.target.value)} placeholder={mode === "system" ? "system/*.read" : "openid user/Patient.read …"} /></L>
+                  {mode === "user" && (
+                    <div className="md:col-span-2 text-[11px] text-slate-500">Register this <b>Redirect URI</b> with the vendor: <span className="font-mono break-all">{p.redirectUri}</span></div>
+                  )}
                 </div>
+
+                {mode === "system" && (
+                  <div className="mt-3 rounded-lg bg-indigo-50 ring-1 ring-indigo-200 p-3 space-y-2">
+                    <div className="text-xs font-semibold text-indigo-900">System access — signing key</div>
+                    {c?.keySet ? (
+                      <div className="text-[11px] text-indigo-800">A signing key is set (alg {c.jwkAlg || "RS384"}, kid {c.jwkThumbprint || "••••"}). Register this <b>JWKS URL</b> with the vendor so they can verify our signed requests:</div>
+                    ) : (
+                      <div className="text-[11px] text-indigo-800">Save the configuration to generate an RSA signing key. Then register the <b>JWKS URL</b> below with the vendor.</div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input readOnly className="input font-mono text-[11px]" value={c?.jwksUrl || `${''}`} placeholder="Save to generate…" />
+                      <button type="button" className="btn-secondary shrink-0" disabled={!c?.jwksUrl} onClick={() => { if (c?.jwksUrl) { navigator.clipboard?.writeText(c.jwksUrl); setMsg({ kind: "ok", text: "JWKS URL copied." }); } }}>Copy</button>
+                    </div>
+                    <div className="text-[11px] text-indigo-700">In the Veradigm portal, create a <b>System / Bulk export</b> R4 app, paste this JWKS URL, request <span className="font-mono">system/*.read</span> scopes, and copy the issued <b>Client ID</b> into the field above.</div>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2 mt-3">
                   <button onClick={() => discover(p.provider)} disabled={busy !== ""} className="btn-ghost">{busy === `disc-cfg-${p.provider}` ? "Discovering…" : "Auto-discover endpoints"}</button>
                   <button onClick={() => saveConfig(p.provider)} disabled={busy !== ""} className="btn-secondary">{busy === `save-${p.provider}` ? "Saving…" : "Save configuration"}</button>
-                  {c?.status && c.status !== "unconfigured" && (
-                    <a href={`/api/admin/fhir/${p.provider}/authorize`} className={`btn-primary ${busy !== "" ? "pointer-events-none opacity-60" : ""}`}>{c?.connected ? "Reconnect" : "Connect"}</a>
+                  {mode === "system" ? (
+                    <>
+                      {c?.keySet && <button onClick={() => saveConfig(p.provider, { regenerateKey: true })} disabled={busy !== ""} className="btn-ghost">Regenerate signing key</button>}
+                      {c?.keySet && c?.clientId && c?.tokenUrl && <button onClick={() => testSystem(p.provider)} disabled={busy !== ""} className="btn-primary">{busy === `test-${p.provider}` ? "Testing…" : "Test system connection"}</button>}
+                    </>
+                  ) : (
+                    <>
+                      {c?.status && c.status !== "unconfigured" && (
+                        <a href={`/api/admin/fhir/${p.provider}/authorize`} className={`btn-primary ${busy !== "" ? "pointer-events-none opacity-60" : ""}`}>{c?.connected ? "Reconnect" : "Connect"}</a>
+                      )}
+                      {c?.connected && <button onClick={() => disconnect(p.provider)} disabled={busy !== ""} className="btn-ghost text-rose-600">Disconnect</button>}
+                    </>
                   )}
-                  {c?.connected && <button onClick={() => disconnect(p.provider)} disabled={busy !== ""} className="btn-ghost text-rose-600">Disconnect</button>}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">Tip: enter just the <b>FHIR base URL</b> and click <b>Auto-discover endpoints</b> — we read <span className="font-mono">/.well-known/smart-configuration</span> to fill the Authorization &amp; Token URLs.</p>
+                <p className="text-[11px] text-slate-500 mt-1">{mode === "system"
+                  ? "Tip: enter the FHIR base URL and click Auto-discover to fill the Token URL, then Save to mint your signing key."
+                  : <>Tip: enter just the <b>FHIR base URL</b> and click <b>Auto-discover endpoints</b> — we read <span className="font-mono">/.well-known/smart-configuration</span> to fill the Authorization &amp; Token URLs.</>}</p>
               </details>
 
-              {c?.connected && (
+              {canImport(c) && (
                 <div className="rounded-lg bg-slate-50 ring-1 ring-slate-200 p-3 space-y-2">
                   <div className="text-sm font-medium text-slate-700">Import a patient</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -308,7 +373,7 @@ export default function FhirConnect() {
                 </div>
               )}
 
-              {c?.connected && (
+              {canImport(c) && (
                 <div className="rounded-lg bg-brand-50/40 ring-1 ring-brand-200 p-3 space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-sm font-medium text-slate-700">Bulk import — pull every patient</div>
