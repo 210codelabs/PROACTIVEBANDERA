@@ -321,6 +321,38 @@ export default function FhirConnect() {
                   </div>
                 )}
 
+                {mode === "system" && (
+                  <details className="mt-3 rounded-lg bg-slate-50 ring-1 ring-slate-200 p-3" open={c?.status === "error"}>
+                    <summary className="cursor-pointer text-xs font-semibold text-slate-700">Setup checklist &amp; troubleshooting</summary>
+                    <ol className="mt-2 space-y-1 text-[11px] text-slate-600 list-decimal pl-4">
+                      <li>Enter the practice <b>FHIR base URL</b> → click <b>Auto-discover endpoints</b> (fills a matching Token URL — the base &amp; token org IDs must match).</li>
+                      <li><b>Save configuration</b> to generate the signing key, then register the <b>JWKS URL</b> above with Veradigm.</li>
+                      <li>In Veradigm, create a <b>System</b> R4 app, request <span className="font-mono">system/*.read</span> scopes, and paste the issued <b>Client ID</b>.</li>
+                      <li>Set <b>Scopes</b> to <span className="font-mono">system/*.read</span> (never <span className="font-mono">user/…</span> / <span className="font-mono">openid</span> for system access).</li>
+                      <li>Veradigm must <b>approve</b> the app AND the practice must <b>activate/license</b> it — until then the token endpoint returns <span className="font-mono">invalid_client / Unknown client</span>.</li>
+                      <li>Confirm <b>Sandbox vs Production</b> match: the Client ID must belong to the same environment as the base/token URLs.</li>
+                      <li>Click <b>Test system connection</b>.</li>
+                    </ol>
+                    {c?.lastError && (() => {
+                      const cid = /pfCorrelationId"\s*:\s*"([^"]+)"/.exec(c.lastError)?.[1];
+                      const sub = /subcode"\s*:\s*"([^"]+)"/.exec(c.lastError)?.[1];
+                      return (
+                        <div className="mt-2 rounded-md bg-rose-50 ring-1 ring-rose-200 p-2 text-[11px] text-rose-800">
+                          <div className="font-semibold">Last vendor error{sub ? ` — ${sub}` : ""}</div>
+                          <div className="mt-1 break-all">{c.lastError}</div>
+                          {cid && (
+                            <div className="mt-1 flex items-center gap-2">
+                              <span>Give this to Veradigm support → <span className="font-mono">{cid}</span></span>
+                              <button type="button" className="text-brand-600 hover:underline" onClick={() => { navigator.clipboard?.writeText(cid); setMsg({ kind: "ok", text: "Correlation ID copied." }); }}>copy</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </details>
+                )}
+
+
                 <div className="flex flex-wrap gap-2 mt-3">
                   <button onClick={() => discover(p.provider)} disabled={busy !== ""} className="btn-ghost">{busy === `disc-cfg-${p.provider}` ? "Discovering…" : "Auto-discover endpoints"}</button>
                   <button onClick={() => saveConfig(p.provider)} disabled={busy !== ""} className="btn-secondary">{busy === `save-${p.provider}` ? "Saving…" : "Save configuration"}</button>
