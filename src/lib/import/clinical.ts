@@ -369,7 +369,7 @@ export function extractFromFhirResources(resources: any[]): Extracted {
         // Vital signs (single value or BP panel with components), grouped by reading time.
         const when = r.effectiveDateTime || r.effectivePeriod?.start || r.issued;
         const key = when ? String(when) : `seq-${vitalSeq++}`;
-        const rec = vitalsByKey.get(key) || { takenAt: when ? String(when).slice(0, 19) : undefined };
+        const rec = vitalsByKey.get(key) || { takenAt: when ? String(when) : undefined };
         let any = false;
         if (Array.isArray(r.component) && r.component.length) {
           for (const c of r.component) any = applyVital(rec, toArr(c.code?.coding)[0], c.valueQuantity) || any;
@@ -400,7 +400,7 @@ export function extractFromFhirResources(resources: any[]): Extracted {
         const reason = fhirDisplay(toArr(r.reasonCode)[0]);
         const provider = toArr(r.participant).map((pt: any) => pt?.individual?.display).filter(Boolean)[0];
         if (date || type || reason) encounters.push({
-          date: date ? String(date).slice(0, 19) : undefined,
+          date: date ? String(date) : undefined,
           type: type ? String(type) : undefined,
           reason: reason || undefined,
           provider: provider || undefined,
@@ -425,7 +425,7 @@ export function extractFromFhirResources(resources: any[]): Extracted {
         }
         const provider = toArr(r.author)[0]?.display;
         if (note || type) encounters.push({
-          date: date ? String(date).slice(0, 19) : undefined,
+          date: date ? String(date) : undefined,
           type: type ? String(type) : undefined,
           note,
           provider: provider || undefined,

@@ -100,11 +100,16 @@ export async function persistExtracted(ex: Extracted, opts: { defaultProviderId?
   const problemSet = new Set(existingProblems.map((x) => norm(x.description)));
   const medSet = new Set(existingMeds.map((x) => norm(x.name)));
   const allergySet = new Set(existingAllergies.map((x) => norm(x.substance)));
-  const vitalSig = (v: any) => [
-    v.takenAt ? new Date(v.takenAt).toISOString() : "",
+  const vitalVals = (v: any) => [
     v.heightCm, v.weightKg, v.bmi, v.systolic, v.diastolic, v.pulse, v.temperatureC, v.respRate, v.spo2, v.painScore,
   ].map((x) => (x == null ? "" : String(x))).join("|");
+  const vitalSig = (v: any) => `${v.takenAt ? new Date(v.takenAt).toISOString() : ""}|${vitalVals(v)}`;
+  // Two dedupe sets: full (timestamp + values) for timestamped readings, and
+  // values-only for readings the source provided WITHOUT a timestamp (so a
+  // re-import of an untimestamped reading is still recognised as a duplicate
+  // instead of being re-stamped "now" and duplicated each run).
   const vitalSet = new Set(existingVitals.map(vitalSig));
+  const vitalValsSet = new Set(existingVitals.map(vitalVals));
   const immSig = (i: { vaccine: string; cvxCode?: string | null; givenAt?: any }) => `${(i.cvxCode || i.vaccine.toLowerCase()).trim()}|${i.givenAt ? new Date(i.givenAt).toISOString().slice(0, 10) : ""}`;
   const immSet = new Set(existingImms.map(immSig));
 
@@ -138,16 +143,20 @@ export async function persistExtracted(ex: Extracted, opts: { defaultProviderId?
     allergySet.add(norm(a.substance)); res.allergies.created++;
   }
   for (const v of ex.vitals) {
+    // Untimestamped readings dedupe on values only; timestamped ones on time+values.
+    if (!v.takenAt) {
+      if (vitalValsSet.has(vitalVals(v))) { res.vitals.skipped++; continue; }
+    } else if (vitalSet.has(vitalSig(v))) { res.vitals.skipped++; continue; }
     const takenAt = v.takenAt ? new Date(v.takenAt) : new Date();
-    const sig = vitalSig({ ...v, takenAt });
-    if (vitalSet.has(sig)) { res.vitals.skipped++; continue; }
     await db.vital.create({ data: {
       patientId: pid, takenAt,
       heightCm: v.heightCm ?? null, weightKg: v.weightKg ?? null, bmi: v.bmi ?? null,
       systolic: v.systolic ?? null, diastolic: v.diastolic ?? null, pulse: v.pulse ?? null,
       temperatureC: v.temperatureC ?? null, respRate: v.respRate ?? null, spo2: v.spo2 ?? null, painScore: v.painScore ?? null,
     } });
-    vitalSet.add(sig); res.vitals.created++;
+    vitalSet.add(vitalSig({ ...v, takenAt }));
+    vitalValsSet.add(vitalVals(v));
+    res.vitals.created++;
   }
   for (const im of ex.immunizations) {
     const sig = immSig({ vaccine: im.vaccine, cvxCode: im.cvxCode, givenAt: im.givenAt });

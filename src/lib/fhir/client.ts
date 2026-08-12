@@ -36,6 +36,47 @@ export function redirectUriFor(provider: ProviderKey): string {
   return `${base}/api/admin/fhir/${provider}/callback`;
 }
 
+// Auto-discover the SMART/OAuth endpoints from a FHIR base URL. Tries the
+// standard /.well-known/smart-configuration first, then falls back to the
+// CapabilityStatement (/metadata) security oauth-uris extension. This lets an
+// admin enter ONLY the base URL and have the authorize/token URLs filled in.
+export async function discoverSmartConfig(baseUrl: string): Promise<{
+  authUrl?: string; tokenUrl?: string; introspectUrl?: string;
+  capabilities?: string[]; grantTypes?: string[]; codeChallengeMethods?: string[];
+  fhirVersion?: string; source: string;
+}> {
+  const base = baseUrl.replace(/\/$/, "");
+  try {
+    const r = await fetch(`${base}/.well-known/smart-configuration`, { headers: { accept: "application/json" } });
+    if (r.ok) {
+      const j = await r.json();
+      if (j.authorization_endpoint || j.token_endpoint) {
+        return {
+          authUrl: j.authorization_endpoint, tokenUrl: j.token_endpoint, introspectUrl: j.introspection_endpoint,
+          capabilities: j.capabilities, grantTypes: j.grant_types_supported, codeChallengeMethods: j.code_challenge_methods_supported,
+          source: "well-known",
+        };
+      }
+    }
+  } catch { /* fall through to metadata */ }
+  try {
+    const r = await fetch(`${base}/metadata`, { headers: { accept: "application/fhir+json" } });
+    if (r.ok) {
+      const cs = await r.json();
+      let authUrl: string | undefined, tokenUrl: string | undefined;
+      for (const rest of (cs.rest || [])) {
+        const oauth = (rest?.security?.extension || []).find((e: any) => String(e.url).includes("oauth-uris"));
+        for (const e of (oauth?.extension || [])) {
+          if (e.url === "authorize") authUrl = e.valueUri;
+          if (e.url === "token") tokenUrl = e.valueUri;
+        }
+      }
+      return { authUrl, tokenUrl, fhirVersion: cs.fhirVersion, source: "metadata" };
+    }
+  } catch { /* fall through to error */ }
+  throw new Error("Could not read SMART configuration from that base URL (tried /.well-known/smart-configuration and /metadata).");
+}
+
 export async function getConnection(provider: ProviderKey) {
   return db.fhirConnection.findUnique({ where: { provider } });
 }

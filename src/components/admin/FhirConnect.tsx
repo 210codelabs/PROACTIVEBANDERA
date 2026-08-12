@@ -26,6 +26,8 @@ export default function FhirConnect() {
   const [forms, setForms] = useState<Record<string, any>>({});
   const [importForm, setImportForm] = useState<Record<string, any>>({});
   const [importResult, setImportResult] = useState<Record<string, any>>({});
+  const [dirQuery, setDirQuery] = useState("");
+  const [dirResults, setDirResults] = useState<any[]>([]);
 
   async function load() {
     const r = await fetch("/api/admin/fhir/connections");
@@ -66,6 +68,33 @@ export default function FhirConnect() {
       const d = await r.json();
       if (!r.ok) setMsg({ kind: "err", text: d.error || "Save failed." });
       else { setMsg({ kind: "ok", text: "Configuration saved. Click Connect to authorize." }); await load(); }
+    } finally { setBusy(""); }
+  }
+
+  async function searchDir() {
+    if (dirQuery.trim().length < 2) { setDirResults([]); return; }
+    const r = await fetch(`/api/admin/fhir/directory?q=${encodeURIComponent(dirQuery)}`);
+    const d = await r.json();
+    if (r.ok) setDirResults(d.practices || []);
+  }
+  function pickPractice(provider: string, pr: any) {
+    setForms((prev) => ({ ...prev, [provider]: { ...prev[provider], baseUrl: pr.base } }));
+    setDirResults([]);
+    setMsg({ kind: "ok", text: `Selected ${pr.name}. Base URL filled — click Auto-discover endpoints, then Save.` });
+  }
+
+  async function discover(provider: string) {
+    const baseUrl = (forms[provider]?.baseUrl || "").trim();
+    if (!baseUrl) { setMsg({ kind: "err", text: "Enter the FHIR base URL first, then auto-discover." }); return; }
+    setBusy(`disc-cfg-${provider}`); setMsg(null);
+    try {
+      const r = await fetch("/api/admin/fhir/discover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ baseUrl }) });
+      const d = await r.json();
+      if (!r.ok) setMsg({ kind: "err", text: d.error || "Discovery failed." });
+      else {
+        setForms((prev) => ({ ...prev, [provider]: { ...prev[provider], authUrl: d.authUrl || prev[provider].authUrl, tokenUrl: d.tokenUrl || prev[provider].tokenUrl } }));
+        setMsg({ kind: "ok", text: `Endpoints discovered from ${d.source}${d.fhirVersion ? ` · FHIR ${d.fhirVersion}` : ""}. Review and Save.` });
+      }
     } finally { setBusy(""); }
   }
 
@@ -126,6 +155,26 @@ export default function FhirConnect() {
 
               <details open={!c?.connected}>
                 <summary className="cursor-pointer text-sm font-medium text-slate-700">Connection settings</summary>
+                {p.provider === "veradigm" && (
+                  <div className="mt-2 rounded-lg bg-sky-50 ring-1 ring-sky-200 p-2">
+                    <div className="text-xs font-medium text-sky-900 mb-1">Find your practice (Practice Fusion directory)</div>
+                    <div className="flex gap-2">
+                      <input className="input" placeholder="Practice name or NPI" value={dirQuery} onChange={(e) => setDirQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") searchDir(); }} />
+                      <button type="button" className="btn-secondary" onClick={searchDir} disabled={busy !== ""}>Search</button>
+                    </div>
+                    {dirResults.length > 0 && (
+                      <ul className="mt-2 max-h-44 overflow-auto text-xs divide-y divide-sky-100">
+                        {dirResults.map((pr) => (
+                          <li key={pr.orgId} className="py-1 flex items-center justify-between gap-2">
+                            <span className="truncate">{pr.name}{pr.npi ? ` · NPI ${pr.npi}` : ""}{pr.city ? ` · ${pr.city}, ${pr.state || ""}` : ""}</span>
+                            <button type="button" className="text-brand-600 hover:underline shrink-0" onClick={() => pickPractice(p.provider, pr)}>use</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="text-[11px] text-sky-700 mt-1">Picks the Provider/System Access FHIR base URL from the published Service Base URL directory.</div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                   <L label="FHIR base URL"><input className="input" value={f.baseUrl || ""} onChange={(e) => setField(p.provider, "baseUrl", e.target.value)} placeholder="https://…/fhir/r4/…" /></L>
                   <L label="Client ID"><input className="input" value={f.clientId || ""} onChange={(e) => setField(p.provider, "clientId", e.target.value)} /></L>
@@ -136,12 +185,14 @@ export default function FhirConnect() {
                   <div className="md:col-span-2 text-[11px] text-slate-500">Register this <b>Redirect URI</b> with the vendor: <span className="font-mono break-all">{p.redirectUri}</span></div>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-3">
+                  <button onClick={() => discover(p.provider)} disabled={busy !== ""} className="btn-ghost">{busy === `disc-cfg-${p.provider}` ? "Discovering…" : "Auto-discover endpoints"}</button>
                   <button onClick={() => saveConfig(p.provider)} disabled={busy !== ""} className="btn-secondary">{busy === `save-${p.provider}` ? "Saving…" : "Save configuration"}</button>
                   {c?.status && c.status !== "unconfigured" && (
                     <a href={`/api/admin/fhir/${p.provider}/authorize`} className={`btn-primary ${busy !== "" ? "pointer-events-none opacity-60" : ""}`}>{c?.connected ? "Reconnect" : "Connect"}</a>
                   )}
                   {c?.connected && <button onClick={() => disconnect(p.provider)} disabled={busy !== ""} className="btn-ghost text-rose-600">Disconnect</button>}
                 </div>
+                <p className="text-[11px] text-slate-500 mt-1">Tip: enter just the <b>FHIR base URL</b> and click <b>Auto-discover endpoints</b> — we read <span className="font-mono">/.well-known/smart-configuration</span> to fill the Authorization &amp; Token URLs.</p>
               </details>
 
               {c?.connected && (
