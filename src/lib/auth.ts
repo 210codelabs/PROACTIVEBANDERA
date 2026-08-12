@@ -11,8 +11,10 @@ export { roleLabel };
 
 const DEFAULT_AUTH_SECRET = "proactive-dev-secret-change-me-in-production-please-32chars+";
 const SESSION_COOKIE = "proactive_session";
-// Compliance: 5-minute rolling session (idle timeout enforced client + server side).
-const SESSION_TTL_SECONDS = 5 * 60;
+// Compliance: rolling idle session. TTL is refreshed on user activity by the
+// client SessionGuard; a longer window avoids surprise sign-outs mid-workflow
+// (e.g. while switching to a vendor portal tab).
+const SESSION_TTL_SECONDS = 30 * 60;
 const SESSION_COOKIE_OPTS = {
   httpOnly: true,
   sameSite: "none" as const,

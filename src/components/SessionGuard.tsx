@@ -2,9 +2,12 @@
 
 import { useEffect, useRef } from "react";
 
-// Compliance: force logout after 5 minutes of inactivity, and keep the server
-// session sliding while the user is active. Mount only inside authenticated views.
-const IDLE_LIMIT_MS = 5 * 60 * 1000;
+// Compliance: rolling idle session. Keeps the server session sliding while the
+// user is active, forces sign-out after inactivity, and — importantly — if ANY
+// authenticated /api call comes back 401 (e.g. the session expired while this
+// tab was backgrounded in another window), it bounces the user straight to the
+// login screen instead of leaving actions silently failing.
+const IDLE_LIMIT_MS = 30 * 60 * 1000;
 const REFRESH_THROTTLE_MS = 60 * 1000;
 const CHECK_INTERVAL_MS = 15 * 1000;
 
@@ -22,7 +25,7 @@ export default function SessionGuard({
   const loggedOut = useRef(false);
 
   useEffect(() => {
-    async function forceLogout() {
+    async function forceLogout(reason?: "expired" | "idle") {
       if (loggedOut.current) return;
       loggedOut.current = true;
       try {
@@ -30,7 +33,10 @@ export default function SessionGuard({
       } catch {
         /* ignore network errors on logout */
       }
-      window.location.replace(redirectTo);
+      // On an expired-session 401 mid-action, send the user to login and return
+      // them to where they were afterwards; on plain idle, use the configured target.
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.replace(reason === "expired" ? `/login?next=${next}` : (redirectTo || `/login?next=${next}`));
     }
 
     async function refresh() {
@@ -39,7 +45,7 @@ export default function SessionGuard({
       lastRefresh.current = now;
       try {
         const res = await fetch(refreshUrl, { method: "POST", cache: "no-store" });
-        if (res.status === 401) forceLogout();
+        if (res.status === 401) forceLogout("expired");
       } catch {
         /* ignore */
       }
@@ -54,11 +60,35 @@ export default function SessionGuard({
     const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
     events.forEach((e) => window.addEventListener(e, onActivity, { passive: true }));
 
+    // Detect an expired session on ANY authenticated API call and redirect to login.
+    const origFetch = window.fetch.bind(window);
+    const patched = (async (input: any, init?: any) => {
+      const res = await origFetch(input, init);
+      try {
+        if (res.status === 401) {
+          const raw = typeof input === "string" ? input : (input?.url || "");
+          const u = new URL(raw, window.location.origin);
+          if (
+            u.origin === window.location.origin &&
+            u.pathname.startsWith("/api/") &&
+            !u.pathname.startsWith("/api/auth/") &&
+            !u.pathname.startsWith("/api/portal/")
+          ) {
+            forceLogout("expired");
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      return res;
+    }) as typeof window.fetch;
+    window.fetch = patched;
+
     // Slide the session immediately on mount.
     refresh();
 
     const interval = setInterval(() => {
-      if (Date.now() - lastActivity.current >= IDLE_LIMIT_MS) forceLogout();
+      if (Date.now() - lastActivity.current >= IDLE_LIMIT_MS) forceLogout("idle");
     }, CHECK_INTERVAL_MS);
 
     // If the page is restored from the back/forward cache, revalidate the session.
@@ -71,6 +101,7 @@ export default function SessionGuard({
       events.forEach((e) => window.removeEventListener(e, onActivity));
       clearInterval(interval);
       window.removeEventListener("pageshow", onPageShow);
+      if (window.fetch === patched) window.fetch = origFetch;
     };
   }, [refreshUrl, logoutUrl, redirectTo]);
 

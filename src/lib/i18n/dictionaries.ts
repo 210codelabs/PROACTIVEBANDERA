@@ -70,7 +70,7 @@ const en = {
     welcomeDesc:
       "Access your clinical dashboard, manage patients, schedule appointments, and coordinate care with your team.",
     hipaa: "HIPAA-compliant secure access",
-    encrypted: "Automatic sign-out after 5 minutes of inactivity",
+    encrypted: "Automatic sign-out after 30 minutes of inactivity",
     needHelp: "Need help? Contact your administrator",
     staffSignIn: "Staff Sign In",
     enterCreds: "Enter your credentials to access the EHR system.",
@@ -333,7 +333,7 @@ const es = {
     welcomeDesc:
       "Accede a tu panel clínico, gestiona pacientes, agenda citas y coordina la atención con tu equipo.",
     hipaa: "Acceso seguro conforme a HIPAA",
-    encrypted: "Cierre de sesión automático tras 5 minutos de inactividad",
+    encrypted: "Cierre de sesión automático tras 30 minutos de inactividad",
     needHelp: "¿Necesitas ayuda? Contacta a tu administrador",
     staffSignIn: "Acceso del personal",
     enterCreds: "Ingresa tus credenciales para acceder al sistema EHR.",
