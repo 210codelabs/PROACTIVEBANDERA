@@ -19,7 +19,12 @@ export default async function RevenueCyclePage() {
         <Link href="/billing" className="btn-secondary">Back to Billing</Link>
       </div>
       <div className="card card-pad">
-        <RevenueCycle configured={Boolean(stedi.enabled && stedi.apiKey)} defaultPayerId={stedi.defaultPayerId} />
+        <RevenueCycle
+          configured={Boolean(stedi.enabled && stedi.apiKey)}
+          defaultPayerId={stedi.defaultPayerId}
+          baseUrl={process.env.NEXT_PUBLIC_BASE_URL || ""}
+          webhookConfigured={Boolean(stedi.webhookSecret)}
+        />
       </div>
     </Shell>
   );

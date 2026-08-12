@@ -31,6 +31,7 @@ export type StediConfig = {
   address: { streetAddress1: string; city: string; state: string; zipCode: string };
   defaultPayerId: string;
   enrollmentContact: { email: string; phone: string };
+  webhookSecret: string;
   enabled: boolean;
   subServices: Record<string, boolean>;
 };
@@ -67,6 +68,7 @@ export async function getStediConfig(): Promise<StediConfig> {
     },
     defaultPayerId: creds.DEFAULT_PAYER_ID || "",
     enrollmentContact: { email: creds.ENROLLMENT_CONTACT_EMAIL || "", phone: creds.ENROLLMENT_CONTACT_PHONE || "" },
+    webhookSecret: (creds.WEBHOOK_SECRET || process.env.STEDI_WEBHOOK_CREDENTIAL || "").trim(),
     enabled,
     subServices,
   };
@@ -361,4 +363,88 @@ export async function pollTransactions(sinceISO: string, pageToken?: string): Pr
 
 export async function getERA835(transactionId: string): Promise<any> {
   return stediFetch<any>(STEDI_BASE.healthcare, `/change/medicalnetwork/reports/v2/${transactionId}/835`, { method: "GET" });
+}
+
+// ---- Claim status (277) normalization ----
+export type ClaimStatusSummary = {
+  category: string;      // Finalized | Pending | Accepted | Rejected | Error | Unknown
+  statusCode?: string;   // payer/EDI status category+status codes
+  statusText: string;    // human-readable
+  paidCents?: number;
+  claimNumber?: string;  // payer claim control number
+  effectiveStatus: "accepted" | "rejected" | "paid" | "denied" | "pending" | "submitted";
+};
+
+/**
+ * Turn a Stedi 276/277 claim-status response into a small, human-readable
+ * summary. Stedi normalizes the 277 into claims[].claimStatus with category
+ * and status codes (Health Care Claim Status Category Codes / Status Codes).
+ */
+export function normalizeClaimStatus(raw: any): ClaimStatusSummary {
+  if (!raw || typeof raw !== "object") {
+    return { category: "Unknown", statusText: "No status returned yet.", effectiveStatus: "submitted" };
+  }
+  // Stedi shapes vary; look through claims[] -> claimStatus, or top-level status.
+  const claims: any[] = raw.claims || raw.claimStatus?.claims || [];
+  const first = Array.isArray(claims) && claims.length ? claims[0] : raw;
+  const status = first?.claimStatus || first?.status || raw?.claimStatus || raw;
+
+  const categoryCode = String(
+    status?.statusCategoryCode || status?.categoryCode || status?.claimStatusCategoryCode || "",
+  );
+  const statusCode = String(status?.statusCode || status?.claimStatusCode || "");
+  const description =
+    status?.statusCategoryCodeValue || status?.statusCategoryCodeDescription ||
+    status?.statusCodeValue || status?.statusCodeDescription ||
+    status?.description || "";
+
+  const paidRaw = status?.amountPaid ?? status?.claimPaymentAmount ?? status?.monetaryAmount ?? first?.amountPaid;
+  const paidCents = paidRaw != null && paidRaw !== "" ? Math.round(Number(paidRaw) * 100) : undefined;
+  const claimNumber =
+    status?.payerClaimControlNumber || status?.claimControlNumber || first?.payerClaimControlNumber || undefined;
+
+  // Health Care Claim Status Category Codes (partial map):
+  // A* = Acknowledgement, P* = Pending, F* = Finalized, R*/E* = Request/Error, D* = Data reporting
+  const cc = categoryCode.toUpperCase();
+  let category = "Unknown";
+  let effectiveStatus: ClaimStatusSummary["effectiveStatus"] = "submitted";
+  if (/^F/.test(cc)) {
+    category = "Finalized";
+    // F1 forwarded, F2 finalized-payment, F3 finalized-revised, F3F denial etc.
+    if ((paidCents ?? 0) > 0 || /F1|F2/.test(cc)) { effectiveStatus = "paid"; }
+    else { effectiveStatus = "denied"; }
+  } else if (/^P/.test(cc)) { category = "Pending"; effectiveStatus = "accepted"; }
+  else if (/^A/.test(cc)) { category = "Accepted"; effectiveStatus = "accepted"; }
+  else if (/^R|^E/.test(cc)) { category = "Rejected"; effectiveStatus = "rejected"; }
+  else if (/^D/.test(cc)) { category = "Pending"; effectiveStatus = "accepted"; }
+
+  const statusText =
+    description ||
+    [categoryCode && `Category ${categoryCode}`, statusCode && `Status ${statusCode}`].filter(Boolean).join(" · ") ||
+    "Status received.";
+
+  return { category, statusCode: [categoryCode, statusCode].filter(Boolean).join("/") || undefined, statusText, paidCents, claimNumber, effectiveStatus };
+}
+
+// ---- Eligibility-derived prior-authorization requirement ----
+export type AuthRequirement = {
+  required: "required" | "not_required" | "unknown";
+  detail: string;
+};
+
+/**
+ * Prior authorization is NOT submitted via Stedi (no 278 REST endpoint). But the
+ * 270/271 eligibility response CAN indicate whether the payer requires prior
+ * authorization for a service type via benefitsInformation[].authOrCertIndicator
+ * (Y = required, N = not required, U = unknown).
+ */
+export function extractAuthRequired(raw: any): AuthRequirement {
+  const benefits: any[] = Array.isArray(raw?.benefitsInformation) ? raw.benefitsInformation : [];
+  const flags = benefits
+    .map((b) => String(b?.authOrCertIndicator || "").toUpperCase())
+    .filter((v) => v === "Y" || v === "N" || v === "U");
+  if (flags.includes("Y")) return { required: "required", detail: "Payer indicates prior authorization / certification IS required for this service." };
+  if (flags.length && flags.every((v) => v === "N")) return { required: "not_required", detail: "Payer indicates prior authorization is NOT required for this service." };
+  if (flags.includes("U") || flags.length === 0) return { required: "unknown", detail: "Payer did not clearly indicate an authorization requirement. Confirm with the payer." };
+  return { required: "unknown", detail: "Authorization requirement unclear from the eligibility response." };
 }

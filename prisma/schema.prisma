@@ -784,6 +784,8 @@ model Claim {
   submitRequest        Json?    // 837P payload sent
   submitResponse       Json?    // Stedi response
   statusResponse       Json?    // last 276/277 response
+  statusHistory        Json?    // [{ at, category, statusCode, statusText, paidCents, claimNumber, raw }]
+  statusCategory       String?  // normalized latest 277 category (e.g. Finalized, Pending, Rejected)
   eraTransactionId     String?
   createdById          String?
   createdByName        String?
@@ -807,6 +809,21 @@ model Remittance {
   raw            Json?
   createdAt      DateTime @default(now())
   @@index([createdAt])
+}
+
+// Raw Stedi webhook events (idempotency + audit for 835/ERA and other events).
+model StediEvent {
+  id             String   @id @default(cuid()) @map("_id")
+  eventId        String   @unique
+  webhookId      String?
+  transactionId  String?
+  transactionSet String?  // e.g. "835"
+  payload        Json?
+  processed      Boolean  @default(false)
+  processError   String?
+  createdAt      DateTime @default(now())
+  @@index([transactionSet])
+  @@index([processed])
 }
 
 // Fee schedule / CPT code catalog (code normalization + default charges).
@@ -899,6 +916,9 @@ model PriorAuthRequest {
   endDate        DateTime?
   status         String    @default("draft") // draft | pending | submitted | approved | denied | expired
   authNumber     String?
+  authRequired   String?   // eligibility-derived: required | not_required | unknown
+  authRequiredRaw Json?    // eligibility snapshot used to derive authRequired
+  lastCheckedAt  DateTime?
   notes          String?
   createdById    String?
   createdByName  String?

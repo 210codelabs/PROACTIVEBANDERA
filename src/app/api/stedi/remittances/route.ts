@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getStediConfig, pollTransactions, getERA835, StediError } from "@/lib/stedi";
+import { getStediConfig, pollTransactions, StediError } from "@/lib/stedi";
+import { ingestEra835 } from "@/lib/era";
 
 export async function GET() {
   const user = await getSession();
@@ -11,6 +12,7 @@ export async function GET() {
 }
 
 // POST poll Stedi for inbound 835/ERA transactions and reconcile with claims.
+// This is the manual fallback for the real-time webhook (/api/stedi/webhook).
 export async function POST(req: Request) {
   const user = await getSession();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -29,55 +31,10 @@ export async function POST(req: Request) {
       const type = String(t?.transactionSetIdentifier || t?.type || t?.transactionType || "");
       const txId = t?.transactionId || t?.id;
       if (!txId || !/835/.test(type)) continue;
-      const exists = await db.remittance.findUnique({ where: { transactionId: txId } }).catch(() => null);
-      if (exists) continue;
-      let era: any = null;
-      try { era = await getERA835(txId); } catch { /* skip */ }
-      const payments = era?.claimPayments || era?.claims || [];
-      const matched: any[] = [];
-      let totalPaidCents = 0;
-      for (const cp of Array.isArray(payments) ? payments : []) {
-        const pcn = cp?.patientControlNumber || cp?.claimInformation?.patientControlNumber;
-        const paidCents = Math.round(Number(cp?.claimPaymentAmount || cp?.paidAmount || 0) * 100);
-        totalPaidCents += paidCents;
-        if (pcn) {
-          const claim = await db.claim.findUnique({ where: { patientControlNumber: pcn } }).catch(() => null);
-          if (claim) {
-            await db.claim.update({ where: { id: claim.id }, data: { paidCents, status: paidCents > 0 ? "paid" : "denied", eraTransactionId: txId } });
-            matched.push({ patientControlNumber: pcn, paidCents, status: paidCents > 0 ? "paid" : "denied" });
-            // Payment posting — record the insurance payment on the patient ledger (idempotent).
-            if (claim.patientId && paidCents > 0) {
-              await db.patientLedgerEntry
-                .create({
-                  data: {
-                    patientId: claim.patientId,
-                    type: "payment",
-                    amountCents: paidCents,
-                    description: `Insurance payment — ${era?.payer?.name || "payer"} (claim ${pcn})`,
-                    claimId: claim.id,
-                    remittanceId: txId,
-                    refKey: `payment:${txId}:${claim.id}`,
-                  },
-                })
-                .catch(() => {});
-            }
-          }
-        }
-      }
-      const totalFromEra = Math.round(Number(era?.totalActualProviderPaymentAmount || era?.financialInformation?.totalPaid || 0) * 100) || totalPaidCents;
-      await db.remittance.create({
-        data: {
-          transactionId: txId,
-          payerName: era?.payer?.name || null,
-          totalPaidCents: totalFromEra,
-          checkNumber: era?.financialInformation?.checkNumber || era?.checkNumber || null,
-          paidDate: era?.financialInformation?.date || null,
-          matchedClaims: matched as object,
-          raw: era as object,
-        },
-      });
+      const result = await ingestEra835(String(txId));
+      if (result.alreadyProcessed) continue;
       processed++;
-      summaries.push({ transactionId: txId, matched: matched.length, totalPaidCents: totalFromEra });
+      summaries.push({ transactionId: txId, matched: result.matched.length, totalPaidCents: result.totalPaidCents });
     }
     return NextResponse.json({ ok: true, scanned: txns.length, processed, summaries });
   } catch (e: any) {

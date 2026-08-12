@@ -163,6 +163,7 @@ export const INTEGRATION_CATALOG: CapabilityDef[] = [
           { key: "DEFAULT_PAYER_ID", label: "Default Payer ID (tradingPartnerServiceId)", type: "text", required: false, placeholder: "87726", help: "Optional default payer alias/ID. Preserve leading zeroes." },
           { key: "ENROLLMENT_CONTACT_EMAIL", label: "Enrollment Contact Email", type: "text", required: false, placeholder: "billing@proactiveclinic.com" },
           { key: "ENROLLMENT_CONTACT_PHONE", label: "Enrollment Contact Phone", type: "text", required: false, placeholder: "2105550100" },
+          { key: "WEBHOOK_SECRET", label: "ERA Webhook Secret", type: "password", required: false, placeholder: "long-random-string", help: "Shared secret for real-time 835/ERA delivery. Create any long random value here, then in Stedi → Developer settings → Webhooks add a custom header 'x-stedi-webhook-secret' with this value pointing at /api/stedi/webhook." },
         ],
         subServices: [
           { key: "coverage", label: "Coverage & Eligibility (270/271)", description: "Real-time insurance eligibility & benefits checks." },

@@ -16,6 +16,7 @@ const PUBLIC_PREFIX = [
   "/api/assistant",
   "/api/appointments/request",
   "/api/fhir/jwks",
+  "/api/stedi/webhook",
   "/fhir",
   "/api/auth/login",
   "/api/auth/logout",

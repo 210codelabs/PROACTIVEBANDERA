@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getStediConfig, checkClaimStatus, StediError } from "@/lib/stedi";
+import { getStediConfig, checkClaimStatus, normalizeClaimStatus, StediError } from "@/lib/stedi";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getSession();
@@ -27,8 +27,33 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       beginDate: begin, endDate: end,
       subscriber: { memberId: (patient as any)?.memberId, firstName: patient?.firstName || firstName || "", lastName: patient?.lastName || lastName || "", dateOfBirth: patient?.dob },
     });
-    const updated = await db.claim.update({ where: { id }, data: { statusResponse: resp as object } });
-    return NextResponse.json({ ok: true, claim: updated, status: resp });
+
+    const norm = normalizeClaimStatus(resp);
+    const historyEntry = {
+      at: new Date().toISOString(),
+      category: norm.category,
+      statusCode: norm.statusCode || null,
+      statusText: norm.statusText,
+      paidCents: norm.paidCents ?? null,
+      claimNumber: norm.claimNumber || null,
+      checkedByName: `${user.firstName} ${user.lastName}`,
+    };
+    const history = Array.isArray(claim.statusHistory) ? (claim.statusHistory as any[]) : [];
+    history.unshift(historyEntry);
+
+    // Only advance the claim's own status when the payer gave a definitive result.
+    const advance = ["paid", "denied", "rejected", "accepted"].includes(norm.effectiveStatus);
+    const updated = await db.claim.update({
+      where: { id },
+      data: {
+        statusResponse: resp as object,
+        statusHistory: history.slice(0, 50) as object,
+        statusCategory: norm.category,
+        ...(advance ? { status: norm.effectiveStatus } : {}),
+        ...(norm.paidCents != null && norm.paidCents > 0 ? { paidCents: norm.paidCents } : {}),
+      },
+    });
+    return NextResponse.json({ ok: true, claim: updated, status: resp, summary: norm });
   } catch (e: any) {
     const status = e instanceof StediError ? e.status : 502;
     return NextResponse.json({ error: `Status check failed: ${String(e?.message || e).slice(0, 300)}`, status }, { status: 200 });
