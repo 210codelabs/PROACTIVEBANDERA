@@ -52,6 +52,7 @@ export async function POST(req: Request) {
         stediProviderId: provider.id, stediEnrollmentId: enrollment.id || enrollment.enrollmentId || null,
         providerName: cfg.orgName, npi: cfg.billingNpi, taxId: cfg.taxId,
         payerId: String(b.payerIdOrAlias), payerName: b.payerName || null,
+        bankAccountId: b.bankAccountId ? String(b.bankAccountId) : null,
         transactions: transactions as object, status: enrollment.status || (b.submit ? "STEDI_ACTION_REQUIRED" : "DRAFT"),
         raw: enrollment as object, createdById: user.id,
       },

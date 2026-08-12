@@ -14,6 +14,11 @@ function sanitize(a: any) {
     accountType: a.accountType, isDefault: a.isDefault, active: a.active,
     routingMasked: mask(a.routingNumber), accountMasked: mask(a.accountNumber),
     hasRouting: Boolean(a.routingNumber), hasAccount: Boolean(a.accountNumber),
+    verificationStatus: a.verificationStatus || "unverified",
+    verificationMethod: a.verificationMethod || null,
+    verifiedAt: a.verifiedAt || null,
+    verifiedByName: a.verifiedByName || null,
+    verificationNote: a.verificationNote || null,
     createdAt: a.createdAt,
   };
 }
@@ -54,6 +59,39 @@ export async function POST(req: Request) {
   let acct;
   if (b.id) acct = await db.bankAccount.update({ where: { id: String(b.id) }, data });
   else acct = await db.bankAccount.create({ data: { ...data, createdById: user.id, createdByName: `${user.firstName} ${user.lastName}` } });
+  return NextResponse.json({ ok: true, account: sanitize(acct) });
+}
+
+const VERIFY_METHODS = ["voided_check", "bank_letter", "payer_confirmation", "micro_deposit"];
+
+// PATCH: verify / unverify a bank account (manual verification — no Plaid).
+export async function PATCH(req: Request) {
+  const user = await getSession();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!["admin", "billing"].includes(user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const b = await req.json().catch(() => ({}));
+  if (!b.id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  const action = b.action || "verify";
+
+  let data: any;
+  if (action === "unverify") {
+    data = { verificationStatus: "unverified", verificationMethod: null, verifiedAt: null, verifiedById: null, verifiedByName: null, verificationNote: null };
+  } else {
+    const method = String(b.method || "");
+    if (!VERIFY_METHODS.includes(method)) {
+      return NextResponse.json({ error: `Select a verification method (${VERIFY_METHODS.join(", ")}).` }, { status: 400 });
+    }
+    data = {
+      verificationStatus: "verified",
+      verificationMethod: method,
+      verifiedAt: new Date(),
+      verifiedById: user.id,
+      verifiedByName: `${user.firstName} ${user.lastName}`,
+      verificationNote: b.note ? String(b.note).slice(0, 500) : null,
+    };
+  }
+  const acct = await db.bankAccount.update({ where: { id: String(b.id) }, data }).catch(() => null);
+  if (!acct) return NextResponse.json({ error: "Account not found." }, { status: 404 });
   return NextResponse.json({ ok: true, account: sanitize(acct) });
 }
 

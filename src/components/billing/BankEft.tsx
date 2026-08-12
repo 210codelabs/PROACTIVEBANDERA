@@ -2,8 +2,12 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 
-type Account = { id: string; label: string; bankName?: string | null; accountHolder?: string | null; accountType: string; isDefault: boolean; routingMasked?: string | null; accountMasked?: string | null };
+type Account = { id: string; label: string; bankName?: string | null; accountHolder?: string | null; accountType: string; isDefault: boolean; routingMasked?: string | null; accountMasked?: string | null; verificationStatus?: string; verificationMethod?: string | null; verifiedAt?: string | null; verifiedByName?: string | null; verificationNote?: string | null };
 type Enrollment = { id: string; payerId?: string | null; payerName: string; enrollmentType: string; bankAccountId?: string | null; status: string; effectiveDate?: string | null; traceNumber?: string | null; notes?: string | null };
+
+const METHOD_LABEL: Record<string, string> = {
+  voided_check: "Voided check", bank_letter: "Bank letter", payer_confirmation: "Payer confirmation", micro_deposit: "Micro-deposit",
+};
 
 const STATUS_STYLE: Record<string, string> = {
   not_started: "bg-slate-200 text-slate-700 ring-slate-300",
@@ -21,6 +25,7 @@ export default function BankEft() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [acctForm, setAcctForm] = useState<any | null>(null);
   const [enrForm, setEnrForm] = useState<any | null>(null);
+  const [verifyForm, setVerifyForm] = useState<any | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -45,6 +50,21 @@ export default function BankEft() {
   }
   async function delAcct(id: string) { if (!confirm("Remove this bank account?")) return; await fetch(`/api/billing/bank-accounts?id=${id}`, { method: "DELETE" }); await load(); }
 
+  async function saveVerify() {
+    setBusy(true); setMsg(null);
+    try {
+      const r = await fetch("/api/billing/bank-accounts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: verifyForm.id, action: "verify", method: verifyForm.method, note: verifyForm.note }) });
+      const d = await r.json();
+      if (!r.ok) { setMsg(d.error || "Verification failed."); return; }
+      setVerifyForm(null); await load();
+    } catch { setMsg("Network error."); } finally { setBusy(false); }
+  }
+  async function unverify(id: string) {
+    if (!confirm("Mark this account as unverified?")) return;
+    await fetch("/api/billing/bank-accounts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action: "unverify" }) });
+    await load();
+  }
+
   async function saveEnr() {
     setBusy(true); setMsg(null);
     try {
@@ -68,13 +88,22 @@ export default function BankEft() {
         </header>
         <div className="p-4">
           {accounts.length === 0 ? <p className="text-sm text-slate-500">No bank accounts configured.</p> : (
-            <table className="data w-full"><thead><tr><th>Label</th><th>Bank</th><th>Holder</th><th>Type</th><th>Routing</th><th>Account</th><th></th></tr></thead>
+            <table className="data w-full"><thead><tr><th>Label</th><th>Bank</th><th>Holder</th><th>Type</th><th>Routing</th><th>Account</th><th>Verified</th><th></th></tr></thead>
               <tbody>{accounts.map((a) => (
                 <tr key={a.id}>
                   <td className="font-medium text-slate-900">{a.label}{a.isDefault && <span className="chip ml-2 bg-emerald-100 text-emerald-800 ring-emerald-200">default</span>}</td>
                   <td>{a.bankName || "—"}</td><td>{a.accountHolder || "—"}</td><td className="capitalize">{a.accountType}</td>
                   <td className="font-mono text-xs">{a.routingMasked || "—"}</td><td className="font-mono text-xs">{a.accountMasked || "—"}</td>
-                  <td className="text-right whitespace-nowrap"><button onClick={() => setAcctForm({ id: a.id, label: a.label, bankName: a.bankName || "", accountHolder: a.accountHolder || "", accountType: a.accountType, isDefault: a.isDefault })} className="text-xs font-semibold text-brand-700 hover:underline mr-3">Edit</button><button onClick={() => delAcct(a.id)} className="text-xs font-semibold text-rose-600 hover:underline">Remove</button></td>
+                  <td>
+                    {a.verificationStatus === "verified"
+                      ? <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200" title={`${METHOD_LABEL[a.verificationMethod || ""] || "Verified"}${a.verifiedAt ? " · " + new Date(a.verifiedAt).toLocaleDateString() : ""}${a.verificationNote ? " · " + a.verificationNote : ""}`}>✓ {METHOD_LABEL[a.verificationMethod || ""] || "verified"}</span>
+                      : <span className="chip bg-amber-100 text-amber-800 ring-amber-200">unverified</span>}
+                  </td>
+                  <td className="text-right whitespace-nowrap">
+                    {a.verificationStatus === "verified"
+                      ? <button onClick={() => unverify(a.id)} className="text-xs font-semibold text-slate-500 hover:underline mr-3">Unverify</button>
+                      : <button onClick={() => setVerifyForm({ id: a.id, label: a.label, method: "voided_check", note: "" })} className="text-xs font-semibold text-emerald-700 hover:underline mr-3">Verify</button>}
+                    <button onClick={() => setAcctForm({ id: a.id, label: a.label, bankName: a.bankName || "", accountHolder: a.accountHolder || "", accountType: a.accountType, isDefault: a.isDefault })} className="text-xs font-semibold text-brand-700 hover:underline mr-3">Edit</button><button onClick={() => delAcct(a.id)} className="text-xs font-semibold text-rose-600 hover:underline">Remove</button></td>
                 </tr>
               ))}</tbody>
             </table>
@@ -137,6 +166,27 @@ export default function BankEft() {
             <label className="block text-sm col-span-2"><span className="label">Notes</span><textarea className="input min-h-[60px]" value={enrForm.notes || ""} onChange={(e) => setEnrForm({ ...enrForm, notes: e.target.value })} /></label>
           </div>
           <Footer onClose={() => setEnrForm(null)} onSave={saveEnr} busy={busy} />
+        </Modal>
+      )}
+
+      {/* Verify bank account modal */}
+      {verifyForm && (
+        <Modal title={`Verify “${verifyForm.label}”`} onClose={() => setVerifyForm(null)}>
+          <p className="text-xs text-slate-500 mb-3">Confirm this deposit account belongs to the practice before payers send EFT/ERA deposits to it. Record how ownership was confirmed. (Automated bank-linking was intentionally not enabled.)</p>
+          <div className="grid gap-3">
+            <label className="block text-sm"><span className="label">Verification method</span>
+              <select className="input" value={verifyForm.method} onChange={(e) => setVerifyForm({ ...verifyForm, method: e.target.value })}>
+                <option value="voided_check">Voided check</option>
+                <option value="bank_letter">Bank letter / statement</option>
+                <option value="payer_confirmation">Payer / clearinghouse confirmation</option>
+                <option value="micro_deposit">Micro-deposit amounts confirmed</option>
+              </select>
+            </label>
+            <label className="block text-sm"><span className="label">Note (reference #, amounts seen, who confirmed)</span>
+              <textarea className="input min-h-[60px]" value={verifyForm.note} onChange={(e) => setVerifyForm({ ...verifyForm, note: e.target.value })} placeholder="e.g. Micro-deposits $0.12 & $0.34 confirmed on 6/12; or voided check on file." />
+            </label>
+          </div>
+          <div className="flex justify-end gap-2 mt-4"><button onClick={() => setVerifyForm(null)} className="btn-secondary">Cancel</button><button onClick={saveVerify} disabled={busy} className="btn-primary">{busy ? "Saving…" : "Mark verified"}</button></div>
         </Modal>
       )}
     </div>

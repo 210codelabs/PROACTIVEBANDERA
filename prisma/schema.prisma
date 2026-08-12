@@ -758,6 +758,7 @@ model StediEnrollment {
   taxId            String?
   payerId          String?
   payerName        String?
+  bankAccountId    String?  // linked clinic deposit account for ERA/EFT deposits
   transactions     Json?    // { eligibility, claims, claimPayment ... }
   status           String   @default("DRAFT") // DRAFT | STEDI_ACTION_REQUIRED | PROVIDER_ACTION_REQUIRED | PROVISIONING | LIVE | REJECTED | CANCELED
   raw              Json?
@@ -869,6 +870,13 @@ model BankAccount {
   accountType       String   @default("checking") // checking | savings
   isDefault         Boolean  @default(false)
   active            Boolean  @default(true)
+  // Verification (manual — Plaid intentionally not used). Numbers stay masked.
+  verificationStatus String  @default("unverified") // unverified | verified
+  verificationMethod String?  // voided_check | bank_letter | payer_confirmation | micro_deposit
+  verifiedAt        DateTime?
+  verifiedById      String?
+  verifiedByName    String?
+  verificationNote  String?
   createdById       String?
   createdByName     String?
   createdAt         DateTime @default(now())

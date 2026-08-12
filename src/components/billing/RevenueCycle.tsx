@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 
 type Payer = { id: string; name: string; stediId?: string | null; supportsEligibility: boolean; supportsClaims: boolean; supportsRemittance: boolean; active: boolean };
-type Enrollment = { id: string; providerName: string; npi: string; payerId?: string | null; payerName?: string | null; transactions?: any; status: string; stediEnrollmentId?: string | null; createdAt: string };
+type Enrollment = { id: string; providerName: string; npi: string; payerId?: string | null; payerName?: string | null; bankAccountId?: string | null; transactions?: any; status: string; stediEnrollmentId?: string | null; createdAt: string };
 type FeeItem = { id: string; code: string; description: string; modifier?: string | null; feeCents: number; active: boolean };
 type Claim = { id: string; patientControlNumber: string; patientName?: string | null; payerId: string; payerName?: string | null; status: string; statusCategory?: string | null; totalChargeCents: number; paidCents: number; createdAt: string; submitResponse?: any; statusResponse?: any; statusHistory?: any[] };
 type Remit = { id: string; transactionId: string; payerName?: string | null; totalPaidCents: number; matchedClaims?: any[]; createdAt: string };
@@ -429,20 +429,25 @@ function RemittancesTab({ flash, configured, baseUrl, webhookConfigured }: { fla
 function EnrollmentTab({ flash, configured }: { flash: Flash; configured: boolean }) {
   const [rows, setRows] = useState<Enrollment[]>([]);
   const [payers, setPayers] = useState<Payer[]>([]);
-  const [form, setForm] = useState({ payerIdOrAlias: "", payerName: "", eligibility: true, claims: true, claimPayment: true, submit: false });
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [form, setForm] = useState({ payerIdOrAlias: "", payerName: "", bankAccountId: "", eligibility: true, claims: true, claimPayment: true, submit: false });
   const [busy, setBusy] = useState(false);
   const [refreshingAll, setRefreshingAll] = useState(false);
   const load = useCallback(async () => {
-    const [a, b] = await Promise.all([fetch("/api/stedi/enrollments"), fetch("/api/stedi/payers")]);
+    const [a, b, c] = await Promise.all([fetch("/api/stedi/enrollments"), fetch("/api/stedi/payers"), fetch("/api/billing/bank-accounts")]);
     if (a.ok) setRows((await a.json()).enrollments || []);
     if (b.ok) setPayers((await b.json()).payers || []);
+    if (c.ok) setAccounts((await c.json()).accounts || []);
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  const verifiedAccounts = accounts.filter((a) => a.verificationStatus === "verified");
+  const acctLabel = (id?: string | null) => accounts.find((a) => a.id === id)?.label || null;
 
   async function create(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);
     try {
-      const r = await fetch("/api/stedi/enrollments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payerIdOrAlias: form.payerIdOrAlias, payerName: form.payerName, transactions: { eligibility: form.eligibility, claims: form.claims, claimPayment: form.claimPayment }, submit: form.submit }) });
+      const r = await fetch("/api/stedi/enrollments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payerIdOrAlias: form.payerIdOrAlias, payerName: form.payerName, bankAccountId: form.bankAccountId || undefined, transactions: { eligibility: form.eligibility, claims: form.claims, claimPayment: form.claimPayment }, submit: form.submit }) });
       const d = await r.json(); if (!r.ok || d.error) return flash("err", d.error || "Enrollment failed");
       flash("ok", form.submit ? "Enrollment submitted to Stedi" : "Enrollment draft created"); load();
     } finally { setBusy(false); }
@@ -466,13 +471,14 @@ function EnrollmentTab({ flash, configured }: { flash: Flash; configured: boolea
         </div>
         <div className="overflow-hidden rounded-lg border border-slate-100">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-[11px] uppercase text-slate-400"><tr><th className="px-3 py-2">Payer</th><th className="px-3 py-2">Txns</th><th className="px-3 py-2">Status</th><th /></tr></thead>
+            <thead className="bg-slate-50 text-left text-[11px] uppercase text-slate-400"><tr><th className="px-3 py-2">Payer</th><th className="px-3 py-2">Txns</th><th className="px-3 py-2">Deposit acct</th><th className="px-3 py-2">Status</th><th /></tr></thead>
             <tbody>
-              {rows.length === 0 && <tr><td colSpan={4} className="px-3 py-3 text-center text-slate-400">No enrollments yet.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={5} className="px-3 py-3 text-center text-slate-400">No enrollments yet.</td></tr>}
               {rows.map((r) => (
                 <tr key={r.id} className="border-t border-slate-100">
                   <td className="px-3 py-2 text-slate-700">{r.payerName || r.payerId}</td>
                   <td className="px-3 py-2 text-xs text-slate-500">{Object.keys(r.transactions || {}).join(", ")}</td>
+                  <td className="px-3 py-2 text-xs text-slate-500">{acctLabel(r.bankAccountId) || "—"}</td>
                   <td className="px-3 py-2"><span className={`chip ring-1 ${ENROLL_STYLE[r.status] || ENROLL_STYLE.DRAFT}`}>{r.status}</span></td>
                   <td className="px-3 py-2 text-right">{r.stediEnrollmentId && <button onClick={() => refresh(r.id)} className="text-xs text-brand-700 hover:underline">Refresh</button>}</td>
                 </tr>
@@ -480,7 +486,7 @@ function EnrollmentTab({ flash, configured }: { flash: Flash; configured: boolea
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-[11px] text-slate-400">Lifecycle: DRAFT → STEDI_ACTION_REQUIRED → PROVISIONING → <span className="text-emerald-600 font-medium">LIVE</span>. ERA (835) enrollment is required before payments can be received; wait for LIVE.</p>
+        <p className="mt-2 text-[11px] text-slate-400">Lifecycle: DRAFT → STEDI_ACTION_REQUIRED → PROVISIONING → <span className="text-emerald-600 font-medium">LIVE</span>. ERA (835) enrollment is required before payments can be received; wait for LIVE. Manage deposit accounts under Billing → Bank &amp; EFT.</p>
       </div>
       <form onSubmit={create} className="space-y-2 rounded-lg border border-slate-200 p-3 self-start">
         <h4 className="text-sm font-semibold text-slate-700">New enrollment</h4>
@@ -495,6 +501,18 @@ function EnrollmentTab({ flash, configured }: { flash: Flash; configured: boolea
           <label className="inline-flex items-center gap-1"><input type="checkbox" checked={form.claims} onChange={(e) => setForm({ ...form, claims: e.target.checked })} /> Claims</label>
           <label className="inline-flex items-center gap-1"><input type="checkbox" checked={form.claimPayment} onChange={(e) => setForm({ ...form, claimPayment: e.target.checked })} /> ERA/Payment</label>
         </div>
+        {form.claimPayment && (
+          <div>
+            <label className="text-xs text-slate-500">Deposit account for ERA payments</label>
+            <select className="input" value={form.bankAccountId} onChange={(e) => setForm({ ...form, bankAccountId: e.target.value })}>
+              <option value="">— None selected —</option>
+              {verifiedAccounts.map((a) => <option key={a.id} value={a.id}>{a.label}{a.accountMasked ? ` (${a.accountMasked})` : ""}</option>)}
+            </select>
+            {verifiedAccounts.length === 0
+              ? <p className="mt-1 text-[11px] text-amber-600">No <strong>verified</strong> deposit account. Add & verify one under Billing → Bank &amp; EFT so payer EFT/ERA deposits land in the right account.</p>
+              : <p className="mt-1 text-[11px] text-slate-400">Only verified accounts are listed. Deposits are set up with the payer; this links the account for reconciliation.</p>}
+          </div>
+        )}
         <label className="inline-flex items-center gap-1 text-xs text-slate-600"><input type="checkbox" checked={form.submit} onChange={(e) => setForm({ ...form, submit: e.target.checked })} /> Submit to Stedi now (else save as draft)</label>
         <button className="btn-primary w-full" disabled={busy || !configured} type="submit">{busy ? "Creating…" : "Create enrollment"}</button>
       </form>
