@@ -414,6 +414,20 @@ export default function FhirConnect() {
                           <button onClick={() => cancelBulk(p.provider)} className="ml-2 text-rose-600 hover:underline" disabled={bj.cancelRequested}>{bj.cancelRequested ? "Stopping…" : "Cancel"}</button>
                         </div>
                       )}
+                      {bj.breakdown && bj.processed > 0 && (
+                        <div>
+                          <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">{bj.status === "running" ? "Brought over so far" : "Brought over"}</div>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                            {recapTiles(bj).map((t) => (
+                              <div key={t.label} className="rounded-lg bg-white ring-1 ring-slate-200 p-2 text-center">
+                                <div className="text-base font-semibold text-slate-800">{t.value}</div>
+                                <div className="text-[10px] leading-tight text-slate-500 mt-0.5">{t.label}</div>
+                                {t.sub && <div className="text-[10px] leading-tight text-slate-400">{t.sub}</div>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {bj.status === "completed" && <div className="text-sm text-emerald-700">Migration complete — {bj.processed} patient(s) processed, {bj.recordsCreated} record(s) added.</div>}
                       {bj.status === "cancelled" && <div className="text-sm text-amber-700">Stopped — {bj.processed} patient(s) were brought over before cancelling.</div>}
                       {bj.status === "failed" && <div className="text-sm text-rose-700">Bulk import failed: {bj.notice || "unknown error"}.</div>}
@@ -462,4 +476,23 @@ function bulkLabel(bj: any): string {
 function bulkPct(bj: any): number {
   if (bj?.totalPatients > 0) return Math.min(100, Math.round((bj.processed / bj.totalPatients) * 100));
   return 100; // unknown total: show a full, pulsing bar while running / done
+}
+
+// Friendly per-category recap tiles for a bulk migration ("what came over").
+function recapTiles(bj: any): { label: string; value: number; sub?: string }[] {
+  const b = bj?.breakdown || {};
+  const c = (k: string) => (b[k]?.created ?? 0);
+  const dup = (k: string) => (b[k]?.skipped ?? 0);
+  const sub = (k: string) => (dup(k) ? `${dup(k)} dup` : undefined);
+  const newN = bj?.patientsCreated || 0;
+  const merged = bj?.patientsMerged || 0;
+  return [
+    { label: "Patients", value: newN + merged, sub: merged ? `${newN} new · ${merged} merged` : `${newN} new` },
+    { label: "Problems", value: c("problems"), sub: sub("problems") },
+    { label: "Medications", value: c("medications"), sub: sub("medications") },
+    { label: "Allergies", value: c("allergies"), sub: sub("allergies") },
+    { label: "Vitals", value: c("vitals"), sub: sub("vitals") },
+    { label: "Immunizations", value: c("immunizations"), sub: sub("immunizations") },
+    { label: "Encounters", value: c("encounters"), sub: sub("encounters") },
+  ];
 }

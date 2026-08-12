@@ -42,11 +42,18 @@ function patientName(pt: any): string {
   return nm || pt?.id || "(unnamed)";
 }
 
+type CatCount = { created: number; skipped: number };
 type Counters = {
   processed: number; patientsCreated: number; patientsMerged: number;
   recordsCreated: number; recordsSkipped: number; failed: number;
   errors: { name: string; message: string }[]; providerNotice: boolean;
+  breakdown: Record<string, CatCount>;
 };
+
+const CATS = ["problems", "medications", "allergies", "vitals", "immunizations", "encounters"] as const;
+function emptyBreakdown(): Record<string, CatCount> {
+  return Object.fromEntries(CATS.map((c) => [c, { created: 0, skipped: 0 }]));
+}
 
 async function persistOnePatient(resources: any[], defaultProviderId: string | null, ctr: Counters, name: string): Promise<void> {
   try {
@@ -57,6 +64,11 @@ async function persistOnePatient(resources: any[], defaultProviderId: string | n
         if (r.patientCreated) ctr.patientsCreated++; else ctr.patientsMerged++;
         ctr.recordsCreated += r.created;
         ctr.recordsSkipped += r.skipped;
+        // Accumulate the per-category breakdown for the friendly recap.
+        const c = r.counts || {};
+        for (const cat of CATS) {
+          if (c[cat]) { ctr.breakdown[cat].created += c[cat].created || 0; ctr.breakdown[cat].skipped += c[cat].skipped || 0; }
+        }
         if (r.notice) ctr.providerNotice = true;
       } else { ctr.failed++; ctr.errors.push({ name, message: r.error }); }
     } else { ctr.failed++; ctr.errors.push({ name, message: "No usable Patient resource." }); }
@@ -80,7 +92,7 @@ async function writeProgress(jobId: string, ctr: Counters, currentPatient: strin
     data: {
       processed: ctr.processed, patientsCreated: ctr.patientsCreated, patientsMerged: ctr.patientsMerged,
       recordsCreated: ctr.recordsCreated, recordsSkipped: ctr.recordsSkipped, failed: ctr.failed,
-      currentPatient, errors: ctr.errors.slice(-50),
+      breakdown: ctr.breakdown, currentPatient, errors: ctr.errors.slice(-50),
     },
   }).catch(() => {});
 }
@@ -112,7 +124,7 @@ export async function runBulkImport(jobId: string): Promise<void> {
     await db.fhirBulkJob.update({ where: { id: jobId }, data: { status: "failed", finishedAt: new Date(), notice: "Unknown provider." } }).catch(() => {});
     return;
   }
-  const ctr: Counters = { processed: 0, patientsCreated: 0, patientsMerged: 0, recordsCreated: 0, recordsSkipped: 0, failed: 0, errors: [], providerNotice: false };
+  const ctr: Counters = { processed: 0, patientsCreated: 0, patientsMerged: 0, recordsCreated: 0, recordsSkipped: 0, failed: 0, errors: [], providerNotice: false, breakdown: emptyBreakdown() };
   const limit = job.limit && job.limit > 0 ? job.limit : 0;
 
   try {

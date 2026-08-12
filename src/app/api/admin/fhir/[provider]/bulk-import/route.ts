@@ -12,6 +12,7 @@ function publicJob(j: any) {
     totalPatients: j.totalPatients, processed: j.processed,
     patientsCreated: j.patientsCreated, patientsMerged: j.patientsMerged,
     recordsCreated: j.recordsCreated, recordsSkipped: j.recordsSkipped, failed: j.failed,
+    breakdown: j.breakdown || null,
     limit: j.limit ?? null, currentPatient: j.currentPatient || null,
     errors: Array.isArray(j.errors) ? j.errors : [],
     notice: j.notice || null, cancelRequested: j.cancelRequested,
