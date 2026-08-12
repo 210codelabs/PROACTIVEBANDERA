@@ -28,6 +28,7 @@ export default function FhirConnect() {
   const [importResult, setImportResult] = useState<Record<string, any>>({});
   const [dirQuery, setDirQuery] = useState("");
   const [dirResults, setDirResults] = useState<any[]>([]);
+  const [dirBusy, setDirBusy] = useState(false);
   // Bulk "pull every patient" migration state (keyed by provider)
   const [bulkForm, setBulkForm] = useState<Record<string, any>>({});
   const [bulkJob, setBulkJob] = useState<Record<string, any>>({});
@@ -118,10 +119,22 @@ export default function FhirConnect() {
   }
 
   async function searchDir() {
-    if (dirQuery.trim().length < 2) { setDirResults([]); return; }
-    const r = await fetch(`/api/admin/fhir/directory?q=${encodeURIComponent(dirQuery)}`);
-    const d = await r.json();
-    if (r.ok) setDirResults(d.practices || []);
+    const q = dirQuery.trim();
+    if (q.length < 2) { setMsg({ kind: "err", text: "Type at least 2 characters (practice name or NPI) to search." }); return; }
+    setDirBusy(true); setMsg(null); setDirResults([]);
+    try {
+      const r = await fetch(`/api/admin/fhir/directory?q=${encodeURIComponent(q)}`);
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setMsg({ kind: "err", text: d.error === "Unauthorized" ? "Your session expired — please sign in again." : (d.error || `Directory search failed (HTTP ${r.status}).`) });
+        return;
+      }
+      const list = d.practices || [];
+      setDirResults(list);
+      if (!list.length) setMsg({ kind: "ok", text: `No practices matched “${q}”. Try part of the practice name or the 10-digit NPI.` });
+    } catch {
+      setMsg({ kind: "err", text: "Directory search failed — network error. Please try again." });
+    } finally { setDirBusy(false); }
   }
   function pickPractice(provider: string, pr: any) {
     setForms((prev) => ({ ...prev, [provider]: { ...prev[provider], baseUrl: pr.base } }));
@@ -261,7 +274,7 @@ export default function FhirConnect() {
                     <div className="text-xs font-medium text-sky-900 mb-1">Find your practice (Practice Fusion directory)</div>
                     <div className="flex gap-2">
                       <input className="input" placeholder="Practice name or NPI" value={dirQuery} onChange={(e) => setDirQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") searchDir(); }} />
-                      <button type="button" className="btn-secondary" onClick={searchDir} disabled={busy !== ""}>Search</button>
+                      <button type="button" className="btn-secondary" onClick={searchDir} disabled={dirBusy}>{dirBusy ? "Searching…" : "Search"}</button>
                     </div>
                     {dirResults.length > 0 && (
                       <ul className="mt-2 max-h-44 overflow-auto text-xs divide-y divide-sky-100">

@@ -1,5 +1,5 @@
 // Proactive Clinic service worker (minimal, enables PWA install)
-const CACHE = "proactive-v1";
+const CACHE = "proactive-v2";
 const PRECACHE = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -17,6 +17,13 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+  // NEVER let the service worker touch API calls — they are auth-dependent and
+  // must not be cached or served stale (that can surface as phantom 401s / empty
+  // results). Let the browser handle them directly with live cookies.
+  let url;
+  try { url = new URL(req.url); } catch { return; }
+  if (url.pathname.startsWith("/api/")) return;
+
   if (req.mode === "navigate") {
     e.respondWith(fetch(req).catch(() => caches.match("/")));
     return;
@@ -25,7 +32,7 @@ self.addEventListener("fetch", (e) => {
     fetch(req)
       .then((res) => {
         const copy = res.clone();
-        if (res.ok && new URL(req.url).origin === self.location.origin) {
+        if (res.ok && url.origin === self.location.origin) {
           caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
         }
         return res;
