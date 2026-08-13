@@ -803,6 +803,7 @@ model Remittance {
   id             String   @id @default(cuid()) @map("_id")
   transactionId  String   @unique
   payerName      String?
+  payerId        String?  // derived from matched claims for deposit reconciliation
   totalPaidCents Int      @default(0)
   checkNumber    String?
   paidDate       String?

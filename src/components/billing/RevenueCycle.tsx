@@ -6,7 +6,7 @@ type Payer = { id: string; name: string; stediId?: string | null; supportsEligib
 type Enrollment = { id: string; providerName: string; npi: string; payerId?: string | null; payerName?: string | null; bankAccountId?: string | null; transactions?: any; status: string; stediEnrollmentId?: string | null; createdAt: string };
 type FeeItem = { id: string; code: string; description: string; modifier?: string | null; feeCents: number; active: boolean };
 type Claim = { id: string; patientControlNumber: string; patientName?: string | null; payerId: string; payerName?: string | null; status: string; statusCategory?: string | null; totalChargeCents: number; paidCents: number; createdAt: string; submitResponse?: any; statusResponse?: any; statusHistory?: any[] };
-type Remit = { id: string; transactionId: string; payerName?: string | null; totalPaidCents: number; matchedClaims?: any[]; createdAt: string };
+type Remit = { id: string; transactionId: string; payerName?: string | null; payerId?: string | null; totalPaidCents: number; matchedClaims?: any[]; createdAt: string; deposit?: { id: string; label: string; accountMasked?: string | null; verified: boolean } | null; reconciled?: boolean; flag?: string | null };
 type PriorAuth = {
   id: string; patientId: string; patientName?: string | null; payerId?: string | null; payerName?: string | null;
   memberId?: string | null; serviceType?: string | null; cptCodes?: string | null; diagnosisCodes?: string | null;
@@ -360,10 +360,11 @@ function DenialsTab({ flash, configured }: { flash: Flash; configured: boolean }
 /* ---------------- Remittances (835 / ERA) with webhook auto-posting ---------------- */
 function RemittancesTab({ flash, configured, baseUrl, webhookConfigured }: { flash: Flash; configured: boolean; baseUrl: string; webhookConfigured: boolean }) {
   const [rows, setRows] = useState<Remit[]>([]);
+  const [recon, setRecon] = useState<{ total: number; unlinked: number }>({ total: 0, unlinked: 0 });
   const [busy, setBusy] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const webhookUrl = `${(baseUrl || "").replace(/\/$/, "")}/api/stedi/webhook`;
-  const load = useCallback(async () => { const r = await fetch("/api/stedi/remittances"); if (r.ok) setRows((await r.json()).remittances || []); }, []);
+  const load = useCallback(async () => { const r = await fetch("/api/stedi/remittances"); if (r.ok) { const d = await r.json(); setRows(d.remittances || []); setRecon(d.reconciliation || { total: 0, unlinked: 0 }); } }, []);
   useEffect(() => { load(); }, [load]);
   async function poll() { setBusy(true); try { const r = await fetch("/api/stedi/remittances", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }); const d = await r.json(); if (d.error) flash("err", d.error); else flash("ok", `Scanned ${d.scanned}, processed ${d.processed} ERA(s)`); load(); } finally { setBusy(false); } }
   const copy = (t: string) => { navigator.clipboard?.writeText(t).then(() => flash("ok", "Copied"), () => {}); };
@@ -382,6 +383,12 @@ function RemittancesTab({ flash, configured, baseUrl, webhookConfigured }: { fla
           ? "Real-time ERA webhook is configured. Incoming 835 payments are received and auto-posted to the patient ledger automatically. Use “Poll now” only to backfill."
           : "Real-time ERA webhook is NOT configured. Payments are only picked up when you click “Poll now”. Add a Webhook Secret in Settings → External Integrations and configure the webhook (see setup) for automatic posting."}
       </div>
+
+      {recon.unlinked > 0 && (
+        <div className="rounded-md bg-rose-50 text-rose-800 ring-1 ring-rose-200 px-3 py-2 text-xs">
+          <strong>{recon.unlinked} of {recon.total} remittance(s)</strong> came in for a payer with no <em>verified</em>, linked deposit account. Link a verified account on that payer's ERA enrollment (Enrollment tab) so you know exactly where each deposit lands.
+        </div>
+      )}
 
       {showSetup && (
         <div className="rounded-lg border border-slate-200 p-3 text-sm space-y-2">
@@ -406,15 +413,30 @@ function RemittancesTab({ flash, configured, baseUrl, webhookConfigured }: { fla
 
       <div className="overflow-hidden rounded-lg border border-slate-100">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-[11px] uppercase text-slate-400"><tr><th className="px-3 py-2">Transaction</th><th className="px-3 py-2">Payer</th><th className="px-3 py-2 text-right">Paid</th><th className="px-3 py-2">Matched</th><th className="px-3 py-2">When</th></tr></thead>
+          <thead className="bg-slate-50 text-left text-[11px] uppercase text-slate-400"><tr><th className="px-3 py-2">Transaction</th><th className="px-3 py-2">Payer</th><th className="px-3 py-2 text-right">Paid</th><th className="px-3 py-2">Matched</th><th className="px-3 py-2">Deposit account</th><th className="px-3 py-2">When</th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={5} className="px-3 py-3 text-center text-slate-400">No remittances yet. They arrive via webhook, or click “Poll now”.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={6} className="px-3 py-3 text-center text-slate-400">No remittances yet. They arrive via webhook, or click “Poll now”.</td></tr>}
             {rows.map((r) => (
               <tr key={r.id} className="border-t border-slate-100">
                 <td className="px-3 py-2 font-mono text-xs text-slate-500">{r.transactionId}</td>
-                <td className="px-3 py-2 text-slate-600">{r.payerName || "—"}</td>
+                <td className="px-3 py-2 text-slate-600">{r.payerName || r.payerId || "—"}</td>
                 <td className="px-3 py-2 text-right font-medium text-emerald-700">{money(r.totalPaidCents)}</td>
                 <td className="px-3 py-2 text-slate-500">{(r.matchedClaims || []).length} claim(s)</td>
+                <td className="px-3 py-2">
+                  {r.deposit ? (
+                    <span className="inline-flex items-center gap-1 text-xs">
+                      <span className="text-slate-700">{r.deposit.label}</span>
+                      {r.deposit.accountMasked && <span className="font-mono text-slate-400">{r.deposit.accountMasked}</span>}
+                      {r.deposit.verified
+                        ? <span className="chip bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200">✓ verified</span>
+                        : <span className="chip bg-amber-100 text-amber-800 ring-1 ring-amber-200">unverified</span>}
+                    </span>
+                  ) : r.flag === "no_linked_account" ? (
+                    <span className="chip bg-rose-100 text-rose-800 ring-1 ring-rose-200">⚠ No linked account</span>
+                  ) : (
+                    <span className="chip bg-slate-100 text-slate-600 ring-1 ring-slate-200">Unmatched payer</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-xs text-slate-500">{new Date(r.createdAt).toLocaleString()}</td>
               </tr>
             ))}
