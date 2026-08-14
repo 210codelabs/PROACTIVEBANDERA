@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import InstallAppButton from "@/components/InstallAppButton";
 
 export default function TopUtilityBar({
   firstName,
@@ -76,6 +77,7 @@ export default function TopUtilityBar({
           <InfoPill icon={<Icon.Phone />} text="(210) 500-2914" />
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <InstallAppButton />
           <a
             href="/api/compare/pdf"
             target="_blank"
