@@ -39,8 +39,16 @@ export default function Shell({
   patientHeader?: React.ReactNode;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const { t } = useI18n();
+
+  useEffect(() => {
+    try { setCollapsed(localStorage.getItem("pc_sidebar_collapsed") === "1"); } catch { /* ignore */ }
+  }, []);
+  function toggleCollapsed() {
+    setCollapsed(v => { const n = !v; try { localStorage.setItem("pc_sidebar_collapsed", n ? "1" : "0"); } catch { /* ignore */ } return n; });
+  }
 
   // Front-desk alerts: poll pending website requests, badge the nav item,
   // and toast when a new one arrives.
@@ -162,6 +170,17 @@ export default function Shell({
   const activeSection = groupedNav.find((section) => section.items.some((item) => isItemActive(item.href)));
   const activeItem = NAV.find((item) => isItemActive(item.href));
 
+  // Per-section color themes (by group order): Clinical, Pharmacy, Revenue, Admin.
+  const SECTION_THEMES = [
+    { dot: "bg-sky-400", text: "text-sky-200", rail: "from-sky-400 via-sky-500", chip: "bg-sky-100 text-sky-800 ring-sky-200", title: "border-sky-500", activeBar: "border-l-sky-400", activeBg: "bg-sky-400/20", groupBg: "bg-sky-400/5" },
+    { dot: "bg-emerald-400", text: "text-emerald-200", rail: "from-emerald-400 via-emerald-500", chip: "bg-emerald-100 text-emerald-800 ring-emerald-200", title: "border-emerald-500", activeBar: "border-l-emerald-400", activeBg: "bg-emerald-400/20", groupBg: "bg-emerald-400/5" },
+    { dot: "bg-amber-400", text: "text-amber-200", rail: "from-amber-400 via-amber-500", chip: "bg-amber-100 text-amber-800 ring-amber-200", title: "border-amber-500", activeBar: "border-l-amber-400", activeBg: "bg-amber-400/20", groupBg: "bg-amber-400/5" },
+    { dot: "bg-violet-400", text: "text-violet-200", rail: "from-violet-400 via-violet-500", chip: "bg-violet-100 text-violet-800 ring-violet-200", title: "border-violet-500", activeBar: "border-l-violet-400", activeBg: "bg-violet-400/20", groupBg: "bg-violet-400/5" },
+  ];
+  const themeFor = (idx: number) => SECTION_THEMES[idx % SECTION_THEMES.length];
+  const activeSectionIdx = Math.max(0, groupedNav.findIndex((s) => s === activeSection));
+  const activeTheme = themeFor(activeSectionIdx);
+
   const quickLinks = [
     { label: t("quick.today"), href: "/dashboard" },
     { label: t("quick.schedule"), href: "/schedule" },
@@ -173,28 +192,41 @@ export default function Shell({
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
-  const renderNavGroup = (section: NavSection, mobile = false) => {
+  const renderNavGroup = (section: NavSection, mobile = false, themeIdx = 0, iconOnly = false) => {
+    const theme = themeFor(themeIdx);
     return (
-      <div key={section.title} className="space-y-1.5">
-        <div className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300/70">{section.title}</div>
+      <div key={section.title} className={`space-y-1.5 ${iconOnly ? "" : `rounded-lg ${theme.groupBg} p-1.5`}`}>
+        {iconOnly ? (
+          <div className="mx-auto my-1 h-px w-6 rounded-full bg-white/15" />
+        ) : (
+          <div className="flex items-center gap-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]">
+            <span className={`inline-block h-1.5 w-1.5 rounded-full ${theme.dot}`} />
+            <span className={theme.text}>{section.title}</span>
+          </div>
+        )}
         <div className="space-y-0.5">
           {section.items.map((item) => {
             const active = isItemActive(item.href) || (item.children?.some((c) => isItemActive(c.href)) ?? false);
+            const showBadge = item.href === "/appointment-requests" && pendingCount > 0;
             return (
               <div key={item.href}>
                 <Link
                   href={item.href}
                   prefetch={false}
                   onClick={mobile ? closeMobileMenu : undefined}
-                  className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition ${active ? "bg-brand-400/25 text-white" : "text-slate-100 hover:bg-brand-400/25 hover:text-white"}`}
+                  title={iconOnly ? item.label : undefined}
+                  className={`relative flex items-center rounded-md text-sm font-medium transition border-l-2 ${iconOnly ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"} ${active ? `${theme.activeBg} text-white ${theme.activeBar}` : "border-transparent text-slate-100 hover:bg-white/10 hover:text-white"}`}
                 >
-                  <span className="text-slate-300">{item.icon}</span>
-                  <span className="flex-1">{item.label}</span>
-                  {item.href === "/appointment-requests" && pendingCount > 0 && (
+                  <span className="text-slate-200 relative">
+                    {item.icon}
+                    {iconOnly && showBadge && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[var(--navy-900)]" />}
+                  </span>
+                  {!iconOnly && <span className="flex-1">{item.label}</span>}
+                  {!iconOnly && showBadge && (
                     <span className="ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold">{pendingCount}</span>
                   )}
                 </Link>
-                {item.children && active && (
+                {!iconOnly && item.children && active && (
                   <div className="ml-8 mt-1 mb-1 space-y-0.5 border-l border-sky-800/60 pl-2">
                     {item.children.map((child) => {
                       const childActive = pathname === child.href;
@@ -304,14 +336,28 @@ export default function Shell({
         )}
 
         {/* SIDEBAR - DESKTOP */}
-        <aside className="w-[var(--sidebar-w)] shrink-0 bg-gradient-to-b from-[var(--navy-900)] to-[var(--navy-800)] border-r border-sky-900/50 sticky top-[var(--chrome-h)] h-[calc(100vh-var(--chrome-h))] hidden md:flex flex-col">
-          <div className="px-3 pt-3 pb-2 border-b border-sky-900/50">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-100/80">{t("shell.workspace")}</div>
-            <div className="mt-1 text-xs text-slate-200">{activeSection?.title || t("sections.clinical")} / {activeItem?.label || t("nav.dashboard")}</div>
+        <aside className={`${collapsed ? "w-[68px]" : "w-[var(--sidebar-w)]"} shrink-0 relative bg-gradient-to-b from-[var(--navy-900)] to-[var(--navy-800)] border-r border-sky-900/50 sticky top-[var(--chrome-h)] h-[calc(100vh-var(--chrome-h))] hidden md:flex flex-col transition-[width] duration-200`}>
+          {/* Gradient accent rail (per active section), most visible when collapsed */}
+          <div className={`pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${activeTheme.rail} to-transparent ${collapsed ? "opacity-90" : "opacity-40"}`} />
+          <div className={`px-3 pt-3 pb-2 border-b border-sky-900/50 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>
+            {!collapsed && (
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-100/80">{t("shell.workspace")}</div>
+                <div className="mt-1 text-xs text-slate-200 truncate">{activeSection?.title || t("sections.clinical")} / {activeItem?.label || t("nav.dashboard")}</div>
+              </div>
+            )}
+            <button
+              onClick={toggleCollapsed}
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className="h-7 w-7 shrink-0 grid place-items-center rounded-md text-slate-300 hover:bg-white/10 hover:text-white transition"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${collapsed ? "rotate-180" : ""}`}><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
           </div>
           <nav className="flex-1 p-2 space-y-3 overflow-y-auto no-scrollbar">
-            {groupedNav.map((section) => renderNavGroup(section))}
+            {groupedNav.map((section, i) => renderNavGroup(section, false, i, collapsed))}
           </nav>
+          {!collapsed && (
           <div className="p-3 border-t border-sky-900/50">
             <a
               href="https://www.proactivemtech.com"
@@ -333,6 +379,7 @@ export default function Shell({
               </div>
             </a>
           </div>
+          )}
         </aside>
 
         {/* SIDEBAR - MOBILE DRAWER */}
@@ -346,7 +393,7 @@ export default function Shell({
             <div className="mt-1 text-xs text-slate-200">{activeSection?.title || t("sections.clinical")} / {activeItem?.label || t("nav.dashboard")}</div>
           </div>
           <nav className="flex-1 p-2 space-y-3 overflow-y-auto no-scrollbar">
-            {groupedNav.map((section) => renderNavGroup(section, true))}
+            {groupedNav.map((section, i) => renderNavGroup(section, true, i))}
           </nav>
           <div className="p-3 border-t border-sky-900/50 space-y-3">
             <LanguageSwitcher tone="dark" />
@@ -376,8 +423,8 @@ export default function Shell({
         <main className="flex-1 min-w-0 bg-gradient-to-b from-[var(--teal-100)]/35 via-white to-white overflow-x-hidden">
           {patientHeader}
           <div className="px-3 sm:px-6 pt-3 pb-1 flex flex-wrap items-center gap-2">
-            <span className="chip bg-slate-100 text-slate-700 ring-slate-200">{t("shell.section")}: {activeSection?.title || t("sections.clinical")}</span>
-            <span className="chip bg-brand-100 text-brand-800 ring-brand-200">{t("shell.page")}: {activeItem?.label || t("shell.workspace")}</span>
+            <span className={`chip ring-1 ${activeTheme.chip}`}>{t("shell.section")}: {activeSection?.title || t("sections.clinical")}</span>
+            <span className="chip bg-slate-100 text-slate-700 ring-slate-200">{t("shell.page")}: {activeItem?.label || t("shell.workspace")}</span>
             <div className="ml-auto flex flex-wrap items-center gap-1.5">
               {quickLinks.map((link) => {
                 const quickActive = pathname === link.href;
@@ -396,6 +443,7 @@ export default function Shell({
           </div>
           {pageTitle && (
             <div className="px-3 sm:px-6 pt-2 pb-2 flex items-center gap-3">
+              <span className={`inline-block h-6 w-1.5 rounded-full ${activeTheme.dot}`} />
               <h1 className="text-lg sm:text-xl font-bold text-slate-900">{pageTitle}</h1>
             </div>
           )}

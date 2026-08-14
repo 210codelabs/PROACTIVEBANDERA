@@ -59,7 +59,32 @@ export default function NewPatientForm() {
   const [eligLoading, setEligLoading] = useState(false);
   const [eligError, setEligError] = useState<string | null>(null);
   const [eligResult, setEligResult] = useState<EligCheck | null>(null);
+  const [autoVerify, setAutoVerify] = useState(true);
+  const [insSig, setInsSig] = useState("");
+  const lastVerifiedSig = useRef("");
   const eligCheckId = eligResult?.id ?? null;
+
+  function readInsurance() {
+    const fd = formRef.current ? new FormData(formRef.current) : null;
+    const firstName = (fd?.get("firstName") as string) || "";
+    const lastName = (fd?.get("lastName") as string) || "";
+    const dob = (fd?.get("dob") as string) || "";
+    const memberId = (fd?.get("memberId") as string) || "";
+    const insurerName = (fd?.get("insurerName") as string) || payerName || "";
+    return { firstName, lastName, dob, memberId, insurerName, sig: [payerId.trim(), firstName, lastName, dob, memberId].join("|") };
+  }
+
+  // Auto-verify: once payer + member + name are present, run a live eligibility
+  // check automatically (debounced) so front desk doesn't have to click.
+  useEffect(() => {
+    if (!autoVerify || eligLoading) return;
+    const { firstName, lastName, memberId, sig } = readInsurance();
+    if (!payerId.trim() || !firstName || !lastName || !memberId) return;
+    if (sig === lastVerifiedSig.current) return;
+    const t = setTimeout(() => { lastVerifiedSig.current = sig; verifyCoverage(true); }, 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insSig, payerId, autoVerify]);
 
   // Prior-authorization draft (manual tracker)
   const [paOpen, setPaOpen] = useState(false);
@@ -73,18 +98,15 @@ export default function NewPatientForm() {
       .catch(() => {});
   }, [type, attorneys.length]);
 
-  async function verifyCoverage() {
+  async function verifyCoverage(auto = false) {
+    if (eligLoading) return;
     setEligError(null);
-    setEligResult(null);
-    const fd = formRef.current ? new FormData(formRef.current) : null;
-    const firstName = (fd?.get("firstName") as string) || "";
-    const lastName = (fd?.get("lastName") as string) || "";
-    const dob = (fd?.get("dob") as string) || "";
-    const memberId = (fd?.get("memberId") as string) || "";
-    const insurerName = (fd?.get("insurerName") as string) || payerName || "";
+    if (!auto) setEligResult(null);
+    const { firstName, lastName, dob, memberId, insurerName, sig } = readInsurance();
 
-    if (!payerId.trim()) { setEligError("Select a payer (or enter a Stedi payer ID) first."); return; }
-    if (!firstName || !lastName) { setEligError("Enter the patient's first and last name first."); return; }
+    if (!payerId.trim()) { if (!auto) setEligError("Select a payer (or enter a Stedi payer ID) first."); return; }
+    if (!firstName || !lastName) { if (!auto) setEligError("Enter the patient's first and last name first."); return; }
+    lastVerifiedSig.current = sig;
 
     setEligLoading(true);
     try {
@@ -173,7 +195,7 @@ export default function NewPatientForm() {
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-      <form ref={formRef} onSubmit={onSubmit} className="card card-pad space-y-6 xl:col-span-2">
+      <form ref={formRef} onSubmit={onSubmit} onChange={() => setInsSig(readInsurance().sig)} className="card card-pad space-y-6 xl:col-span-2">
         {/* Registration type */}
         <fieldset>
           <legend className="section-title mb-2">Registration type</legend>
@@ -281,12 +303,18 @@ export default function NewPatientForm() {
               <input className="input" value={payerId} onChange={(e) => setPayerId(e.target.value)} placeholder="e.g. 87726" />
             </label>
             <div className="flex items-end">
-              <button type="button" onClick={verifyCoverage} disabled={eligLoading} className="btn-secondary w-full">
+              <button type="button" onClick={() => verifyCoverage(false)} disabled={eligLoading} className="btn-secondary w-full">
                 {eligLoading ? "Verifying…" : "Verify coverage"}
               </button>
             </div>
           </div>
-          <p className="text-[11px] text-slate-500 mt-2">Run a real-time Stedi eligibility (270/271) check after entering insurance. Results appear in the Coverage panel on the right and are saved to the patient once created.</p>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] text-slate-500">Real-time Stedi eligibility (270/271). Results appear in the Coverage panel and stay linked to the patient after registration.</p>
+            <label className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
+              <input type="checkbox" checked={autoVerify} onChange={(e) => setAutoVerify(e.target.checked)} />
+              Auto-verify {autoVerify && eligLoading && <span className="text-brand-600">· checking…</span>}
+            </label>
+          </div>
         </fieldset>
 
         {error && <div className="rounded bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-3 py-2 text-sm">{error}</div>}
@@ -302,7 +330,7 @@ export default function NewPatientForm() {
           <h3 className="section-title mb-2">Coverage &amp; benefits</h3>
           {!eligResult && !eligError && (
             <p className="text-sm text-slate-500">
-              Enter insurance details and click <span className="font-medium text-slate-700">Verify coverage</span> to run a live Stedi eligibility check.
+              Enter the payer + member ID and coverage <span className="font-medium text-slate-700">auto-verifies</span> (or click <span className="font-medium text-slate-700">Verify coverage</span>). The result stays linked to the patient chart after registration.
             </p>
           )}
           {eligError && (

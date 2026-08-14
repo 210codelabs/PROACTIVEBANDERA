@@ -16,7 +16,13 @@ export async function GET(req: Request) {
   const where: any = {};
   if (patientId) where.patientId = patientId;
   if (providerId) where.providerId = providerId;
-  if (from || to) where.startsAt = { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) };
+  // Date filter. A date-only value (YYYY-MM-DD) is expanded so a single-day
+  // query (from==to) covers the whole day instead of just midnight.
+  if (from || to) {
+    const startOf = (v: string) => new Date(v.length === 10 ? `${v}T00:00:00.000` : v);
+    const endOf = (v: string) => new Date(v.length === 10 ? `${v}T23:59:59.999` : v);
+    where.startsAt = { ...(from ? { gte: startOf(from) } : {}), ...(to ? { lte: endOf(to) } : {}) };
+  }
 
   let appointments: any[] = [];
   try {

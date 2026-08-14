@@ -17,7 +17,9 @@ export default function TopUtilityBar({
   roleLabel: string;
 }) {
   const [now, setNow] = useState<Date | null>(null);
-  const [location, setLocation] = useState("Locating...");
+  const [geo, setGeo] = useState<{ city: string; state: string; stateName: string } | null>(null);
+  const [geoStatus, setGeoStatus] = useState("Locating…");
+  const [stateFmt, setStateFmt] = useState<"abbr" | "full">("abbr");
 
   useEffect(() => {
     setNow(new Date());
@@ -26,31 +28,49 @@ export default function TopUtilityBar({
   }, []);
 
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocation("Location unavailable");
-      return;
-    }
+    try {
+      const saved = localStorage.getItem("pc_state_fmt");
+      if (saved === "full" || saved === "abbr") setStateFmt(saved);
+    } catch { /* ignore */ }
+  }, []);
 
-    async function reverseGeocode(lat: number, lon: number) {
+  useEffect(() => {
+    async function reverse(lat: number, lon: number) {
       try {
-        const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
-        if (!r.ok) throw new Error("geocode failed");
+        const r = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lon}`);
+        if (!r.ok) throw new Error("geo failed");
         const d = await r.json();
-        const city = d.city || d.locality || d.principalSubdivision || "";
-        const state = d.principalSubdivisionCode ? String(d.principalSubdivisionCode).split("-").pop() : d.principalSubdivision || "";
-        const label = [city, state].filter(Boolean).join(", ");
-        setLocation(label || d.countryName || "Location found");
-      } catch {
-        setLocation("Location found");
-      }
+        if (d.city || d.state) setGeo({ city: d.city || "", state: d.state || "", stateName: d.stateName || d.state || "" });
+        else clinicFallback();
+      } catch { clinicFallback(); }
     }
-
+    async function clinicFallback() {
+      try {
+        const r = await fetch(`/api/geo/reverse?clinic=1`);
+        const d = await r.json();
+        setGeo({ city: d.city || "", state: d.state || "", stateName: d.stateName || d.state || "" });
+        setGeoStatus("Clinic location");
+      } catch { setGeoStatus("Location unavailable"); }
+    }
+    if (!navigator.geolocation) { clinicFallback(); return; }
     navigator.geolocation.getCurrentPosition(
-      pos => { reverseGeocode(pos.coords.latitude, pos.coords.longitude); },
-      () => setLocation("Location off"),
+      pos => reverse(pos.coords.latitude, pos.coords.longitude),
+      () => clinicFallback(),
       { enableHighAccuracy: false, timeout: 6000, maximumAge: 600000 }
     );
   }, []);
+
+  function toggleStateFmt() {
+    setStateFmt(prev => {
+      const next = prev === "abbr" ? "full" : "abbr";
+      try { localStorage.setItem("pc_state_fmt", next); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
+  const locationText = geo
+    ? [geo.city, stateFmt === "full" ? (geo.stateName || geo.state) : geo.state].filter(Boolean).join(", ")
+    : geoStatus;
 
   const clock = useMemo(
     () => {
@@ -73,7 +93,15 @@ export default function TopUtilityBar({
       <div className="h-full flex items-center justify-between gap-3 text-xs">
         <div className="hidden md:flex items-center gap-4 text-slate-200">
           <InfoPill icon={<Icon.Clock />} text={clock} />
-          <InfoPill icon={<Icon.Pin />} text={location} />
+          <button
+            type="button"
+            onClick={toggleStateFmt}
+            title={`Location — click to show ${stateFmt === "abbr" ? "full state name" : "state abbreviation"}`}
+            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 ring-1 ring-white/10 hover:bg-white/10 transition"
+          >
+            <span className="text-teal-200"><Icon.Pin /></span>
+            <span suppressHydrationWarning>{locationText}</span>
+          </button>
           <InfoPill icon={<Icon.Phone />} text="(210) 500-2914" />
         </div>
         <div className="ml-auto flex items-center gap-2">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
+import InstallAppButton from "@/components/InstallAppButton";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 type LandingDict = Dictionary["landing"];
@@ -54,6 +55,8 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <LanguageSwitcher className={`mr-1 ${scrolled ? "" : "text-white"}`} />
+
+            <InstallAppButton variant="landing" scrolled={scrolled} />
 
             <a
               href="/kiosk"

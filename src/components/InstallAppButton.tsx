@@ -18,7 +18,7 @@ function detectPlatform(): Platform {
   return "desktop-chrome";
 }
 
-export default function InstallAppButton() {
+export default function InstallAppButton({ variant = "topbar", scrolled = false }: { variant?: "topbar" | "landing"; scrolled?: boolean } = {}) {
   const [state, setState] = useState(() => getPwaState());
   const [platform, setPlatform] = useState<Platform>("other");
   const [showHelp, setShowHelp] = useState(false);
@@ -36,13 +36,20 @@ export default function InstallAppButton() {
 
   if (state.installed) return null;
 
+  const cls =
+    variant === "landing"
+      ? `hidden sm:inline-flex items-center gap-2 rounded-full text-sm font-bold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 ${
+          scrolled ? "text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50" : "text-white ring-1 ring-white/50 hover:bg-white/10"
+        }`
+      : "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/10 text-teal-100 font-semibold ring-1 ring-white/15 hover:bg-white/15 transition";
+
   return (
     <>
       <button
         type="button"
         onClick={handleClick}
         title="Install Proactive Clinic as an app"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/10 text-teal-100 font-semibold ring-1 ring-white/15 hover:bg-white/15 transition"
+        className={cls}
       >
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" />

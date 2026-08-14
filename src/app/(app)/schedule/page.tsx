@@ -2,7 +2,7 @@ import Link from "next/link";
 import {
   addDays, format, startOfDay, endOfDay, parseISO, addMinutes,
   startOfWeek, endOfWeek, startOfMonth, endOfMonth, addWeeks, addMonths,
-  eachDayOfInterval, isSameMonth, isSameDay,
+  eachDayOfInterval, isSameDay,
 } from "date-fns";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -10,10 +10,12 @@ import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import { fmtTime, colorForApptStatus, colorForCategory } from "@/lib/utils";
 import NewApptButton from "./NewApptButton";
+import MonthCalendar, { type MAppt } from "./MonthCalendar";
+import { PROVIDER_PALETTE } from "./palette";
 import { mapByIds } from "@/lib/safe-relations";
 import CopayButton from "@/components/billing/CopayButton";
 import CheckInButton from "@/components/billing/CheckInButton";
-import { getCopayMap } from "@/lib/coverage";
+import { getCopayMap, getLatestCoverageMap, classifyCoverage } from "@/lib/coverage";
 import { getBalanceMap, fmtCents } from "@/lib/balances";
 
 type View = "day" | "week" | "month" | "staff";
@@ -36,7 +38,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const user = await requireSession();
   const day = sp.d ? parseISO(sp.d) : new Date();
   const providerId = sp.providerId || "";
-  const view: View = (["day", "week", "month", "staff"].includes(sp.view || "") ? sp.view : "week") as View;
+  const view: View = (["day", "week", "month", "staff"].includes(sp.view || "") ? sp.view : "month") as View;
 
   // Visible range per view
   let rangeStart: Date, rangeEnd: Date;
@@ -100,6 +102,33 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
 
   const providersShown = providerId ? providers.filter((p) => p.id === providerId) : providers;
 
+  // Per-provider color index for calendar tints + legend.
+  const providerColors: Record<string, number> = {};
+  providers.forEach((p, i) => { providerColors[p.id] = i % PROVIDER_PALETTE.length; });
+  const monthAppts: MAppt[] = appts.map((a) => ({
+    id: a.id, patientId: a.patientId, providerId: a.providerId,
+    startsAt: new Date(a.startsAt).toISOString(), endsAt: new Date(a.endsAt).toISOString(),
+    status: a.status, pFirst: a.pFirst, pLast: a.pLast, provLast: a.provLast, svcName: a.svcName,
+  }));
+  const STATUS_LEGEND: { k: string; c: string }[] = [
+    { k: "scheduled", c: "bg-slate-400" }, { k: "checked-in", c: "bg-amber-500" }, { k: "in-room", c: "bg-violet-500" },
+    { k: "completed", c: "bg-emerald-500" }, { k: "no-show", c: "bg-rose-500" }, { k: "cancelled", c: "bg-slate-300" },
+  ];
+
+  // Coverage (Stedi eligibility) status per patient for month-view chips.
+  const coverageByPatient: Record<string, "ok" | "stale" | "lapsed" | "none"> = {};
+  if (view === "month") {
+    const covMap = await getLatestCoverageMap(appts.map((a) => a.patientId));
+    for (const a of appts) {
+      if (coverageByPatient[a.patientId]) continue;
+      coverageByPatient[a.patientId] = classifyCoverage(covMap.get(a.patientId)).kind;
+    }
+  }
+  const COVERAGE_LEGEND: { k: string; c: string; label: string }[] = [
+    { k: "ok", c: "bg-emerald-500", label: "Active" }, { k: "stale", c: "bg-amber-500", label: "Stale" },
+    { k: "lapsed", c: "bg-rose-500", label: "Not confirmed" }, { k: "none", c: "bg-slate-300", label: "No check" },
+  ];
+
   return (
     <Shell user={user} jellyBeans={<JellyBeans />} pageTitle={`Schedule — ${title}`}>
       {dataUnavailable && (
@@ -133,7 +162,52 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         {view === "day" && <DayGrid day={day} appts={appts.filter((a) => isSameDay(a.startsAt, day))} copayMap={copayMap} balanceMap={balanceMap} />}
         {view === "staff" && <StaffGrid day={day} providers={providersShown} appts={appts.filter((a) => isSameDay(a.startsAt, day))} qp={qp} />}
         {view === "week" && <WeekView start={rangeStart} appts={appts} qp={qp} />}
-        {view === "month" && <MonthView day={day} start={rangeStart} end={rangeEnd} appts={appts} qp={qp} />}
+        {view === "month" && (
+          <>
+            <MonthCalendar
+              monthISO={day.toISOString()}
+              startISO={rangeStart.toISOString()}
+              endISO={rangeEnd.toISOString()}
+              appts={monthAppts}
+              providerColors={providerColors}
+              providerQuery={providerId ? `&providerId=${providerId}` : ""}
+              coverage={coverageByPatient}
+            />
+            {/* Legends */}
+            <div className="px-4 py-3 border-t border-slate-100 flex flex-wrap items-start gap-x-8 gap-y-3">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Status</div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  {STATUS_LEGEND.map((s) => (
+                    <span key={s.k} className="inline-flex items-center gap-1 text-[11px] text-slate-600 capitalize"><span className={`h-2 w-2 rounded-full ${s.c}`} />{s.k}</span>
+                  ))}
+                </div>
+              </div>
+              {providersShown.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Providers</div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {providersShown.map((p) => (
+                      <span key={p.id} className="inline-flex items-center gap-1 text-[11px] text-slate-600">
+                        <span className={`h-2.5 w-2.5 rounded-sm ${PROVIDER_PALETTE[(providerColors[p.id] ?? 0) % PROVIDER_PALETTE.length].legend}`} />
+                        {p.firstName} {p.lastName}{p.credential ? `, ${p.credential}` : ""}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="text-[11px] text-slate-400 ml-auto self-center">Tip: drag an appointment to another day to reschedule (time is preserved).</div>
+            </div>
+            <div className="px-4 pb-3 -mt-1">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Coverage (Stedi eligibility)</div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {COVERAGE_LEGEND.map((s) => (
+                  <span key={s.k} className="inline-flex items-center gap-1 text-[11px] text-slate-600"><span className={`h-2 w-2 rounded-sm ${s.c}`} />{s.label}</span>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </Shell>
   );
@@ -267,39 +341,4 @@ function WeekView({ start, appts, qp }: { start: Date; appts: Appt[]; qp: (d: Da
   );
 }
 
-/* ---------- Month view (calendar grid) ---------- */
-function MonthView({ day, start, end, appts, qp }: { day: Date; start: Date; end: Date; appts: Appt[]; qp: (d: Date, v?: View) => string }) {
-  const days = eachDayOfInterval({ start, end });
-  const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return (
-    <div>
-      <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50">
-        {weekdays.map((w) => <div key={w} className="px-2 py-1.5 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">{w}</div>)}
-      </div>
-      <div className="grid grid-cols-7">
-        {days.map((d) => {
-          const inMonth = isSameMonth(d, day);
-          const today = isSameDay(d, new Date());
-          const list = appts.filter((a) => isSameDay(a.startsAt, d)).sort((x, y) => x.startsAt.getTime() - y.startsAt.getTime());
-          return (
-            <div key={d.toISOString()} className={`min-h-[112px] border-b border-r border-slate-100 p-1 ${inMonth ? "bg-white" : "bg-slate-50/60"}`}>
-              <Link href={qp(d, "day")} className="flex items-center justify-between px-1">
-                <span className={`text-xs font-semibold ${today ? "grid place-items-center h-6 w-6 rounded-full bg-brand-600 text-white" : inMonth ? "text-slate-700" : "text-slate-300"}`}>{format(d, "d")}</span>
-                {list.length > 0 && <span className="text-[10px] text-slate-400">{list.length}</span>}
-              </Link>
-              <div className="mt-1 space-y-0.5">
-                {list.slice(0, 3).map((a) => (
-                  <Link key={a.id} href={`/patients/${a.patientId}`} className="flex items-center gap-1 rounded px-1 py-0.5 hover:bg-slate-100">
-                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${DOT[a.status] || DOT.scheduled}`} />
-                    <span className="text-[10px] text-slate-600 truncate">{fmtTime(a.startsAt)} {a.pLast}</span>
-                  </Link>
-                ))}
-                {list.length > 3 && <Link href={qp(d, "day")} className="block text-[10px] text-brand-600 px-1 hover:underline">+{list.length - 3} more</Link>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+/* ---------- Month view now handled by the interactive client MonthCalendar ---------- */
