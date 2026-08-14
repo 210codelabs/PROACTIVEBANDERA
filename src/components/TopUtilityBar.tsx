@@ -26,18 +26,28 @@ export default function TopUtilityBar({
 
   useEffect(() => {
     if (!navigator.geolocation) {
-      setLocation("Geolocation unavailable");
+      setLocation("Location unavailable");
       return;
     }
 
+    async function reverseGeocode(lat: number, lon: number) {
+      try {
+        const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+        if (!r.ok) throw new Error("geocode failed");
+        const d = await r.json();
+        const city = d.city || d.locality || d.principalSubdivision || "";
+        const state = d.principalSubdivisionCode ? String(d.principalSubdivisionCode).split("-").pop() : d.principalSubdivision || "";
+        const label = [city, state].filter(Boolean).join(", ");
+        setLocation(label || d.countryName || "Location found");
+      } catch {
+        setLocation("Location found");
+      }
+    }
+
     navigator.geolocation.getCurrentPosition(
-      pos => {
-        const lat = pos.coords.latitude.toFixed(3);
-        const lon = pos.coords.longitude.toFixed(3);
-        setLocation(`${lat}, ${lon}`);
-      },
-      () => setLocation("Location permission blocked"),
-      { enableHighAccuracy: false, timeout: 4500, maximumAge: 120000 }
+      pos => { reverseGeocode(pos.coords.latitude, pos.coords.longitude); },
+      () => setLocation("Location off"),
+      { enableHighAccuracy: false, timeout: 6000, maximumAge: 600000 }
     );
   }, []);
 
@@ -65,7 +75,18 @@ export default function TopUtilityBar({
           <InfoPill icon={<Icon.Pin />} text={location} />
           <InfoPill icon={<Icon.Phone />} text="(210) 500-2914" />
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <a
+            href="/api/compare/pdf"
+            target="_blank"
+            rel="noreferrer"
+            title="Download the EHR platform comparison (PDF)"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-400/90 text-[var(--navy-900)] font-semibold ring-1 ring-amber-300/50 hover:bg-amber-300 transition"
+          >
+            <Icon.Compare />
+            <span className="hidden sm:inline">Compare EHRs</span>
+            <span className="sm:hidden">Compare</span>
+          </a>
           <MyAccountMenu
             firstName={firstName}
             lastName={lastName}
@@ -175,6 +196,7 @@ const Icon = {
   Phone: () => svgPath("M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012 4.2 2 2 0 014 2h3a2 2 0 012 1.7l.5 3a2 2 0 01-.6 1.8l-1.3 1.3a16 16 0 006 6l1.3-1.3a2 2 0 011.8-.6l3 .5A2 2 0 0122 16.9z"),
   Chevron: () => svgPath("M6 9l6 6 6-6"),
   Logout: () => svgPath("M15 12H3m0 0l4-4m-4 4l4 4M21 5v14a2 2 0 01-2 2h-6"),
+  Compare: () => svgPath("M9 3v18M15 3v18M4 7h4M4 12h4M4 17h4M16 7h4M16 12h4M16 17h4"),
 };
 
 function svgPath(d: string) {
