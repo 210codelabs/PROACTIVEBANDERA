@@ -24,6 +24,16 @@ export const EXPORT_TYPES = [
   "AllergyIntolerance", "Observation", "Immunization", "Encounter", "DocumentReference",
 ];
 
+/** Version-aware $export _type list. DSTU2 servers name the medication order
+ * resource "MedicationOrder"; R4 uses "MedicationRequest". */
+export function exportTypesFor(version?: string): string[] {
+  if (version === "dstu2") {
+    return ["Patient", "Condition", "MedicationOrder", "MedicationStatement",
+      "AllergyIntolerance", "Observation", "Immunization", "Encounter", "DocumentReference"];
+  }
+  return EXPORT_TYPES;
+}
+
 /** Generate an RSA signing key pair for Backend Services. Returns JWKs (public
  * + private) as JSON strings plus the kid/alg. The private key is stored
  * server-side only; the public key is published at the JWKS endpoint. */
@@ -110,7 +120,8 @@ export async function getValidToken(conn: any): Promise<string> {
 export async function kickoffExport(conn: any, token: string, opts: { types?: string[]; patientLevel?: boolean } = {}): Promise<string> {
   const base = String(conn.baseUrl).replace(/\/$/, "");
   const path = opts.patientLevel ? "/Patient/$export" : "/$export";
-  const types = (opts.types && opts.types.length ? opts.types : EXPORT_TYPES).join(",");
+  const defaults = exportTypesFor((conn as any)?.fhirVersion);
+  const types = (opts.types && opts.types.length ? opts.types : defaults).join(",");
 
   const attempt = async (withType: boolean) => {
     const url = withType ? `${base}${path}?_type=${encodeURIComponent(types)}` : `${base}${path}`;

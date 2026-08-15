@@ -52,7 +52,7 @@ export default function HeroAuth({ heading, accent, tagline, subtitle, chips }: 
 
 
       {/* Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-14 sm:pt-32 sm:pb-20">
+      <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-14 sm:pt-32 sm:pb-20">
         <div className="grid lg:grid-cols-2 gap-10 items-center">
           {/* Left: copy */}
           <div className="text-white">
