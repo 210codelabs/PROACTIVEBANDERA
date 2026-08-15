@@ -34,6 +34,18 @@ export default function FhirConnect() {
   const [bulkJob, setBulkJob] = useState<Record<string, any>>({});
   const [dirProbe, setDirProbe] = useState<Record<string, { ok: boolean; text: string }>>({});
   const [preflight, setPreflight] = useState<Record<string, { version?: string; software?: string; missing: string[]; expected: string[] } | null>>({});
+  const [health, setHealth] = useState<Record<string, { ok: boolean; version?: string; software?: string; at: number }>>({});
+  const [sandbox, setSandbox] = useState<any>({ open: false, baseUrl: "", token: "", limit: 2, result: null, busy: false });
+
+  async function runSandbox() {
+    setSandbox((s: any) => ({ ...s, busy: true, result: null }));
+    try {
+      const r = await fetch("/api/admin/fhir/sandbox-test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ baseUrl: sandbox.baseUrl, token: sandbox.token || undefined, limit: Number(sandbox.limit) || 2 }) });
+      const d = await r.json();
+      setSandbox((s: any) => ({ ...s, result: d }));
+    } catch { setSandbox((s: any) => ({ ...s, result: { ok: false, error: "Network error" } })); }
+    finally { setSandbox((s: any) => ({ ...s, busy: false })); }
+  }
   const pollRef = React.useRef<Record<string, any>>({});
 
   async function load() {
@@ -87,6 +99,27 @@ export default function FhirConnect() {
 
   // Clear any polling timers on unmount.
   useEffect(() => () => { for (const k of Object.keys(pollRef.current)) if (pollRef.current[k]) clearTimeout(pollRef.current[k]); }, []);
+
+  // Connection health: periodically auto-probe each configured server URL to keep
+  // the version/software badge and reachability fresh on the card.
+  useEffect(() => {
+    const targets = providers.filter((p) => p.connection?.baseUrl).map((p) => ({ provider: p.provider, baseUrl: p.connection.baseUrl as string }));
+    if (!targets.length) return;
+    let cancelled = false;
+    async function run() {
+      for (const t of targets) {
+        try {
+          const r = await fetch(`/api/admin/fhir/probe?baseUrl=${encodeURIComponent(t.baseUrl)}`);
+          const d = await r.json();
+          if (!cancelled) setHealth((prev) => ({ ...prev, [t.provider]: { ok: !!d.ok, version: d.version, software: d.software, at: Date.now() } }));
+        } catch { if (!cancelled) setHealth((prev) => ({ ...prev, [t.provider]: { ok: false, at: Date.now() } })); }
+      }
+    }
+    run();
+    const id = setInterval(run, 60000);
+    return () => { cancelled = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providers]);
 
   function setField(provider: string, key: string, val: string) {
     setForms((prev) => ({ ...prev, [provider]: { ...prev[provider], [key]: val } }));
@@ -236,15 +269,28 @@ export default function FhirConnect() {
     } catch { /* transient — retry once more */ pollRef.current[provider] = setTimeout(() => pollBulk(provider), 3000); return; }
     stopPoll(provider);
   }
-  async function startBulk(provider: string) {
+  async function startBulk(provider: string, force = false) {
     const f = bulkForm[provider] || {};
     const trial = (f.limit || "").toString().trim();
     const scope = trial ? `the first ${trial} patient(s)` : "EVERY patient";
-    if (!confirm(`Pull ${scope} from this EHR into Proactive Clinic? This is additive — existing charts and records are merged, never overwritten. It runs in the background and may take a while for a large practice.`)) return;
+    if (!force && !confirm(`Pull ${scope} from this EHR into Proactive Clinic? This is additive — existing charts and records are merged, never overwritten. It runs in the background and may take a while for a large practice.`)) return;
     setBusy(`bulk-${provider}`); setMsg(null);
     try {
-      const r = await fetch(`/api/admin/fhir/${provider}/bulk-import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limit: trial || undefined, defaultProviderId: f.defaultProviderId || undefined }) });
+      const r = await fetch(`/api/admin/fhir/${provider}/bulk-import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limit: trial || undefined, defaultProviderId: f.defaultProviderId || undefined, force }) });
       const d = await r.json();
+      // Preflight pause — server asked us to confirm before importing.
+      if (d.needsConfirm) {
+        const pf = d.preflight || {};
+        const detail = pf.reachable === false
+          ? `Server unreachable (${pf.error}).`
+          : `Missing resource types: ${(pf.missing || []).join(", ") || "none"}.`;
+        if (confirm(`Readiness check: ${d.message}\n\n${detail}\n\nClick OK to import anyway, or Cancel to fix the connection first.`)) {
+          setBusy("");
+          return startBulk(provider, true);
+        }
+        setMsg({ kind: "err", text: `Bulk import paused by readiness check — ${detail}` });
+        return;
+      }
       if (!r.ok) {
         setMsg({ kind: "err", text: d.error || "Could not start the bulk import." });
         if (d.job) { setBulkJob((prev) => ({ ...prev, [provider]: d.job })); if (d.job.status === "running") pollBulk(provider); }
@@ -285,9 +331,15 @@ export default function FhirConnect() {
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-slate-900">{p.label}</h3>
                 <StatusBadge status={c?.status} connected={c?.connected} />
-                {c?.fhirVersion && (
-                  <span className="chip bg-indigo-100 text-indigo-800 ring-indigo-200" title={c.fhirSoftware ? `Server: ${c.fhirSoftware}` : "Detected FHIR version"}>
-                    FHIR {c.fhirVersion === "dstu2" ? "DSTU2/R2" : "R4"}{c.fhirSoftware ? ` · ${c.fhirSoftware}` : ""}
+                {(c?.fhirVersion || health[p.provider]?.version) && (
+                  <span className="chip bg-indigo-100 text-indigo-800 ring-indigo-200" title={(health[p.provider]?.software || c?.fhirSoftware) ? `Server: ${health[p.provider]?.software || c?.fhirSoftware}` : "Detected FHIR version"}>
+                    FHIR {(health[p.provider]?.version || c?.fhirVersion) === "dstu2" ? "DSTU2/R2" : "R4"}{(health[p.provider]?.software || c?.fhirSoftware) ? ` · ${health[p.provider]?.software || c?.fhirSoftware}` : ""}
+                  </span>
+                )}
+                {health[p.provider] && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-500" title={`Auto-checked ${new Date(health[p.provider].at).toLocaleTimeString()}`}>
+                    <span className={`h-2 w-2 rounded-full ${health[p.provider].ok ? "bg-emerald-500" : "bg-rose-500"}`} />
+                    {health[p.provider].ok ? "reachable" : "unreachable"}
                   </span>
                 )}
               </div>
@@ -319,7 +371,7 @@ export default function FhirConnect() {
                           <li key={pr.orgId} className="py-1 flex items-center justify-between gap-2">
                             <span className="truncate">
                               {pr.name}{pr.npi ? ` · NPI ${pr.npi}` : ""}{pr.city ? ` · ${pr.city}, ${pr.state || ""}` : ""}
-                              {dirProbe[pr.orgId] && <span className={`ml-1 font-medium ${dirProbe[pr.orgId].ok ? "text-emerald-700" : "text-rose-600"}`}>· {dirProbe[pr.orgId].text}</span>}
+                              {dirProbe[pr.orgId] && <span className={`ml-1 chip ${dirProbe[pr.orgId].ok ? "bg-emerald-100 text-emerald-800 ring-emerald-200" : "bg-rose-100 text-rose-700 ring-rose-200"}`}>{dirProbe[pr.orgId].text}</span>}
                             </span>
                             <span className="flex items-center gap-2 shrink-0">
                               <button type="button" className="text-slate-500 hover:underline" onClick={() => probeDir(pr.orgId, pr.base)}>test</button>
@@ -562,6 +614,31 @@ export default function FhirConnect() {
           </div>
         );
       })}
+      <div className="rounded-lg border border-slate-200 p-3">
+        <button type="button" onClick={() => setSandbox((s: any) => ({ ...s, open: !s.open }))} className="text-sm font-semibold text-slate-800">DSTU2 / R2 sandbox test {sandbox.open ? "▲" : "▼"}</button>
+        {sandbox.open && (
+          <div className="mt-2 space-y-2">
+            <p className="text-[11px] text-slate-500">Read-only end-to-end test of any FHIR server (R2/DSTU2 or R4). Detects the version, then (with a bearer token) pulls a small patient sample + their clinical resources and reports counts. <b>Nothing is saved.</b></p>
+            <input className="input" placeholder="FHIR base URL (…/fhir/dstu2/… or …/fhir/r4/…)" value={sandbox.baseUrl} onChange={(e) => setSandbox((s: any) => ({ ...s, baseUrl: e.target.value }))} />
+            <div className="grid grid-cols-4 gap-2">
+              <input className="input col-span-3" placeholder="Bearer token (optional — needed to pull data)" value={sandbox.token} onChange={(e) => setSandbox((s: any) => ({ ...s, token: e.target.value }))} />
+              <input className="input" type="number" min={1} max={5} title="Patients to sample" value={sandbox.limit} onChange={(e) => setSandbox((s: any) => ({ ...s, limit: e.target.value }))} />
+            </div>
+            <button type="button" className="btn-primary" disabled={sandbox.busy || !sandbox.baseUrl} onClick={runSandbox}>{sandbox.busy ? "Testing…" : "Run sandbox test"}</button>
+            {sandbox.result && (
+              <div className={`rounded-md px-3 py-2 text-xs ring-1 ${sandbox.result.ok !== false && !sandbox.result.error ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-rose-50 text-rose-700 ring-rose-200"}`}>
+                {sandbox.result.error ? sandbox.result.error : (
+                  <>
+                    <div>Reachable · FHIR {sandbox.result.versionRaw} ({String(sandbox.result.version || "").toUpperCase()}){sandbox.result.software ? ` · ${sandbox.result.software}` : ""}</div>
+                    <div>Patients sampled: {sandbox.result.patientsSampled}. Records: {Object.entries(sandbox.result.resourceCounts || {}).map(([k, v]) => `${k}:${v}`).join(", ") || "none"}</div>
+                    {(sandbox.result.notes || []).map((n: string, i: number) => <div key={i} className="text-slate-500 mt-0.5">{n}</div>)}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       <p className="text-[11px] text-slate-400">Imported clinical data should be reviewed by a clinician before it is relied upon. Re-running an import is safe — existing records are skipped.</p>
     </div>
   );

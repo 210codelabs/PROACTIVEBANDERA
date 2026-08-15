@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin/auth";
 import { db } from "@/lib/db";
-import { getConnection, isProvider } from "@/lib/fhir/client";
+import { getConnection, isProvider, probeServer, expectedImportResources } from "@/lib/fhir/client";
 import { runBulkImport } from "@/lib/fhir/bulk";
 
 // Shape a FhirBulkJob row for the client (all fields are non-sensitive).
@@ -57,6 +57,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ provide
     limit = Math.floor(n);
   }
   const defaultProviderId = b.defaultProviderId ? String(b.defaultProviderId) : null;
+
+  // Preflight readiness check — run automatically unless the admin has already
+  // acknowledged the summary (force:true). If the server can't be reached or is
+  // missing resource types we plan to pull, pause and return the summary.
+  if (!b.force && conn.baseUrl) {
+    const probe = await probeServer(conn.baseUrl);
+    const version = probe.version || ((conn as any).fhirVersion === "dstu2" ? "dstu2" : "r4");
+    const expected = expectedImportResources(version);
+    if (!probe.ok) {
+      return NextResponse.json({
+        needsConfirm: true,
+        preflight: { reachable: false, error: probe.error || `HTTP ${probe.status}`, version, missing: [], expected },
+        message: `The FHIR server could not be reached (${probe.error || `HTTP ${probe.status}`}). Start anyway?`,
+      });
+    }
+    const have = new Set(probe.supported || []);
+    const missing = expected.filter((t) => !have.has(t));
+    // Patient is critical; missing it (or several types) warrants a pause.
+    const critical = missing.includes("Patient");
+    if (critical || missing.length > 0) {
+      return NextResponse.json({
+        needsConfirm: true,
+        preflight: { reachable: true, version, software: probe.software || null, missing, expected, critical },
+        message: critical
+          ? "This server does not advertise the Patient resource — a bulk import may return nothing. Start anyway?"
+          : `This server does not advertise: ${missing.join(", ")}. Those will be skipped. Start anyway?`,
+      });
+    }
+  }
 
   const job = await db.fhirBulkJob.create({
     data: {
