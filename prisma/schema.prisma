@@ -962,6 +962,8 @@ model FhirConnection {
   label         String?
   authMode      String    @default("user") // user (authorization_code + PKCE) | system (SMART Backend Services)
   fhirVersion   String?   @default("r4") // r4 | dstu2 (auto-detected from /metadata)
+  fhirSoftware  String?   // server software name/version from CapabilityStatement
+  fhirSupported Json?     // cached list of resource types the server advertises
   baseUrl       String?   // FHIR base URL for the practice
   authUrl       String?   // SMART authorization endpoint (user mode only)
   tokenUrl      String?   // SMART token endpoint

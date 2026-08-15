@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { probeServer, isProvider } from "@/lib/fhir/client";
+import { probeServer, isProvider, expectedImportResources } from "@/lib/fhir/client";
 
 /**
  * Test a FHIR server URL by reading its public CapabilityStatement (/metadata).
@@ -28,10 +28,21 @@ export async function GET(req: Request) {
 
   const result = await probeServer(baseUrl);
 
-  // Optionally persist the detected version onto the connection.
+  // Optionally persist the detected version/software/resources onto the connection.
   if (result.ok && result.version && searchParams.get("save") === "1" && isProvider(provider)) {
-    await db.fhirConnection.update({ where: { provider }, data: { fhirVersion: result.version } }).catch(() => {});
+    await db.fhirConnection.updateMany({
+      where: { provider },
+      data: { fhirVersion: result.version, fhirSoftware: result.software || null, fhirSupported: (result.supported || []) as object },
+    }).catch(() => {});
   }
 
-  return NextResponse.json({ baseUrl, ...result });
+  // Resource preflight: which resource types we plan to import are missing.
+  let preflight: { expected: string[]; missing: string[] } | undefined;
+  if (result.ok && result.supported) {
+    const expected = expectedImportResources(result.version || "r4");
+    const have = new Set(result.supported);
+    preflight = { expected, missing: expected.filter((t) => !have.has(t)) };
+  }
+
+  return NextResponse.json({ baseUrl, ...result, preflight });
 }

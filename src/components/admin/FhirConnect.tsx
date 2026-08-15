@@ -32,6 +32,8 @@ export default function FhirConnect() {
   // Bulk "pull every patient" migration state (keyed by provider)
   const [bulkForm, setBulkForm] = useState<Record<string, any>>({});
   const [bulkJob, setBulkJob] = useState<Record<string, any>>({});
+  const [dirProbe, setDirProbe] = useState<Record<string, { ok: boolean; text: string }>>({});
+  const [preflight, setPreflight] = useState<Record<string, { version?: string; software?: string; missing: string[]; expected: string[] } | null>>({});
   const pollRef = React.useRef<Record<string, any>>({});
 
   async function load() {
@@ -167,10 +169,24 @@ export default function FhirConnect() {
       const d = await r.json();
       if (!d.ok) { setMsg({ kind: "err", text: `Server test failed: ${d.error || `HTTP ${d.status}`}. This URL may not expose FHIR (or wrong version path).` }); return; }
       setForms((prev) => ({ ...prev, [provider]: { ...prev[provider], fhirVersion: d.version } }));
+      setPreflight((prev) => ({ ...prev, [provider]: d.preflight ? { version: d.version, software: d.software, missing: d.preflight.missing || [], expected: d.preflight.expected || [] } : null }));
       setMsg({ kind: "ok", text: `Server OK · ${d.software || "FHIR server"} · FHIR ${d.fhirVersionRaw} (${(d.version || "").toUpperCase()}) · ${(d.supported || []).length} resource types. Detected version saved.` });
     } catch {
       setMsg({ kind: "err", text: "Could not reach that server URL." });
     } finally { setBusy(""); }
+  }
+
+  // Probe a directory result's base URL before selecting it.
+  async function probeDir(orgId: string, base: string) {
+    setDirProbe((prev) => ({ ...prev, [orgId]: { ok: false, text: "testing…" } }));
+    try {
+      const r = await fetch(`/api/admin/fhir/probe?baseUrl=${encodeURIComponent(base)}`);
+      const d = await r.json();
+      if (d.ok) setDirProbe((prev) => ({ ...prev, [orgId]: { ok: true, text: `OK · FHIR ${d.fhirVersionRaw} (${(d.version || "").toUpperCase()})${d.software ? " · " + d.software : ""}` } }));
+      else setDirProbe((prev) => ({ ...prev, [orgId]: { ok: false, text: `unreachable (HTTP ${d.status || 0})` } }));
+    } catch {
+      setDirProbe((prev) => ({ ...prev, [orgId]: { ok: false, text: "network error" } }));
+    }
   }
 
   async function disconnect(provider: string) {
@@ -269,6 +285,11 @@ export default function FhirConnect() {
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-slate-900">{p.label}</h3>
                 <StatusBadge status={c?.status} connected={c?.connected} />
+                {c?.fhirVersion && (
+                  <span className="chip bg-indigo-100 text-indigo-800 ring-indigo-200" title={c.fhirSoftware ? `Server: ${c.fhirSoftware}` : "Detected FHIR version"}>
+                    FHIR {c.fhirVersion === "dstu2" ? "DSTU2/R2" : "R4"}{c.fhirSoftware ? ` · ${c.fhirSoftware}` : ""}
+                  </span>
+                )}
               </div>
               <a href={p.docs} target="_blank" rel="noreferrer" className="text-xs text-brand-600 hover:underline">Developer program ↗</a>
             </div>
@@ -296,8 +317,14 @@ export default function FhirConnect() {
                       <ul className="mt-2 max-h-44 overflow-auto text-xs divide-y divide-sky-100">
                         {dirResults.map((pr) => (
                           <li key={pr.orgId} className="py-1 flex items-center justify-between gap-2">
-                            <span className="truncate">{pr.name}{pr.npi ? ` · NPI ${pr.npi}` : ""}{pr.city ? ` · ${pr.city}, ${pr.state || ""}` : ""}</span>
-                            <button type="button" className="text-brand-600 hover:underline shrink-0" onClick={() => pickPractice(p.provider, pr)}>use</button>
+                            <span className="truncate">
+                              {pr.name}{pr.npi ? ` · NPI ${pr.npi}` : ""}{pr.city ? ` · ${pr.city}, ${pr.state || ""}` : ""}
+                              {dirProbe[pr.orgId] && <span className={`ml-1 font-medium ${dirProbe[pr.orgId].ok ? "text-emerald-700" : "text-rose-600"}`}>· {dirProbe[pr.orgId].text}</span>}
+                            </span>
+                            <span className="flex items-center gap-2 shrink-0">
+                              <button type="button" className="text-slate-500 hover:underline" onClick={() => probeDir(pr.orgId, pr.base)}>test</button>
+                              <button type="button" className="text-brand-600 hover:underline" onClick={() => pickPractice(p.provider, pr)}>use</button>
+                            </span>
                           </li>
                         ))}
                       </ul>
@@ -320,6 +347,19 @@ export default function FhirConnect() {
                     </select>
                     <span className="text-[11px] text-slate-500">Auto-set by “Test server”. Controls resource names (R4 MedicationRequest vs DSTU2 MedicationOrder) &amp; Accept header.</span>
                   </L>
+                  {preflight[p.provider] && (
+                    <div className="md:col-span-2">
+                      {preflight[p.provider]!.missing.length === 0 ? (
+                        <div className="rounded-md bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 px-3 py-2 text-[11px]">
+                          Readiness check passed — the server advertises all {preflight[p.provider]!.expected.length} resource types we import.
+                        </div>
+                      ) : (
+                        <div className="rounded-md bg-amber-50 text-amber-800 ring-1 ring-amber-200 px-3 py-2 text-[11px]">
+                          <b>Preflight warning:</b> this server's metadata does not advertise: <span className="font-mono">{preflight[p.provider]!.missing.join(", ")}</span>. Those resource types will be skipped during bulk import.
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <L label="Client ID"><input className="input" value={f.clientId || ""} onChange={(e) => setField(p.provider, "clientId", e.target.value)} /></L>
                   {mode === "user" && (
                     <L label="Authorization URL"><input className="input" value={f.authUrl || ""} onChange={(e) => setField(p.provider, "authUrl", e.target.value)} placeholder="https://…/authorize" /></L>

@@ -52,6 +52,11 @@ export function fhirAccept(version: FhirVersion): string {
   return version === "dstu2" ? "application/json+fhir" : "application/fhir+json";
 }
 
+/** Resource types the bulk/patient importer pulls, for preflight checks. */
+export function expectedImportResources(version: FhirVersion): string[] {
+  return ["Patient", "Condition", medicationResource(version), "MedicationStatement", "AllergyIntolerance", "Observation", "Immunization", "Encounter", "DocumentReference"];
+}
+
 /**
  * Probe a FHIR base URL's public CapabilityStatement (/metadata) — no auth
  * required. Confirms reachability and detects the FHIR version + which of the
@@ -138,6 +143,8 @@ export function maskConnection(c: any) {
     label: c.label || FHIR_PROVIDERS[c.provider as ProviderKey]?.label || c.provider,
     authMode: c.authMode || "user",
     fhirVersion: c.fhirVersion || "r4",
+    fhirSoftware: c.fhirSoftware || null,
+    fhirSupported: Array.isArray(c.fhirSupported) ? c.fhirSupported : null,
     baseUrl: c.baseUrl || null,
     authUrl: c.authUrl || null,
     tokenUrl: c.tokenUrl || null,
@@ -321,7 +328,14 @@ export async function fetchPatientEverything(conn: any, token: string, patientId
     const q = new URLSearchParams({ patient: patientId, _count: "100" });
     if (t.extra) { const [k, v] = t.extra.split("="); q.set(k, v); }
     try {
-      const got = await pageAll(`${base}/${t.type}?${q.toString()}`, token, 20, version);
+      let got = await pageAll(`${base}/${t.type}?${q.toString()}`, token, 20, version);
+      // DSTU2 vitals fallback: some DSTU2 servers don't support the
+      // category=vital-signs search param and return nothing. Re-query without
+      // the category filter so vitals are still captured (the importer filters
+      // to vital-signs by Observation.category/code downstream).
+      if (t.type === "Observation" && version === "dstu2" && got.length === 0) {
+        got = await pageAll(`${base}/Observation?patient=${encodeURIComponent(patientId)}&_count=100`, token, 20, version);
+      }
       resources.push(...got);
     } catch {
       // A resource type the practice hasn't enabled shouldn't abort the whole import.
