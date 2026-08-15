@@ -346,6 +346,7 @@ export function extractFromFhirResources(resources: any[]): Extracted {
         break;
       }
       case "MedicationRequest":
+      case "MedicationOrder": // DSTU2 / R2
       case "MedicationStatement": {
         const name = fhirDisplay(r.medicationCodeableConcept) || (r.medicationReference?.display);
         if (name) medications.push({

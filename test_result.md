@@ -2491,3 +2491,18 @@ metadata:
   last_test_date: "2026-01-09"
   test_sequence: 33
   run_ui: false
+
+
+## ---- Current Iteration — FHIR version-aware connector (R2/DSTU2 vs R4) + server probe ----
+backend:
+  - task: "FHIR server probe (/metadata) + version-aware reads"
+    implemented: true
+    working: true
+    file: "src/lib/fhir/client.ts, src/app/api/admin/fhir/probe/route.ts, src/app/api/admin/fhir/connections/route.ts, src/lib/import/clinical.ts, prisma/schema.prisma"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "FhirConnection gained fhirVersion (r4|dstu2). client.ts: probeServer() reads /metadata (no auth) -> {ok,status,fhirVersionRaw,version,software,supported[]}; reads are version-aware (Accept header application/json+fhir for dstu2; MedicationOrder for dstu2 vs MedicationRequest for r4). clinical.ts imports MedicationOrder too. New GET /api/admin/fhir/probe?baseUrl=&provider=&save=1 (admin only). VERIFIED via curl as admin: R4 URL (api.practicefusion.com/fhir/r4/v1/<org>) -> ok:true, HTTP200, version r4 (4.0.1), software NXT, 47 resources; DSTU2/R2 path -> 404 (Veradigm has NO R2 endpoint). UI (Data Tools -> Connected live API) shows Test server button + FHIR version selector; clicking Test server showed 'Server OK · NXT · FHIR 4.0.1 (R4) · 47 resource types.'"

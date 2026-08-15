@@ -79,6 +79,7 @@ export async function POST(req: Request) {
 
   const data: any = {
     label, authMode, baseUrl, authUrl: authMode === "system" ? (authUrl || null) : authUrl, tokenUrl, clientId, scopes,
+    fhirVersion: (b.fhirVersion === "dstu2" ? "dstu2" : "r4"),
     status: "configured",
     // clear prior tokens/state on reconfigure (tokens are short-lived / re-minted)
     accessToken: null, refreshToken: null, grantedScope: null, expiresAt: null, pkceVerifier: null, oauthState: null, lastError: null,

@@ -31,6 +31,53 @@ export function isProvider(p: string): p is ProviderKey {
   return p === "veradigm" || p === "ecw";
 }
 
+export type FhirVersion = "r4" | "dstu2";
+
+/** Normalize a raw CapabilityStatement.fhirVersion into our r4|dstu2 buckets. */
+export function normalizeFhirVersion(raw?: string): FhirVersion {
+  const v = String(raw || "");
+  // DSTU2 = 1.0.x, STU3 treated as r4-ish is uncommon; we support R4 (4.x) + DSTU2 (1.0.x).
+  if (/^1\.0/.test(v) || /dstu2/i.test(v)) return "dstu2";
+  return "r4";
+}
+
+/** DSTU2 uses MedicationOrder; R4 uses MedicationRequest. Everything else is
+ * named the same across the two versions for the resources we import. */
+export function medicationResource(version: FhirVersion): string {
+  return version === "dstu2" ? "MedicationOrder" : "MedicationRequest";
+}
+
+/** DSTU2 servers historically prefer the legacy JSON media type. */
+export function fhirAccept(version: FhirVersion): string {
+  return version === "dstu2" ? "application/json+fhir" : "application/fhir+json";
+}
+
+/**
+ * Probe a FHIR base URL's public CapabilityStatement (/metadata) — no auth
+ * required. Confirms reachability and detects the FHIR version + which of the
+ * resource types we import are supported. This is the "test the server URL"
+ * connectivity check.
+ */
+export async function probeServer(baseUrl: string): Promise<{
+  ok: boolean; status: number; fhirVersionRaw?: string; version?: FhirVersion;
+  software?: string; supported?: string[]; error?: string;
+}> {
+  const base = baseUrl.replace(/\/$/, "");
+  try {
+    const r = await fetch(`${base}/metadata`, { headers: { Accept: "application/fhir+json, application/json+fhir" }, signal: AbortSignal.timeout(12000) });
+    const status = r.status;
+    if (!r.ok) return { ok: false, status, error: `Server returned HTTP ${status} for /metadata.` };
+    const cs = await r.json();
+    const version = normalizeFhirVersion(cs.fhirVersion);
+    const supported: string[] = [];
+    for (const rest of (cs.rest || [])) for (const res of (rest.resource || [])) if (res.type) supported.push(res.type);
+    const software = cs.software?.name ? `${cs.software.name}${cs.software.version ? " " + cs.software.version : ""}` : undefined;
+    return { ok: true, status, fhirVersionRaw: cs.fhirVersion, version, software, supported: Array.from(new Set(supported)) };
+  } catch (e: any) {
+    return { ok: false, status: 0, error: String(e?.message || e).slice(0, 200) };
+  }
+}
+
 export function redirectUriFor(provider: ProviderKey): string {
   const base = (process.env.NEXT_PUBLIC_BASE_URL || "").replace(/\/$/, "");
   return `${base}/api/admin/fhir/${provider}/callback`;
@@ -90,6 +137,7 @@ export function maskConnection(c: any) {
     provider: c.provider,
     label: c.label || FHIR_PROVIDERS[c.provider as ProviderKey]?.label || c.provider,
     authMode: c.authMode || "user",
+    fhirVersion: c.fhirVersion || "r4",
     baseUrl: c.baseUrl || null,
     authUrl: c.authUrl || null,
     tokenUrl: c.tokenUrl || null,
@@ -184,9 +232,10 @@ export async function ensureAccessToken(conn: any): Promise<string> {
 
 // ---- FHIR reads ----
 
-async function fhirGet(url: string, token: string): Promise<any> {
+async function fhirGet(url: string, token: string, version: FhirVersion = "r4"): Promise<any> {
+  const accept = `${fhirAccept(version)}, application/fhir+json, application/json`;
   for (let attempt = 0; attempt < 4; attempt++) {
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/fhir+json" } });
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: accept } });
     if (r.status === 429 || r.status >= 500) { await new Promise((x) => setTimeout(x, 1000 * (attempt + 1))); continue; }
     const text = await r.text();
     if (!r.ok) throw new Error(`FHIR ${r.status}: ${text.slice(0, 300)}`);
@@ -195,12 +244,12 @@ async function fhirGet(url: string, token: string): Promise<any> {
   throw new Error("FHIR request failed after retries (rate limited or server error).");
 }
 
-async function pageAll(startUrl: string, token: string, cap = 20): Promise<any[]> {
+async function pageAll(startUrl: string, token: string, cap = 20, version: FhirVersion = "r4"): Promise<any[]> {
   const out: any[] = [];
   let next: string | undefined = startUrl;
   let pages = 0;
   while (next && pages < cap) {
-    const bundle = await fhirGet(next, token);
+    const bundle = await fhirGet(next, token, version);
     for (const e of (bundle.entry || [])) if (e?.resource) out.push(e.resource);
     next = (bundle.link || []).find((l: any) => l.relation === "next")?.url;
     pages++;
@@ -210,21 +259,23 @@ async function pageAll(startUrl: string, token: string, cap = 20): Promise<any[]
 
 export async function searchPatients(conn: any, token: string, q: { mrn?: string; family?: string; given?: string; birthdate?: string }): Promise<any[]> {
   const base = String(conn.baseUrl).replace(/\/$/, "");
+  const version: FhirVersion = (conn.fhirVersion as FhirVersion) || "r4";
   const params = new URLSearchParams();
   if (q.mrn) params.set("identifier", q.mrn);
   if (q.family) params.set("family", q.family);
   if (q.given) params.set("given", q.given);
   if (q.birthdate) params.set("birthdate", q.birthdate);
   params.set("_count", "20");
-  return pageAll(`${base}/Patient?${params.toString()}`, token, 3);
+  return pageAll(`${base}/Patient?${params.toString()}`, token, 3, version);
 }
 
 /** Best-effort total patient count via _summary=count. Returns null if the
  * server doesn't report bundle.total (some servers omit it). */
 export async function countPatients(conn: any, token: string): Promise<number | null> {
   const base = String(conn.baseUrl).replace(/\/$/, "");
+  const version: FhirVersion = (conn.fhirVersion as FhirVersion) || "r4";
   try {
-    const b = await fhirGet(`${base}/Patient?_summary=count`, token);
+    const b = await fhirGet(`${base}/Patient?_summary=count`, token, version);
     return typeof b?.total === "number" ? b.total : null;
   } catch {
     return null;
@@ -236,10 +287,11 @@ export async function countPatients(conn: any, token: string): Promise<number | 
  * A high page cap guards against a runaway loop on a misbehaving server. */
 export async function* iteratePatients(conn: any, token: string, pageSize = 50, maxPages = 5000): AsyncGenerator<any> {
   const base = String(conn.baseUrl).replace(/\/$/, "");
+  const version: FhirVersion = (conn.fhirVersion as FhirVersion) || "r4";
   let next: string | undefined = `${base}/Patient?_count=${pageSize}`;
   let pages = 0;
   while (next && pages < maxPages) {
-    const bundle: any = await fhirGet(next, token);
+    const bundle: any = await fhirGet(next, token, version);
     for (const e of (bundle.entry || [])) {
       if (e?.resource?.resourceType === "Patient") yield e.resource;
     }
@@ -248,28 +300,28 @@ export async function* iteratePatients(conn: any, token: string, pageSize = 50, 
   }
 }
 
-const IMPORT_TYPES: { type: string; extra?: string }[] = [
-  { type: "Condition" },
-  { type: "MedicationRequest" },
-  { type: "MedicationStatement" },
-  { type: "AllergyIntolerance" },
-  { type: "Observation", extra: "category=vital-signs" },
-  { type: "Immunization" },
-  { type: "Encounter" },
-  { type: "DocumentReference" },
-];
-
 /** Fetch a patient + all supported clinical resources for that patient. */
 export async function fetchPatientEverything(conn: any, token: string, patientId: string): Promise<any[]> {
   const base = String(conn.baseUrl).replace(/\/$/, "");
+  const version: FhirVersion = (conn.fhirVersion as FhirVersion) || "r4";
+  const importTypes: { type: string; extra?: string }[] = [
+    { type: "Condition" },
+    { type: medicationResource(version) },      // R4: MedicationRequest · DSTU2: MedicationOrder
+    { type: "MedicationStatement" },
+    { type: "AllergyIntolerance" },
+    { type: "Observation", extra: "category=vital-signs" },
+    { type: "Immunization" },
+    { type: "Encounter" },
+    { type: "DocumentReference" },
+  ];
   const resources: any[] = [];
-  const pt = await fhirGet(`${base}/Patient/${encodeURIComponent(patientId)}`, token).catch(() => null);
+  const pt = await fhirGet(`${base}/Patient/${encodeURIComponent(patientId)}`, token, version).catch(() => null);
   if (pt) resources.push(pt);
-  for (const t of IMPORT_TYPES) {
+  for (const t of importTypes) {
     const q = new URLSearchParams({ patient: patientId, _count: "100" });
     if (t.extra) { const [k, v] = t.extra.split("="); q.set(k, v); }
     try {
-      const got = await pageAll(`${base}/${t.type}?${q.toString()}`, token);
+      const got = await pageAll(`${base}/${t.type}?${q.toString()}`, token, 20, version);
       resources.push(...got);
     } catch {
       // A resource type the practice hasn't enabled shouldn't abort the whole import.

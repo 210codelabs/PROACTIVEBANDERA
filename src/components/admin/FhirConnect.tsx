@@ -45,6 +45,7 @@ export default function FhirConnect() {
         const c = p.connection || {};
         f[p.provider] = {
           authMode: c.authMode || "user",
+          fhirVersion: c.fhirVersion || "r4",
           baseUrl: c.baseUrl || "", authUrl: c.authUrl || "", tokenUrl: c.tokenUrl || "",
           clientId: c.clientId || "", clientSecret: "", scopes: c.scopes || p.defaultScopes,
         };
@@ -154,6 +155,21 @@ export default function FhirConnect() {
         setForms((prev) => ({ ...prev, [provider]: { ...prev[provider], authUrl: d.authUrl || prev[provider].authUrl, tokenUrl: d.tokenUrl || prev[provider].tokenUrl } }));
         setMsg({ kind: "ok", text: `Endpoints discovered from ${d.source}${d.fhirVersion ? ` · FHIR ${d.fhirVersion}` : ""}. Review and Save.` });
       }
+    } finally { setBusy(""); }
+  }
+
+  async function probe(provider: string) {
+    const baseUrl = (forms[provider]?.baseUrl || "").trim();
+    if (!baseUrl) { setMsg({ kind: "err", text: "Enter the FHIR base URL first, then test the server." }); return; }
+    setBusy(`probe-${provider}`); setMsg(null);
+    try {
+      const r = await fetch(`/api/admin/fhir/probe?provider=${provider}&save=1&baseUrl=${encodeURIComponent(baseUrl)}`);
+      const d = await r.json();
+      if (!d.ok) { setMsg({ kind: "err", text: `Server test failed: ${d.error || `HTTP ${d.status}`}. This URL may not expose FHIR (or wrong version path).` }); return; }
+      setForms((prev) => ({ ...prev, [provider]: { ...prev[provider], fhirVersion: d.version } }));
+      setMsg({ kind: "ok", text: `Server OK · ${d.software || "FHIR server"} · FHIR ${d.fhirVersionRaw} (${(d.version || "").toUpperCase()}) · ${(d.supported || []).length} resource types. Detected version saved.` });
+    } catch {
+      setMsg({ kind: "err", text: "Could not reach that server URL." });
     } finally { setBusy(""); }
   }
 
@@ -290,7 +306,20 @@ export default function FhirConnect() {
                   </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                  <L label="FHIR base URL"><input className="input" value={f.baseUrl || ""} onChange={(e) => setField(p.provider, "baseUrl", e.target.value)} placeholder="https://…/fhir/r4/…" /></L>
+                  <L label="FHIR base URL">
+                    <div className="flex gap-2">
+                      <input className="input" value={f.baseUrl || ""} onChange={(e) => setField(p.provider, "baseUrl", e.target.value)} placeholder="https://…/fhir/r4/…" />
+                      <button type="button" onClick={() => probe(p.provider)} disabled={busy === `probe-${p.provider}`} className="btn-secondary whitespace-nowrap">{busy === `probe-${p.provider}` ? "Testing…" : "Test server"}</button>
+                    </div>
+                    <span className="text-[11px] text-slate-500">Reads the server's /metadata (no login) to confirm reachability and detect the FHIR version.</span>
+                  </L>
+                  <L label="FHIR version">
+                    <select className="input" value={f.fhirVersion || "r4"} onChange={(e) => setField(p.provider, "fhirVersion", e.target.value)}>
+                      <option value="r4">R4 (4.0.1) — Practice Fusion / Veradigm</option>
+                      <option value="dstu2">DSTU2 / R2 (1.0.x)</option>
+                    </select>
+                    <span className="text-[11px] text-slate-500">Auto-set by “Test server”. Controls resource names (R4 MedicationRequest vs DSTU2 MedicationOrder) &amp; Accept header.</span>
+                  </L>
                   <L label="Client ID"><input className="input" value={f.clientId || ""} onChange={(e) => setField(p.provider, "clientId", e.target.value)} /></L>
                   {mode === "user" && (
                     <L label="Authorization URL"><input className="input" value={f.authUrl || ""} onChange={(e) => setField(p.provider, "authUrl", e.target.value)} placeholder="https://…/authorize" /></L>

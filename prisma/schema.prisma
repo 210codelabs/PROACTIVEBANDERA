@@ -961,7 +961,8 @@ model FhirConnection {
   provider      String    @unique // veradigm | ecw
   label         String?
   authMode      String    @default("user") // user (authorization_code + PKCE) | system (SMART Backend Services)
-  baseUrl       String?   // FHIR R4 base URL for the practice
+  fhirVersion   String?   @default("r4") // r4 | dstu2 (auto-detected from /metadata)
+  baseUrl       String?   // FHIR base URL for the practice
   authUrl       String?   // SMART authorization endpoint (user mode only)
   tokenUrl      String?   // SMART token endpoint
   clientId      String?
