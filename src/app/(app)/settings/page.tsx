@@ -66,6 +66,18 @@ export default async function Settings() {
           <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Open \u2192</span>
         </Link>
       )}
+      {user.role === "admin" && (
+        <Link href="/settings/ehi-export" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="font-semibold text-slate-900">EHI Export Tool</div>
+              <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200">Cures Act</span>
+            </div>
+            <div className="text-sm text-slate-500">Export a patient&apos;s (or the whole practice&apos;s) Electronic Health Information as FHIR R4 NDJSON &mdash; the standards-based, computable format required by the ONC 21st Century Cures Act (45 CFR 170.315(b)(10)).</div>
+          </div>
+          <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Open \u2192</span>
+        </Link>
+      )}
       <Link href="/settings/catalogs" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
         <div>
           <div className="font-semibold text-slate-900">Clinical Catalogs</div>
