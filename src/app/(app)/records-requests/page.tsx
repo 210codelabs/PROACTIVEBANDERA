@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth";
 import Shell from "@/components/Shell";
 import RecordRequestsManager from "@/components/RecordRequestsManager";
+import RecordsReleaseLog from "@/components/RecordsReleaseLog";
 
 export default async function RecordRequestsPage() {
   const user = await requireSession();
@@ -11,6 +12,7 @@ export default async function RecordRequestsPage() {
         <p className="text-sm text-slate-500">Review and approve authorized attorney requests for patient records. Approved requests can be downloaded by the attorney from their portal.</p>
       </div>
       <RecordRequestsManager />
+      <RecordsReleaseLog />
     </Shell>
   );
 }
