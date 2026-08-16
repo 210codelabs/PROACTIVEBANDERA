@@ -4,15 +4,17 @@ import { getAttorneySession } from "@/lib/attorneyAuth";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { readFileSync } from "fs";
 import path from "path";
+import { buildCcda } from "@/lib/ehi/ccda";
 
 const BRAND = rgb(0.039, 0.145, 0.251); // #0a2540
 const BRAND_LIGHT = rgb(0.20, 0.45, 0.75);
 const GRAY = rgb(0.42, 0.45, 0.5);
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getAttorneySession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const format = (new URL(req.url).searchParams.get("format") || "pdf").toLowerCase();
 
   const rr = await db.recordRequest.findUnique({ where: { id } });
   if (!rr || rr.attorneyId !== s.attorneyId) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -20,10 +22,30 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const patient = await db.patient.findFirst({
     where: { mrn: rr.patientMrn },
-    include: { problems: true, medications: true, allergies: true, documents: true },
+    include: { problems: true, medications: true, allergies: true, documents: true, vitals: true, immunizations: true, encounters: true },
   });
   if (!patient || patient.lastName.toLowerCase() !== rr.patientLastName.toLowerCase()) {
     return NextResponse.json({ error: "Patient record could not be verified." }, { status: 404 });
+  }
+
+  // Record-release audit trail
+  await db.auditLog.create({
+    data: { userId: null, action: "records.release", resource: "RecordRequest", resourceId: rr.id, meta: JSON.stringify({ mrn: patient.mrn, attorneyId: rr.attorneyId, attorney: s.email, format }) },
+  }).catch(() => {});
+
+  // ---- C-CDA (portable, human-readable) ----
+  if (format === "ccda") {
+    const providers = await db.user.findMany({ select: { id: true, firstName: true, lastName: true, credential: true } }).catch(() => []);
+    const pmap = new Map(providers.map((u: any) => [u.id, `${u.firstName} ${u.lastName}${u.credential ? ", " + u.credential : ""}`.trim()]));
+    const xml = buildCcda(patient, (pid?: string | null) => (pid && pmap.get(pid)) || "");
+    return new NextResponse(xml, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Content-Disposition": `attachment; filename="proactive-ccd-${patient.mrn}-${rr.id}.xml"`,
+        "Cache-Control": "no-store",
+      },
+    });
   }
 
   // ---- Build branded PDF ----
@@ -110,6 +132,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   section("Allergies");
   if (!patient.allergies.length) line("(none on file)", { color: GRAY });
   patient.allergies.forEach((a: any) => line(`• ${a.substance} — ${a.reaction || ""} ${a.severity ? "(" + a.severity + ")" : ""}`, { indent: 6 }));
+
+  section("Immunizations");
+  if (!patient.immunizations.length) line("(none on file)", { color: GRAY });
+  patient.immunizations.forEach((i: any) => line(`• ${new Date(i.givenAt).toISOString().slice(0, 10)}  ${i.vaccine}${i.cvxCode ? " [CVX " + i.cvxCode + "]" : ""}`, { indent: 6 }));
+
+  section("Encounters");
+  if (!patient.encounters.length) line("(none on file)", { color: GRAY });
+  patient.encounters
+    .slice()
+    .sort((a: any, b: any) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+    .forEach((e: any) => line(`• ${e.startedAt ? new Date(e.startedAt).toISOString().slice(0, 10) : "—"}  ${e.encounterTypeName || e.visitType || "Visit"}${e.chiefComplaint ? " — " + e.chiefComplaint : ""}`, { indent: 6 }));
 
   section("Documents on file");
   if (!patient.documents.length) line("(none on file)", { color: GRAY });

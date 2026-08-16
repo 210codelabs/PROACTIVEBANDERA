@@ -94,7 +94,11 @@ export default function AttorneyPortal() {
                       <td><span className={`chip ${badge(r.status)} capitalize`}>{r.status}</span></td>
                       <td className="text-right">
                         {r.status === "approved"
-                          ? <a href={`/api/attorney/requests/${r.id}/download`} className="text-brand-700 font-semibold text-xs hover:text-brand-900">{t("Download", "Descargar")}</a>
+                          ? <span className="inline-flex items-center gap-2 justify-end">
+                              <a href={`/api/attorney/requests/${r.id}/download?format=pdf`} className="text-brand-700 font-semibold text-xs hover:text-brand-900">{t("PDF", "PDF")}</a>
+                              <span className="text-slate-300">|</span>
+                              <a href={`/api/attorney/requests/${r.id}/download?format=ccda`} className="text-brand-700 font-semibold text-xs hover:text-brand-900">{t("C-CDA", "C-CDA")}</a>
+                            </span>
                           : <span className="text-xs text-slate-400">{t("Pending approval", "Pendiente")}</span>}
                       </td>
                     </tr>

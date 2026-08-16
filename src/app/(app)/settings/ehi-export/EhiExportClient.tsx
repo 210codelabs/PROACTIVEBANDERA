@@ -148,7 +148,7 @@ export default function EhiExportClient({ patients, total }: { patients: Patient
               onClick={() => download(`/api/admin/ehi-export?scope=all&format=zip`, "a-zip")}
               className="btn-primary"
             >
-              {busy === "a-zip" ? "Preparing…" : "Download all EHI (.zip)"}
+              {busy === "a-zip" ? "Preparing…" : "All FHIR bundle (.zip)"}
             </button>
             <button
               type="button"
@@ -156,8 +156,30 @@ export default function EhiExportClient({ patients, total }: { patients: Patient
               onClick={() => download(`/api/admin/ehi-export?scope=all&format=ndjson`, "a-nd")}
               className="btn-secondary"
             >
-              {busy === "a-nd" ? "Preparing…" : "Download all .ndjson"}
+              {busy === "a-nd" ? "Preparing…" : "All FHIR .ndjson"}
             </button>
+          </div>
+          <div className="pt-1 border-t border-slate-100">
+            <div className="text-xs font-medium text-slate-500 mb-2 mt-2">Human-readable batch (one file per patient, zipped)</div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy !== null || total === 0}
+                onClick={() => download(`/api/admin/ehi-export?scope=all&format=pdf`, "a-pdf")}
+                className="btn-secondary"
+              >
+                {busy === "a-pdf" ? "Preparing…" : "All Summary PDFs (.zip)"}
+              </button>
+              <button
+                type="button"
+                disabled={busy !== null || total === 0}
+                onClick={() => download(`/api/admin/ehi-export?scope=all&format=ccda`, "a-ccda")}
+                className="btn-secondary"
+              >
+                {busy === "a-ccda" ? "Preparing…" : "All C-CDA (.zip)"}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-2">Batch documents include an index.csv. Large practices may take a moment to generate.</p>
           </div>
         </section>
       </div>
