@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import ClinicTZBadge from "@/components/ClinicTZBadge";
 
 type Provider = { id: string; firstName: string; lastName: string; credential: string | null };
 type Service = { id: string; name: string; durationMin: number; category: string; homeEligible: boolean };
@@ -59,8 +60,8 @@ export default function NewApptButton({ providers, services, day }: { providers:
       {open && (
         <div className="fixed inset-0 bg-slate-900/40 grid place-items-center z-50 p-4" onClick={() => setOpen(false)}>
           <div className="card max-w-lg w-full" onClick={e => e.stopPropagation()}>
-            <header className="px-4 py-3 border-b border-slate-200 font-semibold flex items-center justify-between">
-              <span>New Appointment — {day}</span>
+            <header className="px-4 py-3 border-b border-slate-200 font-semibold flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">New Appointment — {day} <ClinicTZBadge /></span>
               <button onClick={() => setOpen(false)} className="text-slate-500">✕</button>
             </header>
             <div className="p-4 space-y-3">

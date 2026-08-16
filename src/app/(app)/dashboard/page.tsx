@@ -139,8 +139,8 @@ export default async function DashboardPage() {
           </div>
           <div className="flex flex-wrap gap-3">
             <Kpi label="Today" value={todays.length} sub={`${completed} completed`} accent="brand" href="/schedule" icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            <Kpi label="Open notes" value={openEncounters.length} accent="amber" href="/encounters" icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            <Kpi label="Pending orders" value={openOrders.length} accent="violet" href="/orders" icon="M9 3v6L4 19a2 2 0 002 3h12a2 2 0 002-3l-5-10V3M9 3h6" />
+            <Kpi label="Open notes" value={openEncounters.length} accent="amber" href="/encounters?status=open" icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            <Kpi label="Pending orders" value={openOrders.length} accent="violet" href="/orders?status=pending" icon="M9 3v6L4 19a2 2 0 002 3h12a2 2 0 002-3l-5-10V3M9 3h6" />
             <Kpi label="Unread msgs" value={unreadMessages} accent="rose" href="/messages" icon="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             <Kpi label="Patients" value={patientCount} accent="emerald" href="/patients" icon="M16 14a4 4 0 10-8 0M4 20c0-3 3-5 8-5s8 2 8 5" />
           </div>

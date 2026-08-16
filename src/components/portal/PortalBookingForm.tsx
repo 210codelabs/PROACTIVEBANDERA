@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CLINIC_OPEN_TIME, CLINIC_CLOSE_TIME, CLINIC_HOURS_LABEL, formatClinic } from "@/lib/clinic";
+import ClinicTZBadge from "@/components/ClinicTZBadge";
 
 type Service = { id: string; name: string; category: string };
 
@@ -77,6 +78,7 @@ export default function PortalBookingForm({ services }: { services: Service[] })
           <div>
             <h2 className="font-bold text-brand-900">{t(lang, "Request an Appointment", "Solicitar una cita")}</h2>
             <p className="text-xs text-slate-500">{t(lang, "Tell us when works best — our team will confirm your visit.", "Dinos qué horario te conviene — nuestro equipo confirmará tu visita.")}</p>
+            <ClinicTZBadge className="mt-1.5" showHours />
           </div>
         </div>
         <button type="button" onClick={() => setOpen((v) => !v)} className="btn-primary text-sm shrink-0">

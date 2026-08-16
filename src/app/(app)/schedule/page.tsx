@@ -11,6 +11,7 @@ import JellyBeans from "@/components/JellyBeans";
 import { fmtTime, colorForApptStatus, colorForCategory } from "@/lib/utils";
 import NewApptButton from "./NewApptButton";
 import MonthCalendar, { type MAppt } from "./MonthCalendar";
+import ClinicTZBadge from "@/components/ClinicTZBadge";
 import { PROVIDER_PALETTE } from "./palette";
 import { mapByIds } from "@/lib/safe-relations";
 import CopayButton from "@/components/billing/CopayButton";
@@ -154,7 +155,8 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             </select>
             <button className="btn-secondary">Apply</button>
           </form>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            <ClinicTZBadge showHours />
             <NewApptButton providers={providers} services={services} day={format(day, "yyyy-MM-dd")} />
           </div>
         </header>

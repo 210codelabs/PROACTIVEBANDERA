@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import ScheduleForm from "@/components/ScheduleForm";
+import ClinicTZBadge from "@/components/ClinicTZBadge";
 
 type Lang = "en" | "es";
 
@@ -38,6 +39,9 @@ export default function BookClient({ initialLang = "en" }: { initialLang?: Lang 
         </div>
       </div>
       <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="mb-3 flex justify-end">
+          <ClinicTZBadge showHours />
+        </div>
         <ScheduleForm lang={lang} />
       </div>
     </main>
