@@ -161,7 +161,7 @@ export default function PatientAppointments({ patientId, role }: { patientId: st
               </label>
               <label className="block">
                 <span className="label">Time</span>
-                <input type="time" className="input" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
+                <input type="time" min="09:00" max="20:00" step={900} className="input" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
               </label>
               <label className="block">
                 <span className="label">Location</span>

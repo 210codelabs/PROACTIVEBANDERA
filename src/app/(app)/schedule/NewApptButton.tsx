@@ -111,8 +111,8 @@ export default function NewApptButton({ providers, services, day }: { providers:
                   </select>
                 </label>
                 <label className="block">
-                  <span className="label">Time</span>
-                  <input className="input" type="time" value={time} onChange={e => setTime(e.target.value)} />
+                  <span className="label">Time <span className="text-slate-400 font-normal">(9:00 AM – 8:00 PM CT)</span></span>
+                  <input className="input" type="time" min="09:00" max="20:00" step={900} value={time} onChange={e => setTime(e.target.value)} />
                 </label>
                 <label className="block">
                   <span className="label">Location</span>

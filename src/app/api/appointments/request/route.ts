@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { sendBookingConfirmation } from "@/lib/email";
+import { CLINIC_OPEN_MIN, CLINIC_CLOSE_MIN, CLINIC_HOURS_LABEL } from "@/lib/clinic";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,16 @@ export async function POST(req: Request) {
     const exists = await db.appointmentRequest.findUnique({ where: { confirmation } });
     if (!exists) break;
     confirmation = genConfirmation();
+  }
+
+  // Enforce clinic hours (9:00 AM – 8:00 PM Central) on any requested time.
+  const prefTime = String(b?.preferredTime || "").trim();
+  if (prefTime) {
+    const m = prefTime.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+    const mins = m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+    if (!m || mins < CLINIC_OPEN_MIN || mins >= CLINIC_CLOSE_MIN) {
+      return NextResponse.json({ error: `Please choose a time between ${CLINIC_HOURS_LABEL}.` }, { status: 400 });
+    }
   }
 
   const created = await db.appointmentRequest.create({

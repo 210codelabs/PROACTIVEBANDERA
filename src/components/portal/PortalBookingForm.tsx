@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CLINIC_OPEN_TIME, CLINIC_CLOSE_TIME, CLINIC_HOURS_LABEL, formatClinic } from "@/lib/clinic";
 
 type Service = { id: string; name: string; category: string };
 
@@ -46,7 +47,7 @@ export default function PortalBookingForm({ services }: { services: Service[] })
       }
       const svc = services.find((s) => s.id === serviceTypeId);
       const locLabel = location === "telehealth" ? t(lang, "Telehealth", "Telesalud") : location === "home-visit" ? t(lang, "Home visit", "Visita a domicilio") : t(lang, "In-office", "En consultorio");
-      const whenStr = new Date(`${date}T${time}`).toLocaleString(lang === "es" ? "es-US" : "en-US", { dateStyle: "full", timeStyle: "short" });
+      const whenStr = formatClinic(`${date}T${time}`, { dateStyle: "full", timeStyle: "short" }, lang === "es" ? "es-US" : "en-US");
       setConfirmation({
         number: data.confirmationNumber || "PC-CONFIRMED",
         when: whenStr,
@@ -132,7 +133,8 @@ export default function PortalBookingForm({ services }: { services: Service[] })
 
           <label className="text-sm">
             <span className="block font-medium text-slate-700 mb-1">{t(lang, "Preferred time", "Hora preferida")}</span>
-            <input type="time" required className="input w-full" value={time} onChange={(e) => setTime(e.target.value)} />
+            <input type="time" required min={CLINIC_OPEN_TIME} max={CLINIC_CLOSE_TIME} step={900} className="input w-full" value={time} onChange={(e) => setTime(e.target.value)} />
+            <span className="block text-[11px] text-slate-400 mt-1">{t(lang, `Clinic hours: ${CLINIC_HOURS_LABEL}`, `Horario: 9:00 AM – 8:00 PM (hora del Centro)`)}</span>
           </label>
 
           <label className="text-sm sm:col-span-2">

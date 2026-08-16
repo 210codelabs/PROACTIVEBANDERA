@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { mapByIds } from "@/lib/safe-relations";
+import { clinicHoursError } from "@/lib/clinic";
 
 // GET /api/appointments?patientId=&from=&to=&providerId=&refs=1
 // Returns appointments (optionally filtered) plus provider/service reference lists.
@@ -76,6 +77,8 @@ export async function POST(req: Request) {
       if (s) durationMin = s.durationMin;
     }
     const end = new Date(start.getTime() + durationMin * 60000);
+    const hoursErr = clinicHoursError(start, end);
+    if (hoursErr) return NextResponse.json({ error: hoursErr }, { status: 400 });
     const appt = await db.appointment.create({
       data: {
         patientId: b.patientId,
@@ -128,6 +131,8 @@ export async function PATCH(req: Request) {
       }
       data.startsAt = newStart;
       data.endsAt = new Date(newStart.getTime() + durationMin * 60000);
+      const hoursErr = clinicHoursError(data.startsAt, data.endsAt);
+      if (hoursErr) return NextResponse.json({ error: hoursErr }, { status: 400 });
     }
 
     if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });

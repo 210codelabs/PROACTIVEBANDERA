@@ -3,6 +3,7 @@ import { addMinutes, isValid, parse as parseDate } from "date-fns";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requirePortalSession } from "@/lib/portalAuth";
+import { clinicHoursError } from "@/lib/clinic";
 
 const schema = z.object({
   serviceTypeId: z.string().optional().nullable(),
@@ -27,6 +28,10 @@ export async function POST(req: Request) {
   }
   if (start.getTime() < Date.now()) {
     return NextResponse.json({ error: "Please choose a future date and time." }, { status: 400 });
+  }
+  const hoursErr = clinicHoursError(start);
+  if (hoursErr) {
+    return NextResponse.json({ error: hoursErr }, { status: 400 });
   }
 
   try {

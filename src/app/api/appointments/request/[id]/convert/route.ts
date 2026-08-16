@@ -3,6 +3,7 @@ import { addMinutes, isValid, parse as parseDate } from "date-fns";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { sendBookingConfirmation } from "@/lib/email";
+import { clinicHoursError } from "@/lib/clinic";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,6 +38,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   const start = parseDate(`${date} ${time}`, "yyyy-MM-dd HH:mm", new Date());
   if (!isValid(start)) return NextResponse.json({ error: "Invalid date or time." }, { status: 400 });
+  const hoursErr = clinicHoursError(start, addMinutes(start, 30));
+  if (hoursErr) return NextResponse.json({ error: hoursErr }, { status: 400 });
 
   // Provider (first active provider).
   const provider = await db.user.findFirst({ where: { role: "provider", active: true }, orderBy: { lastName: "asc" } });

@@ -142,7 +142,7 @@ export default function ScheduleForm({ lang = "en" }: { lang?: Lang }) {
           </select>
         </label>
         <label className="block"><span className="label">{t.prefDate}</span><input type="date" className="input" value={form.preferredDate || ""} onChange={(e) => set("preferredDate", e.target.value)} /></label>
-        <label className="block"><span className="label">{t.prefTime}</span><input type="time" className="input" value={form.preferredTime || ""} onChange={(e) => set("preferredTime", e.target.value)} /></label>
+        <label className="block"><span className="label">{t.prefTime}</span><input type="time" min="09:00" max="20:00" step={900} className="input" value={form.preferredTime || ""} onChange={(e) => set("preferredTime", e.target.value)} /></label>
         <label className="block sm:col-span-2"><span className="label">{t.notes}</span><textarea className="input" rows={3} value={form.message || ""} onChange={(e) => set("message", e.target.value)} /></label>
       </div>
 

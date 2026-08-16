@@ -214,14 +214,17 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
 }
 
 /* ---------- Day view (rich: check-in / copay / balance) ---------- */
+// Grid spans clinic hours: 9:00 AM – 8:00 PM Central (22 half-hour rows).
+const GRID_START_HOUR = 9;
+const GRID_SLOTS = 22; // 9:00 → 20:00
 function buildSlots(day: Date) {
   const slots: Date[] = [];
-  const s = new Date(day); s.setHours(7, 0, 0, 0);
-  for (let i = 0; i < 24; i++) slots.push(addMinutes(s, i * 30));
+  const s = new Date(day); s.setHours(GRID_START_HOUR, 0, 0, 0);
+  for (let i = 0; i < GRID_SLOTS; i++) slots.push(addMinutes(s, i * 30));
   return slots;
 }
 function posFor(a: Appt) {
-  const startMin = (new Date(a.startsAt).getHours() * 60 + new Date(a.startsAt).getMinutes()) - 7 * 60;
+  const startMin = (new Date(a.startsAt).getHours() * 60 + new Date(a.startsAt).getMinutes()) - GRID_START_HOUR * 60;
   const dur = (new Date(a.endsAt).getTime() - new Date(a.startsAt).getTime()) / 60000;
   return { top: (startMin / 30) * 64, height: Math.max(40, (dur / 30) * 64 - 4) };
 }
