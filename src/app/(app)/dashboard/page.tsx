@@ -138,11 +138,11 @@ export default async function DashboardPage() {
             <p className="text-sm text-slate-500">{fmtDateTime(today)} · {todays.length} appointment{todays.length === 1 ? "" : "s"} today</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Kpi label="Today" value={todays.length} sub={`${completed} completed`} accent="brand" icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            <Kpi label="Open notes" value={openEncounters.length} accent="amber" icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            <Kpi label="Pending orders" value={openOrders.length} accent="violet" icon="M9 3v6L4 19a2 2 0 002 3h12a2 2 0 002-3l-5-10V3M9 3h6" />
-            <Kpi label="Unread msgs" value={unreadMessages} accent="rose" icon="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            <Kpi label="Patients" value={patientCount} accent="emerald" icon="M16 14a4 4 0 10-8 0M4 20c0-3 3-5 8-5s8 2 8 5" />
+            <Kpi label="Today" value={todays.length} sub={`${completed} completed`} accent="brand" href="/schedule" icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <Kpi label="Open notes" value={openEncounters.length} accent="amber" href="/encounters" icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            <Kpi label="Pending orders" value={openOrders.length} accent="violet" href="/orders" icon="M9 3v6L4 19a2 2 0 002 3h12a2 2 0 002-3l-5-10V3M9 3h6" />
+            <Kpi label="Unread msgs" value={unreadMessages} accent="rose" href="/messages" icon="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            <Kpi label="Patients" value={patientCount} accent="emerald" href="/patients" icon="M16 14a4 4 0 10-8 0M4 20c0-3 3-5 8-5s8 2 8 5" />
           </div>
         </div>
 
@@ -248,7 +248,7 @@ function greeting() {
   return "evening";
 }
 
-function Kpi({ label, value, sub, accent = "brand", icon }: { label: string; value: number | string; sub?: string; accent?: "amber" | "violet" | "rose" | "brand" | "emerald"; icon?: string }) {
+function Kpi({ label, value, sub, accent = "brand", icon, href }: { label: string; value: number | string; sub?: string; accent?: "amber" | "violet" | "rose" | "brand" | "emerald"; icon?: string; href?: string }) {
   const bg: Record<string, string> = {
     brand: "bg-brand-600",
     amber: "bg-amber-500",
@@ -256,8 +256,8 @@ function Kpi({ label, value, sub, accent = "brand", icon }: { label: string; val
     rose: "bg-rose-600",
     emerald: "bg-emerald-600",
   };
-  return (
-    <div className="rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm p-4 min-w-[150px] flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all">
+  const inner = (
+    <>
       <div className={`h-11 w-11 shrink-0 rounded-xl ${bg[accent]} grid place-items-center text-white shadow-sm`}>
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={icon || "M5 13l4 4L19 7"} /></svg>
       </div>
@@ -266,6 +266,15 @@ function Kpi({ label, value, sub, accent = "brand", icon }: { label: string; val
         <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-1">{label}</div>
         {sub && <div className="text-[11px] text-slate-400 leading-tight">{sub}</div>}
       </div>
-    </div>
+    </>
   );
+  const base = "rounded-2xl bg-white ring-1 ring-slate-100 shadow-sm p-4 min-w-[150px] flex items-center gap-3 transition-all";
+  if (href) {
+    return (
+      <Link href={href} prefetch={false} className={`${base} hover:shadow-md hover:-translate-y-0.5 hover:ring-brand-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-400`} aria-label={`${label} — open`}>
+        {inner}
+      </Link>
+    );
+  }
+  return <div className={`${base} hover:shadow-md hover:-translate-y-0.5`}>{inner}</div>;
 }
