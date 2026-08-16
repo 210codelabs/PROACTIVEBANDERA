@@ -48,7 +48,8 @@ export default function EhiExportClient({ patients, total }: { patients: Patient
         <div className="flex flex-wrap gap-2 text-xs">
           <span className="chip bg-slate-100 text-slate-700 ring-slate-200">FHIR R4 (4.0.1)</span>
           <span className="chip bg-slate-100 text-slate-700 ring-slate-200">NDJSON (Bulk Data)</span>
-          <span className="chip bg-slate-100 text-slate-700 ring-slate-200">One file per resource type</span>
+          <span className="chip bg-slate-100 text-slate-700 ring-slate-200">Human-readable PDF</span>
+          <span className="chip bg-slate-100 text-slate-700 ring-slate-200">C-CDA (CCD)</span>
           <span className="chip bg-slate-100 text-slate-700 ring-slate-200">Includes manifest.json</span>
         </div>
         <p className="text-xs text-slate-500">
@@ -92,10 +93,26 @@ export default function EhiExportClient({ patients, total }: { patients: Patient
                 <button
                   type="button"
                   disabled={busy !== null}
-                  onClick={() => download(`/api/admin/ehi-export?patientId=${encodeURIComponent(selected.id)}&format=zip`, "p-zip")}
+                  onClick={() => download(`/api/admin/ehi-export?patientId=${encodeURIComponent(selected.id)}&format=pdf`, "p-pdf")}
                   className="btn-primary"
                 >
-                  {busy === "p-zip" ? "Preparing…" : "Download EHI (.zip)"}
+                  {busy === "p-pdf" ? "Preparing…" : "Summary PDF"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => download(`/api/admin/ehi-export?patientId=${encodeURIComponent(selected.id)}&format=ccda`, "p-ccda")}
+                  className="btn-secondary"
+                >
+                  {busy === "p-ccda" ? "Preparing…" : "C-CDA (.xml)"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => download(`/api/admin/ehi-export?patientId=${encodeURIComponent(selected.id)}&format=zip`, "p-zip")}
+                  className="btn-secondary"
+                >
+                  {busy === "p-zip" ? "Preparing…" : "FHIR bundle (.zip)"}
                 </button>
                 <button
                   type="button"
@@ -103,9 +120,12 @@ export default function EhiExportClient({ patients, total }: { patients: Patient
                   onClick={() => download(`/api/admin/ehi-export?patientId=${encodeURIComponent(selected.id)}&format=ndjson`, "p-nd")}
                   className="btn-secondary"
                 >
-                  {busy === "p-nd" ? "Preparing…" : "Download .ndjson"}
+                  {busy === "p-nd" ? "Preparing…" : "FHIR .ndjson"}
                 </button>
               </div>
+              <p className="text-[11px] text-slate-500">
+                <span className="font-medium">Summary PDF</span> &amp; <span className="font-medium">C-CDA</span> are human-readable (records requests / transitions of care). <span className="font-medium">FHIR</span> formats are machine-readable per the Cures Act.
+              </p>
             </div>
           ) : (
             <p className="text-xs text-slate-400">Select a patient to export their EHI.</p>
