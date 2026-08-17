@@ -106,6 +106,15 @@ export default function TopUtilityBar({
         </div>
         <div className="ml-auto flex items-center gap-2">
           <InstallAppButton />
+          <Link
+            href="/guide"
+            title="Open the Complete User Guide"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/10 text-slate-100 font-semibold ring-1 ring-white/15 hover:bg-white/20 transition"
+          >
+            <Icon.Guide />
+            <span className="hidden sm:inline">User Guide</span>
+            <span className="sm:hidden">Guide</span>
+          </Link>
           <a
             href="/api/compare/pdf"
             target="_blank"
@@ -188,6 +197,7 @@ function MyAccountMenu({
           </div>
           <div className="p-2 space-y-1 text-sm">
             <MenuLink href="/settings" label="Profile & Preferences" />
+            <MenuLink href="/guide" label="User Guide" />
             <MenuLink href="/messages" label="Inbox & Notifications" />
             <MenuLink href="/dashboard" label="Workspace Overview" />
             <MenuLink href="/billing" label="Financial Center" />
@@ -227,6 +237,7 @@ const Icon = {
   Chevron: () => svgPath("M6 9l6 6 6-6"),
   Logout: () => svgPath("M15 12H3m0 0l4-4m-4 4l4 4M21 5v14a2 2 0 01-2 2h-6"),
   Compare: () => svgPath("M9 3v18M15 3v18M4 7h4M4 12h4M4 17h4M16 7h4M16 12h4M16 17h4"),
+  Guide: () => svgPath("M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z"),
 };
 
 function svgPath(d: string) {

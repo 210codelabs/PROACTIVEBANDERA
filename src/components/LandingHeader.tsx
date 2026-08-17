@@ -45,6 +45,7 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
             <a href="#why" className={navLink}>{L.navWhy}</a>
             <a href="#testimonials" className={navLink}>{L.testKicker}</a>
             <a href="#contact" className={navLink}>{L.navContact}</a>
+            <a href="/guide" className={navLink}>Guide</a>
             <a
               href="/attorney"
               className="inline-flex items-center whitespace-nowrap rounded-lg bg-orange-700 px-3 lg:px-4 py-2 text-white font-bold transition-colors duration-200 hover:bg-red-600 shadow-sm"

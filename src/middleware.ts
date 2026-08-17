@@ -9,6 +9,8 @@ const PUBLIC_PREFIX = [
   "/kiosk",
   "/attorney",
   "/book",
+  "/guide",
+  "/api/guide",
   "/api/kiosk",
   "/api/intake/forms",
   "/api/intake/submit",
