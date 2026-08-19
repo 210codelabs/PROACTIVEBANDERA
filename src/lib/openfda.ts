@@ -9,11 +9,12 @@
  */
 
 const FDA = "https://api.fda.gov/drug";
-type Dataset = "ndc" | "label" | "drugsfda";
+type Dataset = "ndc" | "label" | "drugsfda" | "enforcement";
 const ENDPOINT: Record<Dataset, string> = {
   ndc: `${FDA}/ndc.json`,
   label: `${FDA}/label.json`,
   drugsfda: `${FDA}/drugsfda.json`,
+  enforcement: `${FDA}/enforcement.json`,
 };
 
 // ---- tiny in-memory TTL cache ----
@@ -167,4 +168,55 @@ export async function labelLookup(opts: { productNdc?: string; name?: string }):
     description: sec(r.description),
     effectiveTime: r.effective_time || "",
   };
+}
+
+// ---- Drug recalls / FDA enforcement reports ----
+export type DrugRecall = {
+  status: string;            // Ongoing | Completed | Terminated
+  open: boolean;             // true when status is Ongoing (an active/open recall)
+  classification: string;    // Class I | Class II | Class III (severity)
+  reason: string;
+  initiatedOn: string;       // YYYY-MM-DD
+  firm: string;
+  distribution: string;
+  codeInfo: string;          // affected lots / codes
+  productDescription: string;
+  voluntary: string;
+};
+
+function fmtFdaDate(s: string): string {
+  // openFDA dates are YYYYMMDD
+  if (!s || s.length !== 8) return s || "";
+  return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+}
+
+/**
+ * Look up FDA drug enforcement (recall) reports for a product NDC. Returns the
+ * recall list (newest first) plus `open` = true when any recall is still Ongoing.
+ * A 404 from openFDA (no recalls on record) is normalized to an empty list.
+ */
+export async function recallLookup(ndcRaw: string): Promise<{ open: boolean; recalls: DrugRecall[] }> {
+  const norm = String(ndcRaw || "").trim();
+  if (!norm) return { open: false, recalls: [] };
+  const data = await openFda(
+    "enforcement",
+    { search: `openfda.product_ndc.exact:"${norm}"`, sort: "recall_initiation_date:desc", limit: 10 },
+    900000,
+  );
+  const recalls: DrugRecall[] = (data.results || []).map((r: any) => {
+    const status = r.status || "";
+    return {
+      status,
+      open: /ongoing/i.test(status),
+      classification: r.classification || "",
+      reason: r.reason_for_recall || "",
+      initiatedOn: fmtFdaDate(r.recall_initiation_date || ""),
+      firm: r.recalling_firm || "",
+      distribution: r.distribution_pattern || "",
+      codeInfo: r.code_info || "",
+      productDescription: r.product_description || "",
+      voluntary: r.voluntary_mandated || "",
+    };
+  });
+  return { open: recalls.some((x) => x.open), recalls };
 }

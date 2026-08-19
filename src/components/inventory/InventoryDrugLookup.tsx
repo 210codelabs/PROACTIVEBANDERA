@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { DrugHit } from "@/lib/openfda";
 import DrugSearch from "@/components/drugs/DrugSearch";
 import DrugReference from "@/components/drugs/DrugReference";
+import RecallAlert from "@/components/drugs/RecallAlert";
 
 type InvLite = { id: string; name: string; sku: string; ndc?: string | null; quantityOnHand: number; reorderLevel: number; unit?: string | null };
 
@@ -38,6 +39,12 @@ export default function InventoryDrugLookup({ inventory }: { inventory: InvLite[
 
         {drug && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* Open FDA recall alert (spans both columns) */}
+            {drug.productNdc && (
+              <div className="lg:col-span-2">
+                <RecallAlert ndc={drug.productNdc} />
+              </div>
+            )}
             {/* FDA product record */}
             <div className="rounded-xl ring-1 ring-slate-200 bg-white p-4">
               <div className="text-[11px] font-bold uppercase tracking-wider text-brand-700 mb-1">National database (openFDA)</div>

@@ -6,6 +6,7 @@ import RefSelect from "@/components/RefSelect";
 import DictateButton from "@/components/DictateButton";
 import DrugSearch from "@/components/drugs/DrugSearch";
 import DrugReference from "@/components/drugs/DrugReference";
+import RecallAlert from "@/components/drugs/RecallAlert";
 import type { DrugHit } from "@/lib/openfda";
 
 function appendText(prev: string, t: string) {
@@ -103,10 +104,32 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
   const [medSig, setMedSig] = useState("");
   const [medBusy, setMedBusy] = useState(false);
   const [noteMeds, setNoteMeds] = useState<any[]>([]);
+  const [discontinuedIds, setDiscontinuedIds] = useState<Set<string>>(new Set());
+  const [medBusyId, setMedBusyId] = useState<string | null>(null);
 
   function pickMed(d: DrugHit) {
     setPendingMed(d);
     setMedSig("");
+  }
+
+  async function discontinueMed(m: any) {
+    if (!m?.id || discontinuedIds.has(m.id)) return;
+    setMedBusyId(m.id);
+    try {
+      const r = await fetch(`/api/patients/${encounter.patientId}/medications/${m.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "discontinued" }),
+      });
+      if (r.ok) {
+        setDiscontinuedIds((prev: Set<string>) => new Set(prev).add(m.id));
+        const line = `Medication discontinued: ${m.name}${m.strength ? ` ${m.strength}` : ""}${m.form ? ` ${m.form}` : ""}`;
+        if (noteFormat === "simple") setSimpleBody((p: string) => appendBlock(p, line));
+        else setP((p: string) => appendBlock(p, line));
+      }
+    } finally {
+      setMedBusyId(null);
+    }
   }
 
   async function addMedication() {
@@ -635,19 +658,41 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
             {noteMeds.length === 0 && meds.length === 0 && (
               <div className="text-slate-500 italic">No active medications documented.</div>
             )}
-            {noteMeds.map((m: any, i: number) => (
-              <div key={m.id || `new-${i}`} className="flex items-center gap-2">
-                <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200 text-[10px]">added</span>
-                <span className="flex-1 truncate">{m.name}{m.strength ? ` ${m.strength}` : ""}{m.form ? ` ${m.form}` : ""}{m.sig ? ` — ${m.sig}` : ""}</span>
-                {m.ndc && <span className="text-[10px] text-slate-400 font-mono shrink-0">NDC {m.ndc}</span>}
-              </div>
-            ))}
-            {meds.map((m: any) => (
-              <div key={m.id} className="flex items-center gap-2 text-slate-600">
-                <span className="flex-1 truncate">{m.name}{m.strength ? ` ${m.strength}` : ""}{m.form ? ` ${m.form}` : ""}{m.sig ? ` — ${m.sig}` : ""}</span>
-                {m.ndc && <span className="text-[10px] text-slate-400 font-mono shrink-0">NDC {m.ndc}</span>}
-              </div>
-            ))}
+            {noteMeds.map((m: any, i: number) => {
+              const disc = m.id ? discontinuedIds.has(m.id) : false;
+              return (
+                <div key={m.id || `new-${i}`} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200 text-[10px] shrink-0">added</span>
+                    <span className={`flex-1 truncate ${disc ? "line-through text-slate-400" : ""}`}>{m.name}{m.strength ? ` ${m.strength}` : ""}{m.form ? ` ${m.form}` : ""}{m.sig ? ` — ${m.sig}` : ""}</span>
+                    {m.ndc && <span className="text-[10px] text-slate-400 font-mono shrink-0">NDC {m.ndc}</span>}
+                    {disc ? (
+                      <span className="chip bg-slate-200 text-slate-500 ring-slate-300 text-[10px] shrink-0">discontinued</span>
+                    ) : (!signed && m.id) ? (
+                      <button type="button" onClick={() => discontinueMed(m)} disabled={medBusyId === m.id} className="text-rose-500 hover:text-rose-700 text-xs shrink-0">{medBusyId === m.id ? "…" : "Discontinue"}</button>
+                    ) : null}
+                  </div>
+                  {m.ndc && !disc && <RecallAlert ndc={m.ndc} />}
+                </div>
+              );
+            })}
+            {meds.map((m: any) => {
+              const disc = m.id ? discontinuedIds.has(m.id) : false;
+              return (
+                <div key={m.id} className="space-y-1 text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <span className={`flex-1 truncate ${disc ? "line-through text-slate-400" : ""}`}>{m.name}{m.strength ? ` ${m.strength}` : ""}{m.form ? ` ${m.form}` : ""}{m.sig ? ` — ${m.sig}` : ""}</span>
+                    {m.ndc && <span className="text-[10px] text-slate-400 font-mono shrink-0">NDC {m.ndc}</span>}
+                    {disc ? (
+                      <span className="chip bg-slate-200 text-slate-500 ring-slate-300 text-[10px] shrink-0">discontinued</span>
+                    ) : (!signed && m.id) ? (
+                      <button type="button" onClick={() => discontinueMed(m)} disabled={medBusyId === m.id} className="text-rose-500 hover:text-rose-700 text-xs shrink-0">{medBusyId === m.id ? "…" : "Discontinue"}</button>
+                    ) : null}
+                  </div>
+                  {m.ndc && !disc && <RecallAlert ndc={m.ndc} />}
+                </div>
+              );
+            })}
             {!signed && (
               <div className="pt-2 border-t border-slate-100 space-y-2">
                 <span className="label">Add medication (search FDA)</span>
@@ -669,6 +714,7 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
                       <button type="button" onClick={addMedication} disabled={medBusy} className="btn-primary py-1.5">{medBusy ? "Adding…" : "Add to chart"}</button>
                       <button type="button" onClick={() => { setPendingMed(null); setMedSig(""); }} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
                     </div>
+                    {pendingMed.productNdc && <RecallAlert ndc={pendingMed.productNdc} />}
                     <DrugReference productNdc={pendingMed.productNdc} name={pendingMed.genericName || pendingMed.brandName} title="Official FDA labeling (reference)" />
                   </div>
                 )}
