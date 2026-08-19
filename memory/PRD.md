@@ -281,3 +281,7 @@ Delivered (FRONTEND ONLY, page.tsx + HeroAuth.tsx; lucide NOT added — reused i
 - Hero trust chips (HeroAuth): flat colored squares -> premium glass rounded pills with distinct meaningful icons (interoperability/share, AI/sparkles, ecosystem/layers).
 - Testimonials avatar -> brand->red gradient with white ring. Service-card top accent bar unified to a single brand->red premium gradient.
 Type-clean (same 8 baseline errors). Verified via screenshots (hero chips, services+standards, why). Preview-only; redeploy to publish to production (proactiveclinics.com).
+
+## Iteration — Topic-matched Platform card images (Aug 2026, preview)
+User request: replace the generic photos in the "THE PLATFORM" section (6 capability cards) with images that match each card's title/topic.
+Delivered (FRONTEND ONLY): SERVICE_IMAGES in src/app/page.tsx swapped from /svc-1..6.jpg to 6 topic-relevant stock photos (Unsplash/Pexels, sourced via vision_expert), in the exact card order: Clinical & Charting (EHR laptop+stethoscope), AI Assistance (robot+human hand on digital interface), Billing & Revenue Cycle (stethoscope on calculator), Credentialing & Enterprise (business team meeting), Attorney/PI (law office), Interoperability & Data Exchange (abstract data network). Plain <img loading="lazy"> so no next.config domains needed. Verified via screenshots (both rows). NOTE: images are REMOTE URLs — for production reliability they could be downloaded into /public later. Preview-only; redeploy to publish to proactiveclinics.com.
