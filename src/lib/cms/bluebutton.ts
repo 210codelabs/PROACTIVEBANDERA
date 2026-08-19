@@ -112,15 +112,23 @@ function summarizeEob(bundle: any) {
     .map((e: any) => {
       const r = e.resource || {};
       const totalVal = (r.total || []).map((t: any) => t?.amount?.value).find((v: any) => typeof v === "number");
+      // Part D / pharmacy claims carry an NDC-coded product -> surface as a med suggestion.
+      const item0 = (r.item || [])[0] || {};
+      const pos = item0.productOrService || {};
+      const ndcCoding = (pos.coding || []).find((c: any) => /ndc/i.test(c.system || ""));
+      const drug = ndcCoding?.display || pos.text || (pos.coding || [])[0]?.display || null;
+      const ndc = ndcCoding?.code || null;
       return {
         id: r.id || "",
         type: r.type?.coding?.[0]?.display || r.type?.text || r.type?.coding?.[0]?.code || "Claim",
-        date: r.billablePeriod?.start || r.created || "",
+        date: item0.servicedDate || r.billablePeriod?.start || r.created || "",
         provider: r.provider?.display || "",
         total: typeof totalVal === "number" ? totalVal : null,
+        drug: ndc ? drug : null,
+        ndc: ndc || null,
       };
     })
-    .slice(0, 30);
+    .slice(0, 60);
 }
 
 export async function fetchPatientData(cfg: BbConfig, token: string, bbPatientId: string) {

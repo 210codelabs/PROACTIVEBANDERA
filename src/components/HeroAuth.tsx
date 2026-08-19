@@ -58,7 +58,7 @@ export default function HeroAuth({ heading, accent, tagline, subtitle, chips }: 
           <div className="text-white">
             <div className="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wide shadow-md mb-5">
               <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-              {tt(lang, "Now Accepting New Patients", "Aceptando nuevos pacientes")}
+              {tt(lang, "Unified Healthcare Platform", "Plataforma de salud unificada")}
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.04] tracking-tight">
               {heading}{" "}

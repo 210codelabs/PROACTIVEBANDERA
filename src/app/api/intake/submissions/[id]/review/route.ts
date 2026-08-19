@@ -12,7 +12,7 @@ function splitList(v: any): string[] {
   return String(v)
     .split(/[,\n;]+/)
     .map((s) => s.trim())
-    .filter((s) => s && !/^(none|n\/a|na|no)$/i.test(s));
+    .filter((s) => s && !/^(none|n\/a|na|no|no known allergies|nka|nkda|no known drug allergies|none known|no medications|no known medications)$/i.test(s));
 }
 
 // Copy approved intake answers into the patient's Problems / Allergies / Medications.

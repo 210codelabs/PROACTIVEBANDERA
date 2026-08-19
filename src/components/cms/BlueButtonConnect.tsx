@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 
 type Coverage = { type: string; status: string; period: string; payor: string };
-type Claim = { id: string; type: string; date: string; provider: string; total: number | null };
+type Claim = { id: string; type: string; date: string; provider: string; total: number | null; drug?: string | null; ndc?: string | null };
 type LastImport = { coverage: Coverage[] | null; claims: Claim[] | null; claimCount: number; createdAt: string; env: string | null } | null;
 
 export default function BlueButtonConnect({
@@ -18,6 +18,22 @@ export default function BlueButtonConnect({
 }) {
   const [flash, setFlash] = useState<{ kind: "ok" | "error" | "notconfigured"; msg?: string } | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [addedMeds, setAddedMeds] = useState<Set<string>>(new Set());
+  const [medBusy, setMedBusy] = useState("");
+
+  async function addMed(drug: string, ndc?: string | null) {
+    setMedBusy(drug);
+    try {
+      const r = await fetch(`/api/patients/${patientId}/medications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: drug, ndc: ndc || null, notes: "From Medicare Part D claim (Blue Button)" }),
+      });
+      if (r.ok) setAddedMeds((prev) => new Set(prev).add(drug));
+    } finally {
+      setMedBusy("");
+    }
+  }
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -34,6 +50,7 @@ export default function BlueButtonConnect({
 
   const coverage = lastImport?.coverage || [];
   const claims = lastImport?.claims || [];
+  const partDMeds = claims.filter((c) => c.drug);
 
   return (
     <section className="card mt-3">
@@ -60,6 +77,27 @@ export default function BlueButtonConnect({
         {lastImport && (
           <>
             <div className="text-[11px] text-slate-400">Last import: {new Date(lastImport.createdAt).toLocaleString()} · {lastImport.env || env}</div>
+            {partDMeds.length > 0 && (
+              <div className="rounded-lg bg-teal-50 ring-1 ring-teal-200 p-3">
+                <div className="font-medium text-teal-900 mb-1">Suggested medications (from Part D pharmacy claims)</div>
+                <p className="text-[11px] text-teal-700 mb-2">Reconcile with the patient before adding to the chart — a fill claim isn&apos;t confirmation the patient is still taking it.</p>
+                <ul className="space-y-1.5">
+                  {partDMeds.map((c, i) => {
+                    const done = addedMeds.has(c.drug!);
+                    return (
+                      <li key={c.id || i} className="flex items-center justify-between gap-2 text-[13px]">
+                        <span className="min-w-0 truncate text-slate-800">💊 {c.drug}{c.ndc ? <span className="text-slate-400 font-mono text-[11px]"> · NDC {c.ndc}</span> : null}{c.date ? <span className="text-slate-400"> · {String(c.date).slice(0, 10)}</span> : null}</span>
+                        {done ? (
+                          <span className="text-emerald-600 font-semibold text-xs shrink-0">Added ✓</span>
+                        ) : (
+                          <button type="button" onClick={() => addMed(c.drug!, c.ndc)} disabled={medBusy === c.drug} className="shrink-0 rounded bg-teal-600 px-2 py-0.5 text-white text-xs font-semibold hover:bg-teal-700 disabled:opacity-50">{medBusy === c.drug ? "…" : "Add to chart"}</button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
             {coverage.length > 0 && (
               <div>
                 <div className="font-medium text-slate-800 mb-1">Coverage</div>

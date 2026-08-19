@@ -497,6 +497,9 @@ export async function renderFormPdf(form: FormDef, opts: RenderOpts = {}): Promi
         case "meds":
           drawTextarea(f as unknown as Field & { kind: "textarea" });
           break;
+        case "allergens":
+          drawTextarea(f as unknown as Field & { kind: "textarea" });
+          break;
         case "checkboxes":
           drawCheckboxes(f);
           break;

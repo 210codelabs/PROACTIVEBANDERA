@@ -244,3 +244,21 @@ Delivered (preview; backend agent-tested 3/3 task groups PASS; UI screenshot-ver
 - Enrollment: API unchanged; UI adds lifecycle badges + Refresh-all.
 - Schema: Claim.statusHistory/statusCategory, PriorAuthRequest.authRequired/authRequiredRaw/lastCheckedAt, new StediEvent model. prisma db push applied in preview.
 Pending: user redeploy to production; configure ERA webhook secret + Stedi webhook binding for real-time 835.
+
+## Iteration — Calendar drag in all views + daily timeslots (Aug 2026, preview)
+User request: "enable dragging in all calendar views (day/week/month) for appointment scheduling/booking; show timeslots in daily for easy setting and changing."
+Delivered (FRONTEND ONLY — reuses the already-tested PATCH /api/appointments; NO backend/schema changes):
+- NEW client components under src/app/(app)/schedule/: DayCalendar.tsx (9AM–8PM CT timeslot grid; drag appt between slots to change TIME; click an empty slot → opens New Appointment prefilled to that time via a `schedule:new-appt` window event; keeps Check-in/Copay), WeekCalendar.tsx (7 day columns; drag appt to another day to reschedule, time preserved), StaffDayCalendar.tsx (per-provider timeslot columns; drag vertically to change time AND across columns to reassign provider).
+- Shared plain module src/app/(app)/schedule/reschedule.ts: CalAppt type, patchAppointment() helper, grid constants (GRID_START_HOUR/GRID_SLOTS/SLOT_PX), buildSlotList(), STATUS_DOT. (NOT a "use client" module, so the server page can import types/constants safely.)
+- schedule/page.tsx: server now computes each appt's top/height/labels/dayKey/timeHHmm in Central (TZ pinned) and passes serializable CalAppt[] to the client views, so drag positioning is correct regardless of browser TZ. Old server DayGrid/StaffGrid/WeekView removed. Month view (MonthCalendar) unchanged (already draggable).
+- NewApptButton.tsx: listens for `schedule:new-appt` to open prefilled at a clicked slot.
+- Reschedule always calls PATCH /api/appointments {id, day, time, providerId?} which preserves duration and hard-enforces 9AM–8PM CT clinic hours (rejections surface as an error toast + optimistic revert).
+- Verified via authenticated Playwright screenshots: Day (timeslots + 2 Adams appts at 9:30/11:15), Week (7 columns, Tue 25 shows both), Staff (provider columns w/ appts). Type-clean (same 8 pre-existing baseline errors only). Preview-only; redeploy for production.
+
+## Iteration — Landing page repositioned as ProactiveClinics platform (Aug 2026, preview)
+User request: rewrite ALL landing content to position ProactiveClinics as an all-in-one EHR/EMR + AI healthcare operating platform (unified clinical/financial/administrative/patient/interoperability workflows). Value prop "One Platform. Every Workflow. Better Outcomes." Brand "ProactiveClinics — Unified Healthcare Intelligence".
+Delivered (FRONTEND ONLY — content driven by the i18n dictionary; all interactive functionality preserved: patient portal + staff login card, language toggle, Install App, kiosk, book/demo links):
+- src/lib/i18n/dictionaries.ts: fully rewrote the EN + ES `landing` blocks (kept every key so unused compiled sections still typecheck). Hero = "One Platform. Every Workflow." / "Better Outcomes." + "ProactiveClinics — Unified Healthcare Intelligence" + platform description. 6 capability cards (Clinical & Charting, AI Assistance, Billing & RCM, Credentialing & Enterprise, Attorney/PI Workflows, Interoperability & Data Exchange). 4 "Why" reasons (One Unified Stack, Patient Engagement, Analytics & Insights, Built to Scale). Testimonials reworded to practice roles. Contact repositioned (Get Started / Talk to Our Team / Headquarters / Support Hours / demo CTA). Footer + nav (Platform/Why/Testimonials/Contact) updated. clinicName → "ProactiveClinics". scheduleVisit → "Request a Demo".
+- src/app/page.tsx: hero trust chips now platform-focused (FHIR·HL7·C-CDA, AI-assisted clinician-in-control, Proactive UMS ecosystem); removed the video-call overlay on the 6th service card.
+- src/components/HeroAuth.tsx: badge → "Unified Healthcare Platform".
+- Verified via screenshot (EN). Type-clean (same 8 baseline errors). Preview-only; redeploy for production. Note: page images/logos are existing clinic assets (unchanged); only copy was rewritten.

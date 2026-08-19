@@ -211,6 +211,91 @@ function MedsField({ lang, label, value, set }: { lang: Lang; label: string; val
   );
 }
 
+/* ----------------------------- allergen self-report (curated) ---------------------------- */
+const COMMON_ALLERGENS: { en: string; es: string }[] = [
+  { en: "Penicillin", es: "Penicilina" },
+  { en: "Amoxicillin", es: "Amoxicilina" },
+  { en: "Sulfa drugs", es: "Sulfamidas" },
+  { en: "Aspirin", es: "Aspirina" },
+  { en: "NSAIDs (ibuprofen)", es: "AINE (ibuprofeno)" },
+  { en: "Codeine", es: "Codeína" },
+  { en: "Cephalosporins", es: "Cefalosporinas" },
+  { en: "Iodine / contrast dye", es: "Yodo / medio de contraste" },
+  { en: "Latex", es: "Látex" },
+  { en: "Adhesive tape", es: "Cinta adhesiva" },
+  { en: "Peanuts", es: "Cacahuetes" },
+  { en: "Tree nuts", es: "Frutos secos" },
+  { en: "Shellfish", es: "Mariscos" },
+  { en: "Eggs", es: "Huevos" },
+  { en: "Milk / dairy", es: "Leche / lácteos" },
+  { en: "Soy", es: "Soya" },
+  { en: "Wheat / gluten", es: "Trigo / gluten" },
+  { en: "Bee / wasp stings", es: "Picaduras de abeja / avispa" },
+  { en: "Pollen", es: "Polen" },
+  { en: "Dust mites", es: "Ácaros del polvo" },
+  { en: "Pet dander", es: "Caspa de mascotas" },
+  { en: "Mold", es: "Moho" },
+];
+
+function AllergensField({ lang, label, value, set }: { lang: Lang; label: string; value: any; set: (v: string) => void }) {
+  const list = (typeof value === "string" ? value : "").split("\n").map((s) => s.trim()).filter(Boolean);
+  const [free, setFree] = useState("");
+  const es = lang === "es";
+  const nkda = es ? "Sin alergias conocidas" : "No known allergies";
+  const commit = (next: string[]) => set(next.join("\n"));
+  function addItem(text: string) {
+    const t = text.trim();
+    if (!t) return;
+    if (t.toLowerCase() === nkda.toLowerCase()) { commit([nkda]); return; }
+    const without = list.filter((x) => x.toLowerCase() !== nkda.toLowerCase());
+    if (without.some((x) => x.toLowerCase() === t.toLowerCase())) return;
+    commit([...without, t]);
+  }
+  const remove = (i: number) => commit(list.filter((_, idx) => idx !== i));
+  const chosen = new Set(list.map((x) => x.toLowerCase()));
+  const suggestions = COMMON_ALLERGENS
+    .map((a) => (es ? a.es : a.en))
+    .filter((a) => !chosen.has(a.toLowerCase()) && (!free.trim() || a.toLowerCase().includes(free.trim().toLowerCase())))
+    .slice(0, 10);
+
+  return (
+    <div className="col-span-full">
+      <label className="mb-1 block text-xs font-semibold text-slate-700">{label}</label>
+      <p className="mb-2 text-[11px] text-slate-500">
+        {es ? "Toque los alérgenos comunes o escríbalos. Si no tiene alergias, elija «Sin alergias conocidas»." : "Tap common allergens or type your own. If you have none, choose \u201cNo known allergies\u201d."}
+      </p>
+      <div className="flex gap-2">
+        <input
+          value={free}
+          onChange={(e) => setFree(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(free); setFree(""); } }}
+          placeholder={es ? "Buscar o agregar un alérgeno…" : "Search or add an allergy…"}
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+        />
+        <button type="button" onClick={() => { addItem(free); setFree(""); }} className="shrink-0 rounded-lg px-4 py-2 text-sm font-semibold text-white" style={{ background: ACCENT }}>
+          {es ? "Agregar" : "Add"}
+        </button>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <button type="button" onClick={() => addItem(nkda)} className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100">{nkda}</button>
+        {suggestions.map((a) => (
+          <button key={a} type="button" onClick={() => addItem(a)} className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">+ {a}</button>
+        ))}
+      </div>
+      {list.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-1.5">
+          {list.map((a, i) => (
+            <li key={i} className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm ${a.toLowerCase() === nkda.toLowerCase() ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>
+              <span>{a}</span>
+              <button type="button" onClick={() => remove(i)} className="text-xs opacity-60 hover:opacity-100" aria-label="remove">✕</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /* ----------------------------- field renderer ---------------------------- */
 function FieldView({
   field,
@@ -368,6 +453,11 @@ function FieldView({
     case "meds": {
       const id = field.id!;
       return <MedsField lang={lang} label={tr(field.label, lang)} value={values[id]} set={(v) => set(id, v)} />;
+    }
+
+    case "allergens": {
+      const id = field.id!;
+      return <AllergensField lang={lang} label={tr(field.label, lang)} value={values[id]} set={(v) => set(id, v)} />;
     }
 
     default:

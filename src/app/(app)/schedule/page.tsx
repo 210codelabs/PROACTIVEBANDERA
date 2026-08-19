@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  addDays, format, startOfDay, endOfDay, parseISO, addMinutes,
+  addDays, format, startOfDay, endOfDay, parseISO,
   startOfWeek, endOfWeek, startOfMonth, endOfMonth, addWeeks, addMonths,
   eachDayOfInterval, isSameDay,
 } from "date-fns";
@@ -8,16 +8,17 @@ import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
-import { fmtTime, colorForApptStatus, colorForCategory } from "@/lib/utils";
 import NewApptButton from "./NewApptButton";
 import MonthCalendar, { type MAppt } from "./MonthCalendar";
+import DayCalendar from "./DayCalendar";
+import WeekCalendar from "./WeekCalendar";
+import StaffDayCalendar from "./StaffDayCalendar";
+import { GRID_START_HOUR, SLOT_PX, type CalAppt } from "./reschedule";
 import ClinicTZBadge from "@/components/ClinicTZBadge";
 import { PROVIDER_PALETTE } from "./palette";
 import { mapByIds } from "@/lib/safe-relations";
-import CopayButton from "@/components/billing/CopayButton";
-import CheckInButton from "@/components/billing/CheckInButton";
 import { getCopayMap, getLatestCoverageMap, classifyCoverage } from "@/lib/coverage";
-import { getBalanceMap, fmtCents } from "@/lib/balances";
+import { getBalanceMap } from "@/lib/balances";
 
 type View = "day" | "week" | "month" | "staff";
 type Provider = { id: string; firstName: string; lastName: string; credential: string | null };
@@ -29,10 +30,6 @@ type Appt = {
   svcName: string | null; svcCat: string | null;
 };
 
-const DOT: Record<string, string> = {
-  scheduled: "bg-slate-400", "checked-in": "bg-amber-500", "in-room": "bg-violet-500",
-  completed: "bg-emerald-500", "no-show": "bg-rose-500", cancelled: "bg-slate-300",
-};
 
 export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ d?: string; providerId?: string; view?: string }> }) {
   const sp = await searchParams;
@@ -111,6 +108,35 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     startsAt: new Date(a.startsAt).toISOString(), endsAt: new Date(a.endsAt).toISOString(),
     status: a.status, pFirst: a.pFirst, pLast: a.pLast, provLast: a.provLast, svcName: a.svcName,
   }));
+
+  // Serializable, Central-time-computed appointments for the interactive
+  // (drag-and-drop) day / week / staff calendars. Positions (top/height) are
+  // computed here on the server (TZ pinned to America/Chicago) so drag works
+  // consistently regardless of the browser's timezone.
+  const calAppts: CalAppt[] = appts.map((a) => {
+    const start = new Date(a.startsAt);
+    const end = new Date(a.endsAt);
+    const startMin = start.getHours() * 60 + start.getMinutes() - GRID_START_HOUR * 60;
+    const durMin = (end.getTime() - start.getTime()) / 60000;
+    return {
+      id: a.id, patientId: a.patientId, providerId: a.providerId, status: a.status,
+      pFirst: a.pFirst, pLast: a.pLast, provLast: a.provLast,
+      svcName: a.svcName, svcCat: a.svcCat, reason: a.reason,
+      dayKey: format(start, "yyyy-MM-dd"), timeHHmm: format(start, "HH:mm"),
+      startLabel: format(start, "h:mm a"), endLabel: format(end, "h:mm a"),
+      top: Math.max(0, (startMin / 30) * SLOT_PX),
+      height: Math.max(40, (durMin / 30) * SLOT_PX - 4),
+      slotIndex: Math.round(startMin / 30),
+    };
+  });
+  const dayKeyStr = format(day, "yyyy-MM-dd");
+  const dayCal = calAppts.filter((a) => a.dayKey === dayKeyStr);
+  const weekDays = eachDayOfInterval({ start: rangeStart, end: addDays(rangeStart, 6) }).map((d) => ({
+    key: format(d, "yyyy-MM-dd"), dow: format(d, "EEE"), dom: format(d, "d"), isToday: isSameDay(d, new Date()),
+  }));
+  const copayRec: Record<string, string> = Object.fromEntries(copayMap);
+  const balanceRec: Record<string, number> = Object.fromEntries(balanceMap);
+
   const STATUS_LEGEND: { k: string; c: string }[] = [
     { k: "scheduled", c: "bg-slate-400" }, { k: "checked-in", c: "bg-amber-500" }, { k: "in-room", c: "bg-violet-500" },
     { k: "completed", c: "bg-emerald-500" }, { k: "no-show", c: "bg-rose-500" }, { k: "cancelled", c: "bg-slate-300" },
@@ -161,9 +187,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
           </div>
         </header>
 
-        {view === "day" && <DayGrid day={day} appts={appts.filter((a) => isSameDay(a.startsAt, day))} copayMap={copayMap} balanceMap={balanceMap} />}
-        {view === "staff" && <StaffGrid day={day} providers={providersShown} appts={appts.filter((a) => isSameDay(a.startsAt, day))} qp={qp} />}
-        {view === "week" && <WeekView start={rangeStart} appts={appts} qp={qp} />}
+        {view === "day" && <DayCalendar dayKey={dayKeyStr} appts={dayCal} copay={copayRec} balance={balanceRec} />}
+        {view === "staff" && <StaffDayCalendar dayKey={dayKeyStr} providers={providersShown} appts={dayCal} />}
+        {view === "week" && <WeekCalendar days={weekDays} appts={calAppts} providerColors={providerColors} providerQuery={providerId ? `&providerId=${providerId}` : ""} />}
         {view === "month" && (
           <>
             <MonthCalendar
@@ -214,136 +240,3 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     </Shell>
   );
 }
-
-/* ---------- Day view (rich: check-in / copay / balance) ---------- */
-// Grid spans clinic hours: 9:00 AM – 8:00 PM Central (22 half-hour rows).
-const GRID_START_HOUR = 9;
-const GRID_SLOTS = 22; // 9:00 → 20:00
-function buildSlots(day: Date) {
-  const slots: Date[] = [];
-  const s = new Date(day); s.setHours(GRID_START_HOUR, 0, 0, 0);
-  for (let i = 0; i < GRID_SLOTS; i++) slots.push(addMinutes(s, i * 30));
-  return slots;
-}
-function posFor(a: Appt) {
-  const startMin = (new Date(a.startsAt).getHours() * 60 + new Date(a.startsAt).getMinutes()) - GRID_START_HOUR * 60;
-  const dur = (new Date(a.endsAt).getTime() - new Date(a.startsAt).getTime()) / 60000;
-  return { top: (startMin / 30) * 64, height: Math.max(40, (dur / 30) * 64 - 4) };
-}
-
-function DayGrid({ day, appts, copayMap, balanceMap }: { day: Date; appts: Appt[]; copayMap: Map<string, string>; balanceMap: Map<string, number> }) {
-  const slots = buildSlots(day);
-  return (
-    <div className="grid grid-cols-12 divide-x divide-slate-100">
-      <div className="col-span-2">
-        {slots.map((s) => <div key={s.toISOString()} className="h-16 px-3 py-1 text-xs font-mono text-slate-500 border-b border-slate-100">{format(s, "h:mm a")}</div>)}
-      </div>
-      <div className="col-span-10 relative">
-        {slots.map((s) => <div key={s.toISOString()} className="h-16 border-b border-slate-100" />)}
-        <div className="absolute inset-0 p-2">
-          {appts.map((a) => {
-            const { top, height } = posFor(a);
-            return (
-              <div key={a.id} className="absolute left-2 right-2" style={{ top, height }}>
-                <Link href={`/patients/${a.patientId}`} className="block h-full rounded-md bg-white ring-1 ring-brand-200 shadow-sm hover:shadow-md hover:ring-brand-400 transition px-2 py-1 overflow-hidden">
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500">
-                    <span className="font-semibold text-slate-700">{fmtTime(a.startsAt)}</span><span>–</span><span>{fmtTime(a.endsAt)}</span>
-                    {balanceMap.get(a.patientId) ? <span className="chip bg-rose-100 text-rose-800 ring-rose-200 font-semibold" title="Outstanding balance">Bal {fmtCents(balanceMap.get(a.patientId)!)}</span> : null}
-                    <span className={`chip ml-auto ${colorForApptStatus(a.status)}`}>{a.status}</span>
-                  </div>
-                  <div className="text-sm font-semibold text-slate-900 truncate">{a.pLast}, {a.pFirst}</div>
-                  <div className="text-xs text-slate-600 truncate flex items-center gap-1">
-                    {a.svcName && <span className={`chip ${colorForCategory(a.svcCat || "")}`}>{a.svcName}</span>}
-                    {a.reason && !a.svcName && <span>{a.reason}</span>}
-                    <span className="ml-auto">{a.provLast}</span>
-                  </div>
-                </Link>
-                <div className="absolute bottom-1 left-1 z-10"><CheckInButton appointmentId={a.id} status={a.status} /></div>
-                <div className="absolute bottom-1 right-1 z-10"><CopayButton patientId={a.patientId} patientName={`${a.pLast}, ${a.pFirst}`} amountDefault={copayMap.get(a.patientId) || ""} /></div>
-              </div>
-            );
-          })}
-          {appts.length === 0 && <div className="absolute inset-0 grid place-items-center text-sm text-slate-400">No appointments scheduled for this day.</div>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Staff view (per-provider columns for the day) ---------- */
-function StaffGrid({ day, providers, appts, qp }: { day: Date; providers: Provider[]; appts: Appt[]; qp: (d: Date, v?: View) => string }) {
-  const slots = buildSlots(day);
-  if (providers.length === 0) return <div className="p-8 text-center text-sm text-slate-400">No active providers to display.</div>;
-  return (
-    <div className="overflow-x-auto">
-      <div className="flex min-w-max">
-        {/* time gutter */}
-        <div className="w-20 shrink-0 border-r border-slate-100">
-          <div className="h-10 border-b border-slate-100" />
-          {slots.map((s) => <div key={s.toISOString()} className="h-16 px-2 py-1 text-[11px] font-mono text-slate-500 border-b border-slate-100">{format(s, "h:mm")}</div>)}
-        </div>
-        {providers.map((prov) => {
-          const list = appts.filter((a) => a.providerId === prov.id);
-          return (
-            <div key={prov.id} className="w-56 shrink-0 border-r border-slate-100">
-              <div className="h-10 px-2 grid place-items-center border-b border-slate-100 bg-slate-50 text-xs font-semibold text-slate-700 truncate">{prov.firstName} {prov.lastName}{prov.credential ? `, ${prov.credential}` : ""}</div>
-              <div className="relative">
-                {slots.map((s) => <div key={s.toISOString()} className="h-16 border-b border-slate-100" />)}
-                <div className="absolute inset-0 p-1">
-                  {list.map((a) => {
-                    const { top, height } = posFor(a);
-                    return (
-                      <Link key={a.id} href={`/patients/${a.patientId}`} className="absolute left-1 right-1 rounded-md bg-white ring-1 ring-brand-200 shadow-sm hover:ring-brand-400 px-2 py-1 overflow-hidden" style={{ top, height }}>
-                        <div className="flex items-center gap-1 text-[10px] text-slate-500"><span className="font-semibold text-slate-700">{fmtTime(a.startsAt)}</span><span className={`chip ml-auto ${colorForApptStatus(a.status)}`}>{a.status}</span></div>
-                        <div className="text-xs font-semibold text-slate-900 truncate">{a.pLast}, {a.pFirst}</div>
-                        {a.svcName && <div className="text-[10px] text-slate-500 truncate">{a.svcName}</div>}
-                      </Link>
-                    );
-                  })}
-                  {list.length === 0 && <div className="absolute inset-x-0 top-2 text-center text-[11px] text-slate-300">—</div>}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Week view (7 day columns, chip lists) ---------- */
-function WeekView({ start, appts, qp }: { start: Date; appts: Appt[]; qp: (d: Date, v?: View) => string }) {
-  const days = eachDayOfInterval({ start, end: addDays(start, 6) });
-  return (
-    <div className="grid grid-cols-7 divide-x divide-slate-100">
-      {days.map((d) => {
-        const list = appts.filter((a) => isSameDay(a.startsAt, d)).sort((x, y) => x.startsAt.getTime() - y.startsAt.getTime());
-        const today = isSameDay(d, new Date());
-        return (
-          <div key={d.toISOString()} className="min-h-[220px]">
-            <Link href={qp(d, "day")} className={`block px-2 py-2 border-b text-center hover:bg-slate-50 ${today ? "bg-brand-50 border-brand-200" : "border-slate-100"}`}>
-              <div className="text-[11px] uppercase tracking-wide text-slate-400">{format(d, "EEE")}</div>
-              <div className={`text-lg font-semibold ${today ? "text-brand-700" : "text-slate-800"}`}>{format(d, "d")}</div>
-              <div className="text-[10px] text-slate-400">{list.length} appt{list.length === 1 ? "" : "s"}</div>
-            </Link>
-            <div className="p-1.5 space-y-1">
-              {list.map((a) => (
-                <Link key={a.id} href={`/patients/${a.patientId}`} className="block rounded-md ring-1 ring-slate-200 bg-white hover:ring-brand-400 px-2 py-1">
-                  <div className="flex items-center gap-1">
-                    <span className={`h-2 w-2 rounded-full ${DOT[a.status] || DOT.scheduled}`} />
-                    <span className="text-[11px] font-semibold text-slate-700">{fmtTime(a.startsAt)}</span>
-                  </div>
-                  <div className="text-xs font-medium text-slate-900 truncate">{a.pLast}, {a.pFirst}</div>
-                  <div className="text-[10px] text-slate-500 truncate">{a.svcName || a.reason || "Visit"} · {a.provLast}</div>
-                </Link>
-              ))}
-              {list.length === 0 && <div className="text-center text-[11px] text-slate-300 py-4">—</div>}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ---------- Month view now handled by the interactive client MonthCalendar ---------- */

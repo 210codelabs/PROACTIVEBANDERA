@@ -30,6 +30,7 @@ export type Field =
   | { kind: "signature"; id?: string; label: string }
   | { kind: "bodymap"; id: string; label: string; instructions?: string }
   | { kind: "meds"; id?: string; label: string }
+  | { kind: "allergens"; id?: string; label: string }
   | { kind: "pairs"; label: string; columns: string[]; rows: string[] };
 
 export type Section = {
@@ -185,7 +186,7 @@ const NEW_PATIENT_INTAKE: FormDef = {
         { kind: "text", id: "otherConditions", label: "Other medical conditions", width: "full" },
         { kind: "textarea", id: "previousAccidents", label: "Previous accidents / injuries", lines: 2 },
         { kind: "textarea", id: "surgeries", label: "Past surgeries", lines: 2 },
-        { kind: "textarea", id: "allergies", label: "Allergies", lines: 2 },
+        { kind: "allergens", id: "allergies", label: "Allergies" },
         { kind: "heading", text: "Lifestyle & Habits" },
         { kind: "text", id: "habitAlcohol", label: "Alcohol", width: "half" },
         { kind: "text", id: "habitSmoking", label: "Smoking", width: "half" },
@@ -620,7 +621,7 @@ const CLINICAL_NEW_PATIENT: FormDef = {
       description: "Share your health background so we can plan safe, effective therapy.",
       fields: [
         { kind: "meds", id: "currentMedications", label: "Medications you are currently taking" },
-        { kind: "textarea", id: "allergies", label: "Allergies", lines: 1 },
+        { kind: "allergens", id: "allergies", label: "Allergies" },
         { kind: "checkboxes", id: "conditions", label: "Do you have any of the following?", options: ["Hypertension", "Diabetes", "Heart Disease", "Osteoporosis", "Asthma", "None"], inline: true },
         { kind: "text", id: "otherConditions", label: "Other medical conditions", width: "full" },
         { kind: "textarea", id: "surgeries", label: "Past surgeries", lines: 1 },

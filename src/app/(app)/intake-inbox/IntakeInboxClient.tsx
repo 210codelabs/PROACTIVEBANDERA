@@ -41,6 +41,55 @@ export default function IntakeInboxPage() {
   const [busy, setBusy] = useState<string>("");
   const [showUpload, setShowUpload] = useState(false);
   const [flash, setFlash] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Record<string, { meds: string[] }>>({});
+  const [detailBusy, setDetailBusy] = useState("");
+  const [added, setAdded] = useState<Record<string, Set<string>>>({});
+  const [medBusy, setMedBusy] = useState("");
+
+  function splitMeds(v: any): string[] {
+    if (!v) return [];
+    return String(v)
+      .split(/[,\n;]+/)
+      .map((s) => s.trim())
+      .filter((s) => s && !/^(none|n\/a|na|no|no medications|no known medications)$/i.test(s));
+  }
+
+  async function toggleMeds(s: Sub) {
+    if (expanded === s.id) { setExpanded(null); return; }
+    setExpanded(s.id);
+    if (detail[s.id]) return;
+    setDetailBusy(s.id);
+    try {
+      const r = await fetch(`/api/intake/submissions/${s.id}`);
+      const d = await r.json();
+      setDetail((prev) => ({ ...prev, [s.id]: { meds: splitMeds(d?.detail?.values?.currentMedications) } }));
+    } finally {
+      setDetailBusy("");
+    }
+  }
+
+  async function addMed(s: Sub, name: string) {
+    setMedBusy(s.id + name);
+    try {
+      const r = await fetch(`/api/patients/${s.patientId}/medications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (r.ok) {
+        setAdded((prev) => {
+          const next = { ...prev };
+          const set = new Set(next[s.id] || []);
+          set.add(name);
+          next[s.id] = set;
+          return next;
+        });
+      }
+    } finally {
+      setMedBusy("");
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -198,6 +247,45 @@ export default function IntakeInboxPage() {
                   )}
                 </div>
               </div>
+              {s.kind === "online" && (
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <button onClick={() => toggleMeds(s)} className="text-xs font-semibold text-teal-700 hover:underline">
+                    {expanded === s.id ? "Hide self-reported meds" : "💊 Self-reported meds → add to chart"}
+                  </button>
+                  {expanded === s.id && (
+                    <div className="mt-2">
+                      {detailBusy === s.id && <div className="text-xs text-slate-400">Loading…</div>}
+                      {detail[s.id] && (
+                        detail[s.id].meds.length === 0 ? (
+                          <div className="text-xs text-slate-400">No medications reported on this intake.</div>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {detail[s.id].meds.map((m, i) => {
+                              const done = added[s.id]?.has(m);
+                              return (
+                                <span key={i} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
+                                  <span>💊 {m}</span>
+                                  {done ? (
+                                    <span className="font-semibold text-emerald-600">Added ✓</span>
+                                  ) : (
+                                    <button
+                                      onClick={() => addMed(s, m)}
+                                      disabled={medBusy === s.id + m}
+                                      className="rounded bg-teal-600 px-2 py-0.5 font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+                                    >
+                                      {medBusy === s.id + m ? "…" : "Add"}
+                                    </button>
+                                  )}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -2842,3 +2842,31 @@ agent_communication:
         -working: true
         -agent: "main"
         -comment: "The public /intake form now renders a 'meds' field for 'Medications you are currently taking' (openFDA typeahead via public /api/intake/drug-search + manual free-text add). Selected/typed meds show as removable chips; value stored as newline-joined string -> flows unchanged through serialize()+/api/intake/submit and renders in the intake PDF. DrugSearch got an optional searchUrl prop (default /api/drugs/search) so the public form points at the public endpoint. Backend passed 3/3 (public endpoint 200 unauth with real openFDA results; staff /api/drugs/search still 401). Type-clean (8 pre-existing unrelated). Visually verified on the public form (no login): added 'ATORVASTATIN CALCIUM 20 mg/1 TABLET, FILM COATED' from FDA search + manual 'Vitamin D 1000 IU' as chips. Preview-only; NOT user-confirmed in production."
+
+  - task: "Calendar drag-and-drop in ALL views (day/week/staff) + daily timeslot grid"
+    implemented: true
+    working: true
+    file: "src/app/(app)/schedule/page.tsx, src/app/(app)/schedule/DayCalendar.tsx, src/app/(app)/schedule/WeekCalendar.tsx, src/app/(app)/schedule/StaffDayCalendar.tsx, src/app/(app)/schedule/reschedule.ts, src/app/(app)/schedule/NewApptButton.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "FRONTEND-ONLY enhancement (no backend/schema changes; reuses the already-tested PATCH /api/appointments which preserves duration + hard-enforces 9AM-8PM CT clinic hours). Day view now renders a 9AM-8PM Central timeslot grid where appts drag between slots to change TIME, and empty slots are clickable to create a New Appointment prefilled to that time (via a `schedule:new-appt` window event NewApptButton listens for). Week view: drag an appt to another day column to reschedule (time preserved). Staff view: per-provider timeslot columns; drag vertically to change time AND across columns to reassign the provider (PATCH includes providerId). Month view unchanged (MonthCalendar already draggable). All time positions (top/height/labels/dayKey/timeHHmm) are computed on the SERVER (TZ pinned to America/Chicago) and passed as serializable CalAppt[] so drag positioning is correct regardless of browser TZ. Optimistic move + toast + router.refresh; on PATCH failure (e.g. clinic-hours violation) it reverts and shows an error toast. Verified via authenticated Playwright screenshots (Day: timeslots + 2 Adams appts at 9:30/11:15; Week: 7 columns; Staff: provider columns). Type-clean (same 8 pre-existing baseline errors). No backend endpoint added, so backend testing not required. Frontend agent NOT run (awaiting user OK). Preview-only; redeploy for production."
+
+  - task: "Landing page repositioned as ProactiveClinics unified healthcare platform"
+    implemented: true
+    working: true
+    file: "src/lib/i18n/dictionaries.ts, src/app/page.tsx, src/components/HeroAuth.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "FRONTEND-ONLY content rewrite. Rewrote the EN + ES `landing` i18n dictionary blocks (all keys preserved) to position ProactiveClinics as an all-in-one EHR/EMR + AI healthcare operating platform ('One Platform. Every Workflow. Better Outcomes.' / 'Unified Healthcare Intelligence'). 6 capability cards (Clinical & Charting, AI Assistance, Billing & RCM, Credentialing & Enterprise, Attorney/PI, Interoperability), 4 Why reasons, practice-role testimonials, Get-Started contact, updated nav/footer, clinicName->ProactiveClinics, CTA->Request a Demo. Hero chips + HeroAuth badge updated; removed the video-call overlay on service card 6. All interactive functionality preserved (patient portal + staff login card, language toggle, Install App, kiosk, book/demo links). Verified via screenshot (EN hero + platform section). Type-clean (same 8 baseline errors). Frontend agent NOT run (awaiting user OK). Preview-only; redeploy for production."
+
+agent_communication:
+    -agent: "main"
+    -message: "Two FRONTEND-ONLY value additions this session: (1) drag-and-drop across all calendar views + a daily timeslot grid (reuses the already-tested PATCH /api/appointments — no backend changes, so no backend re-test needed), and (2) landing page repositioned as the ProactiveClinics unified healthcare platform (i18n dictionary rewrite). Both verified via authenticated Playwright screenshots. No new backend endpoints. Did NOT run the frontend testing agent (needs user permission). Both are preview changes — redeploy to reach production."

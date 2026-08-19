@@ -24,6 +24,17 @@ export default function NewApptButton({ providers, services, day }: { providers:
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Open (prefilled to a time) when a day-view empty slot is clicked.
+  useEffect(() => {
+    function onNew(e: Event) {
+      const detail = (e as CustomEvent).detail || {};
+      if (typeof detail.time === "string" && detail.time) setTime(detail.time);
+      setOpen(true);
+    }
+    window.addEventListener("schedule:new-appt", onNew as EventListener);
+    return () => window.removeEventListener("schedule:new-appt", onNew as EventListener);
+  }, []);
+
   useEffect(() => {
     if (!q.trim()) { setHits([]); return; }
     const t = setTimeout(async () => {
