@@ -29,6 +29,7 @@ export type Field =
   | { kind: "paragraph"; text: string; ack?: boolean; id?: string; ackLabel?: string }
   | { kind: "signature"; id?: string; label: string }
   | { kind: "bodymap"; id: string; label: string; instructions?: string }
+  | { kind: "meds"; id?: string; label: string }
   | { kind: "pairs"; label: string; columns: string[]; rows: string[] };
 
 export type Section = {
@@ -179,7 +180,7 @@ const NEW_PATIENT_INTAKE: FormDef = {
       description:
         "Help our clinical team plan safe, effective therapy by sharing your health background. Leave blank anything that does not apply.",
       fields: [
-        { kind: "textarea", id: "currentMedications", label: "Medications you are currently taking", lines: 2 },
+        { kind: "meds", id: "currentMedications", label: "Medications you are currently taking" },
         { kind: "checkboxes", id: "conditions", label: "Do you have any of the following?", options: ["Hypertension", "Diabetes", "Heart Disease", "Asthma", "None"], inline: true },
         { kind: "text", id: "otherConditions", label: "Other medical conditions", width: "full" },
         { kind: "textarea", id: "previousAccidents", label: "Previous accidents / injuries", lines: 2 },
@@ -618,7 +619,7 @@ const CLINICAL_NEW_PATIENT: FormDef = {
       title: "Medical History",
       description: "Share your health background so we can plan safe, effective therapy.",
       fields: [
-        { kind: "textarea", id: "currentMedications", label: "Medications you are currently taking", lines: 2 },
+        { kind: "meds", id: "currentMedications", label: "Medications you are currently taking" },
         { kind: "textarea", id: "allergies", label: "Allergies", lines: 1 },
         { kind: "checkboxes", id: "conditions", label: "Do you have any of the following?", options: ["Hypertension", "Diabetes", "Heart Disease", "Osteoporosis", "Asthma", "None"], inline: true },
         { kind: "text", id: "otherConditions", label: "Other medical conditions", width: "full" },

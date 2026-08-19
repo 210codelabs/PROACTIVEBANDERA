@@ -12,11 +12,13 @@ export default function DrugSearch({
   placeholder = "Search medications (openFDA)…",
   className = "",
   autoFocus = false,
+  searchUrl = "/api/drugs/search",
 }: {
   onSelect: (d: DrugHit) => void;
   placeholder?: string;
   className?: string;
   autoFocus?: boolean;
+  searchUrl?: string;
 }) {
   const [q, setQ] = useState("");
   const [items, setItems] = useState<DrugHit[]>([]);
@@ -35,7 +37,7 @@ export default function DrugSearch({
     const t = setTimeout(async () => {
       setLoading(true); setErr(false);
       try {
-        const r = await fetch(`/api/drugs/search?q=${encodeURIComponent(q.trim())}`, { signal: ctrl.signal });
+        const r = await fetch(`${searchUrl}?q=${encodeURIComponent(q.trim())}`, { signal: ctrl.signal });
         const j = await r.json();
         setItems(j.results || []);
         setOpen(true);

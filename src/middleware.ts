@@ -14,6 +14,7 @@ const PUBLIC_PREFIX = [
   "/api/kiosk",
   "/api/intake/forms",
   "/api/intake/submit",
+  "/api/intake/drug-search",
   "/api/attorney",
   "/api/assistant",
   "/api/appointments/request",

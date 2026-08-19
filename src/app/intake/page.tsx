@@ -4,6 +4,8 @@ import React, { useMemo, useRef, useState } from "react";
 import { CLINIC, FORMS, FormDef, Field, Section } from "@/lib/intake/forms";
 import { tr, ui, Lang } from "@/lib/intake/i18n";
 import { MANNEQUIN, BODY_BOX, PAIN_TYPES, painType, BodyMapValue, emptyBodyMap } from "@/lib/intake/bodymap";
+import DrugSearch from "@/components/drugs/DrugSearch";
+import type { DrugHit } from "@/lib/openfda";
 
 const BRAND = "#0E4770";
 const ACCENT = "#0A8C8C";
@@ -151,6 +153,59 @@ function BodyMapField({ lang, value, set }: { lang: Lang; value: BodyMapValue; s
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ----------------------------- medication self-report (openFDA) ---------------------------- */
+function MedsField({ lang, label, value, set }: { lang: Lang; label: string; value: any; set: (v: string) => void }) {
+  const list = (typeof value === "string" ? value : "").split("\n").map((s) => s.trim()).filter(Boolean);
+  const [free, setFree] = useState("");
+  const es = lang === "es";
+  const commit = (next: string[]) => set(next.join("\n"));
+  function addItem(text: string) {
+    const t = text.trim();
+    if (!t || list.some((x) => x.toLowerCase() === t.toLowerCase())) return;
+    commit([...list, t]);
+  }
+  function addDrug(d: DrugHit) {
+    const name = d.brandName || d.genericName || d.display;
+    const lbl = [name, d.strengths?.[0], d.dosageForm].filter(Boolean).join(" ").trim();
+    addItem(lbl || name);
+  }
+  const remove = (i: number) => commit(list.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="col-span-full">
+      <label className="mb-1 block text-xs font-semibold text-slate-700">{label}</label>
+      <p className="mb-2 text-[11px] text-slate-500">
+        {es ? "Busque su medicamento para agregar el nombre y la concentración estándar, o escríbalo manualmente." : "Search to add the standardized name & strength from the FDA database, or type it in manually."}
+      </p>
+      <DrugSearch onSelect={addDrug} searchUrl="/api/intake/drug-search" placeholder={es ? "Busque un medicamento…" : "Search a medication…"} />
+      <div className="mt-2 flex gap-2">
+        <input
+          value={free}
+          onChange={(e) => setFree(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(free); setFree(""); } }}
+          placeholder={es ? "Agregar manualmente (nombre, dosis)" : "Add manually (name, dose)"}
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+        />
+        <button type="button" onClick={() => { addItem(free); setFree(""); }} className="shrink-0 rounded-lg px-4 py-2 text-sm font-semibold text-white" style={{ background: ACCENT }}>
+          {es ? "Agregar" : "Add"}
+        </button>
+      </div>
+      {list.length > 0 ? (
+        <ul className="mt-3 space-y-1.5">
+          {list.map((m, i) => (
+            <li key={i} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <span>💊 {m}</span>
+              <button type="button" onClick={() => remove(i)} className="text-xs text-slate-400 hover:text-red-500" aria-label="remove">✕</button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-[11px] text-slate-400">{es ? "Si no toma medicamentos, deje esto en blanco." : "If you take no medications, leave this blank."}</p>
       )}
     </div>
   );
@@ -308,6 +363,11 @@ function FieldView({
     case "bodymap": {
       const id = field.id;
       return <BodyMapField lang={lang} value={values[id]} set={(v) => set(id, v)} />;
+    }
+
+    case "meds": {
+      const id = field.id!;
+      return <MedsField lang={lang} label={tr(field.label, lang)} value={values[id]} set={(v) => set(id, v)} />;
     }
 
     default:
