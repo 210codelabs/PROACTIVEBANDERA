@@ -21,15 +21,40 @@ export type CalAppt = {
   timeHHmm: string;    // HH:mm (Central) start time
   startLabel: string;  // e.g. "9:00 AM"
   endLabel: string;    // e.g. "9:30 AM"
-  top: number;         // px offset in the day/staff time grid
-  height: number;      // px height in the day/staff time grid
-  slotIndex: number;   // which 30-min slot the appt starts in
+  top: number;        // px offset in the day/staff time grid
+  height: number;     // px height in the day/staff time grid
+  slotIndex: number;  // which 30-min slot the appt starts in
+  durationMin: number; // appointment length in minutes
 };
 
 // Clinic-hours time grid (9:00 AM – 8:00 PM Central) shared by day & staff views.
 export const GRID_START_HOUR = 9;
 export const GRID_SLOTS = 22; // 30-min slots: 9:00 → 20:00
 export const SLOT_PX = 64;    // must match Tailwind h-16 (4rem)
+export const GRID_OPEN_MIN = GRID_START_HOUR * 60; // 540
+export const GRID_CLOSE_MIN = 20 * 60;             // 1200 (8:00 PM close)
+
+export type Busy = { s: number; e: number }; // minutes-of-day interval
+
+// Minutes-of-day from "HH:mm".
+export function toMin(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+// Would an appt of `durationMin` starting at `startMin` overlap any busy interval?
+export function hasOverlap(startMin: number, durationMin: number, busy: Busy[]): boolean {
+  const endMin = startMin + durationMin;
+  return busy.some((b) => startMin < b.e && endMin > b.s);
+}
+
+// True when an appt of `durationMin` can be placed at `startMin`: within clinic
+// hours AND not overlapping any busy interval (double-booking).
+export function slotIsFree(startMin: number, durationMin: number, busy: Busy[]): boolean {
+  if (startMin < GRID_OPEN_MIN) return false;
+  if (startMin + durationMin > GRID_CLOSE_MIN) return false;
+  return !hasOverlap(startMin, durationMin, busy);
+}
 
 export type PatchArgs = { id: string; day?: string; time?: string; providerId?: string };
 

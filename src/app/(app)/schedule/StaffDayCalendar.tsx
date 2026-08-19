@@ -4,7 +4,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { colorForApptStatus } from "@/lib/utils";
 import {
-  patchAppointment, buildSlotList, GRID_SLOTS, SLOT_PX, STATUS_DOT, type CalAppt,
+  patchAppointment, buildSlotList, slotIsFree, toMin, GRID_START_HOUR, GRID_SLOTS, SLOT_PX, STATUS_DOT,
+  type CalAppt,
 } from "./reschedule";
 
 type Provider = { id: string; firstName: string; lastName: string; credential: string | null };
@@ -32,6 +33,20 @@ export default function StaffDayCalendar({ dayKey, providers, appts: initial }: 
 
   const slots = useMemo(() => buildSlotList(), []);
 
+  // Live conflict detection across provider columns: is slot `i` free for
+  // `provId` given `appt`'s duration (excluding the appt being moved)?
+  const dragAppt = dragId ? rows.find((a) => a.id === dragId) || null : null;
+  function slotFreeForAppt(appt: CalAppt, provId: string, i: number): boolean {
+    const busy = rows
+      .filter((a) => a.id !== appt.id && a.providerId === provId && a.status !== "cancelled" && a.status !== "no-show")
+      .map((a) => ({ s: toMin(a.timeHHmm), e: toMin(a.timeHHmm) + a.durationMin }));
+    return slotIsFree(GRID_START_HOUR * 60 + i * 30, appt.durationMin, busy);
+  }
+  function slotTintFree(provId: string, i: number): boolean {
+    if (!dragAppt) return true;
+    return slotFreeForAppt(dragAppt, provId, i);
+  }
+
   function slotFromY(clientY: number, rectTop: number): number {
     const y = clientY - rectTop;
     return Math.max(0, Math.min(GRID_SLOTS - 1, Math.floor(y / SLOT_PX)));
@@ -47,6 +62,11 @@ export default function StaffDayCalendar({ dayKey, providers, appts: initial }: 
     const appt = rows.find((a) => a.id === id);
     if (!appt) return;
     if (appt.providerId === provId && appt.timeHHmm === slot.hhmm) return;
+    if (!slotFreeForAppt(appt, provId, idx)) {
+      const p = providers.find((x) => x.id === provId);
+      setToast({ kind: "err", text: `That slot would double-book ${p ? p.firstName + " " + p.lastName : "the provider"} — pick an open (green) slot.` });
+      return;
+    }
     const prev = rows;
     setRows((rs) => rs.map((r) => r.id === id
       ? { ...r, providerId: provId, timeHHmm: slot.hhmm, top: idx * SLOT_PX, startLabel: slot.label }
@@ -84,9 +104,9 @@ export default function StaffDayCalendar({ dayKey, providers, appts: initial }: 
                 onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver((o) => (o && o.prov === prov.id ? null : o)); }}
                 onDrop={(e) => { e.preventDefault(); const rect = e.currentTarget.getBoundingClientRect(); doDrop(prov.id, e.clientY, rect.top); }}
               >
-                {slots.map((s) => <div key={s.hhmm} className="h-16 border-b border-slate-100" />)}
+                {slots.map((s) => <div key={s.hhmm} className={`h-16 border-b border-slate-100 ${dragId ? (slotTintFree(prov.id, s.i) ? "bg-emerald-50/50" : "bg-rose-50/40") : ""}`} />)}
                 {over && over.prov === prov.id && dragId && (
-                  <div className="pointer-events-none absolute left-0 right-0 h-16 ring-2 ring-inset ring-brand-400 bg-brand-50/60" style={{ top: over.slot * SLOT_PX }} />
+                  <div className={`pointer-events-none absolute left-0 right-0 h-16 ring-2 ring-inset ${slotTintFree(prov.id, over.slot) ? "ring-emerald-500 bg-emerald-50/70" : "ring-rose-500 bg-rose-50/70"}`} style={{ top: over.slot * SLOT_PX }} />
                 )}
                 <div className="absolute inset-0 p-1 pointer-events-none">
                   {list.map((a) => (

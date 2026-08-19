@@ -262,3 +262,12 @@ Delivered (FRONTEND ONLY — content driven by the i18n dictionary; all interact
 - src/app/page.tsx: hero trust chips now platform-focused (FHIR·HL7·C-CDA, AI-assisted clinician-in-control, Proactive UMS ecosystem); removed the video-call overlay on the 6th service card.
 - src/components/HeroAuth.tsx: badge → "Unified Healthcare Platform".
 - Verified via screenshot (EN). Type-clean (same 8 baseline errors). Preview-only; redeploy for production. Note: page images/logos are existing clinic assets (unchanged); only copy was rewritten.
+
+## Iteration — Conflict-free dragging + Recurring visits (Aug 2026, preview)
+User request (selected next-actions): (1) flag clashes live while dragging so double-booking is caught before it happens; (2) let staff create a repeating series of appointments in a couple of clicks.
+Delivered:
+- CONFLICT DETECTION (backend, agent-tested 8/8): NEW src/lib/appointments.ts findConflict(providerId,start,end,excludeId?) — overlap query excluding cancelled/no-show. Wired into POST + PATCH /api/appointments: overlapping appts for the SAME provider now return 409 {conflict:true} (create/reschedule/reassign). Cancelled/no-show don't block; a different provider at the same time is fine; clinic-hours stays 400.
+- CONFLICT-FREE DRAGGING (frontend): Day/Week/Staff calendars compute the target provider's busy intervals live during a drag and tint slots green (open) / red (clash), color the drop indicator green/red, and BLOCK a clashing drop with an explanatory toast (plus the 409 server guard as backstop). Added durationMin to CalAppt + slotIsFree/hasOverlap/toMin helpers in reschedule.ts.
+- RECURRING VISITS (backend, agent-tested 6/6): NEW POST /api/appointments/recurring {patientId,providerId,serviceTypeId?,day,time,reason?,location?,notes?,frequency,count} — daily|weekly|biweekly|monthly, count 2..26; builds the series, skips dates outside 9AM-8PM CT or that would double-book, creates the rest; returns {created,skipped,total,details}. Idempotent (re-running a series = all skipped).
+- RECURRING UI (frontend): NewApptButton got a Repeat select + Occurrences input + live hint; the Schedule button becomes "Schedule N visits"; POST 409s (single) and series results (created/skipped) surface as inline banners. Verified via screenshot ("Every 2 weeks", 4 occurrences, "Schedule 4 visits").
+Type-clean (same 8 baseline errors). No schema change. Preview-only; redeploy for production. NOTE: double-booking is HARD-BLOCKED on create + drag (clinics wanting intentional overbooking would need an override — not built).

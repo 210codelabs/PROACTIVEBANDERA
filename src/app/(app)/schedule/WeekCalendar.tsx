@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PROVIDER_PALETTE } from "./palette";
-import { patchAppointment, STATUS_DOT, type CalAppt } from "./reschedule";
+import { patchAppointment, hasOverlap, toMin, STATUS_DOT, type CalAppt } from "./reschedule";
 
 type WeekDay = { key: string; dow: string; dom: string; isToday: boolean };
 
@@ -31,6 +31,16 @@ export default function WeekCalendar({ days, appts: initial, providerColors, pro
   const dayHref = (key: string) => `/schedule?view=day&d=${key}${providerQuery}`;
   const colorFor = (providerId: string) => PROVIDER_PALETTE[(providerColors[providerId] ?? 0) % PROVIDER_PALETTE.length];
 
+  // Live conflict detection: would moving `appt` to `key` overlap another
+  // appointment for the same provider at the same time-of-day?
+  const dragAppt = dragId ? rows.find((a) => a.id === dragId) || null : null;
+  function apptDayFree(appt: CalAppt, key: string): boolean {
+    const busy = rows
+      .filter((a) => a.id !== appt.id && a.dayKey === key && a.providerId === appt.providerId && a.status !== "cancelled" && a.status !== "no-show")
+      .map((a) => ({ s: toMin(a.timeHHmm), e: toMin(a.timeHHmm) + a.durationMin }));
+    return !hasOverlap(toMin(appt.timeHHmm), appt.durationMin, busy);
+  }
+
   async function onDrop(targetKey: string) {
     const id = dragId;
     setOverDay(null);
@@ -38,6 +48,10 @@ export default function WeekCalendar({ days, appts: initial, providerColors, pro
     if (!id) return;
     const appt = rows.find((a) => a.id === id);
     if (!appt || appt.dayKey === targetKey) return;
+    if (!apptDayFree(appt, targetKey)) {
+      setToast({ kind: "err", text: `That day would double-book ${appt.provLast || "the provider"} at ${appt.startLabel}.` });
+      return;
+    }
     const prev = rows;
     setRows((rs) => rs.map((r) => r.id === id ? { ...r, dayKey: targetKey } : r));
     const res = await patchAppointment({ id, day: targetKey, time: appt.timeHHmm });
@@ -57,13 +71,14 @@ export default function WeekCalendar({ days, appts: initial, providerColors, pro
         {days.map((d) => {
           const list = rows.filter((a) => a.dayKey === d.key).sort((x, y) => x.timeHHmm.localeCompare(y.timeHHmm));
           const isOver = overDay === d.key;
+          const free = dragAppt ? apptDayFree(dragAppt, d.key) : true;
           return (
             <div
               key={d.key}
               onDragOver={(e) => { e.preventDefault(); if (overDay !== d.key) setOverDay(d.key); }}
               onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node) && overDay === d.key) setOverDay(null); }}
               onDrop={() => onDrop(d.key)}
-              className={`min-h-[240px] transition-colors ${isOver ? "bg-brand-50/70 ring-2 ring-inset ring-brand-400" : ""}`}
+              className={`min-h-[240px] transition-colors ${dragId && !isOver ? (free ? "bg-emerald-50/40" : "bg-rose-50/40") : ""} ${isOver ? (free ? "bg-emerald-50/70 ring-2 ring-inset ring-emerald-500" : "bg-rose-50/70 ring-2 ring-inset ring-rose-500") : ""}`}
             >
               <a href={dayHref(d.key)} className={`block px-2 py-2 border-b text-center hover:bg-slate-50 ${d.isToday ? "bg-brand-50 border-brand-200" : "border-slate-100"}`}>
                 <div className="text-[11px] uppercase tracking-wide text-slate-400">{d.dow}</div>

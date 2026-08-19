@@ -23,12 +23,18 @@ export default function NewApptButton({ providers, services, day }: { providers:
   const [telehealthPlatform, setTelehealthPlatform] = useState("google-meet");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [repeat, setRepeat] = useState("none");
+  const [occurrences, setOccurrences] = useState(4);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<{ created: number; skipped: number } | null>(null);
 
   // Open (prefilled to a time) when a day-view empty slot is clicked.
   useEffect(() => {
     function onNew(e: Event) {
       const detail = (e as CustomEvent).detail || {};
       if (typeof detail.time === "string" && detail.time) setTime(detail.time);
+      setError("");
+      setResult(null);
       setOpen(true);
     }
     window.addEventListener("schedule:new-appt", onNew as EventListener);
@@ -54,20 +60,38 @@ export default function NewApptButton({ providers, services, day }: { providers:
     ].filter(Boolean).join(" | ");
 
     setLoading(true);
-    const res = await fetch("/api/appointments", {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ patientId, providerId, serviceTypeId: serviceId, day, time, reason, location, notes: mergedNotes }),
-    });
-    setLoading(false);
-    if (res.ok) {
-      setOpen(false);
-      router.refresh();
+    setError("");
+    setResult(null);
+    try {
+      if (repeat === "none") {
+        const res = await fetch("/api/appointments", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ patientId, providerId, serviceTypeId: serviceId, day, time, reason, location, notes: mergedNotes }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { setError(data.error || "Could not schedule this appointment."); setLoading(false); return; }
+        setOpen(false);
+        router.refresh();
+      } else {
+        const res = await fetch("/api/appointments/recurring", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ patientId, providerId, serviceTypeId: serviceId, day, time, reason, location, notes: mergedNotes, frequency: repeat, count: occurrences }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { setError(data.error || "Could not schedule the series."); setLoading(false); return; }
+        setResult({ created: data.created || 0, skipped: data.skipped || 0 });
+        router.refresh();
+        if (!data.skipped) setTimeout(() => setOpen(false), 1400);
+      }
+    } catch {
+      setError("Scheduling is temporarily unavailable.");
     }
+    setLoading(false);
   }
 
   return (
     <>
-      <button className="btn-primary" onClick={() => setOpen(true)}>+ New Appointment</button>
+      <button className="btn-primary" onClick={() => { setError(""); setResult(null); setOpen(true); }}>+ New Appointment</button>
       {open && (
         <div className="fixed inset-0 bg-slate-900/40 grid place-items-center z-50 p-4" onClick={() => setOpen(false)}>
           <div className="card max-w-lg w-full" onClick={e => e.stopPropagation()}>
@@ -76,6 +100,8 @@ export default function NewApptButton({ providers, services, day }: { providers:
               <button onClick={() => setOpen(false)} className="text-slate-500">✕</button>
             </header>
             <div className="p-4 space-y-3">
+              {error && <div className="rounded-md bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-3 py-2 text-sm">{error}</div>}
+              {result && <div className="rounded-md bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 px-3 py-2 text-sm">Created {result.created} visit{result.created === 1 ? "" : "s"}{result.skipped ? ` · ${result.skipped} skipped (outside hours or double-booked)` : ""}.</div>}
               <div>
                 <span className="label">Patient</span>
                 {patientId ? (
@@ -134,6 +160,29 @@ export default function NewApptButton({ providers, services, day }: { providers:
                     <option value="telehealth">Telehealth</option>
                   </select>
                 </label>
+                <div className="col-span-2 rounded-lg ring-1 ring-slate-200 bg-slate-50 p-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="label">Repeat</span>
+                      <select className="input" value={repeat} onChange={e => setRepeat(e.target.value)}>
+                        <option value="none">Does not repeat</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="biweekly">Every 2 weeks</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+                    </label>
+                    {repeat !== "none" && (
+                      <label className="block">
+                        <span className="label">Occurrences</span>
+                        <input className="input" type="number" min={2} max={26} value={occurrences} onChange={e => setOccurrences(Math.max(2, Math.min(26, parseInt(e.target.value) || 2)))} />
+                      </label>
+                    )}
+                  </div>
+                  {repeat !== "none" && (
+                    <p className="mt-2 text-[11px] text-slate-500">Creates up to {occurrences} visits from {day} at {time}. Dates outside 9 AM–8 PM CT or that clash with the provider are skipped.</p>
+                  )}
+                </div>
                 {location === "telehealth" && (
                   <label className="block col-span-2">
                     <span className="label">Telehealth platform</span>
@@ -156,7 +205,7 @@ export default function NewApptButton({ providers, services, day }: { providers:
             </div>
             <footer className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
               <button onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
-              <button onClick={submit} disabled={loading || !patientId} className="btn-primary">{loading ? "Saving…" : "Schedule"}</button>
+              <button onClick={submit} disabled={loading || !patientId} className="btn-primary">{loading ? "Saving…" : repeat === "none" ? "Schedule" : `Schedule ${occurrences} visits`}</button>
             </footer>
           </div>
         </div>

@@ -127,6 +127,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       top: Math.max(0, (startMin / 30) * SLOT_PX),
       height: Math.max(40, (durMin / 30) * SLOT_PX - 4),
       slotIndex: Math.round(startMin / 30),
+      durationMin: Math.max(15, Math.round(durMin)),
     };
   });
   const dayKeyStr = format(day, "yyyy-MM-dd");

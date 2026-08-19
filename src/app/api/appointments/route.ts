@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { mapByIds } from "@/lib/safe-relations";
 import { clinicHoursError } from "@/lib/clinic";
+import { findConflict } from "@/lib/appointments";
 
 // GET /api/appointments?patientId=&from=&to=&providerId=&refs=1
 // Returns appointments (optionally filtered) plus provider/service reference lists.
@@ -79,6 +80,8 @@ export async function POST(req: Request) {
     const end = new Date(start.getTime() + durationMin * 60000);
     const hoursErr = clinicHoursError(start, end);
     if (hoursErr) return NextResponse.json({ error: hoursErr }, { status: 400 });
+    const clash = await findConflict(b.providerId, start, end);
+    if (clash) return NextResponse.json({ error: "Double-booking — the provider already has an appointment in that time.", conflict: true }, { status: 409 });
     const appt = await db.appointment.create({
       data: {
         patientId: b.patientId,
@@ -136,6 +139,17 @@ export async function PATCH(req: Request) {
     }
 
     if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+
+    // Prevent double-booking when the appointment is moved to a new time or
+    // reassigned to a different provider.
+    const movedOrReassigned = Boolean(data.startsAt) || Boolean(data.providerId);
+    if (movedOrReassigned) {
+      const effProvider = (data.providerId as string) || existing.providerId;
+      const effStart = (data.startsAt as Date) || existing.startsAt;
+      const effEnd = (data.endsAt as Date) || existing.endsAt;
+      const clash = await findConflict(effProvider, effStart, effEnd, existing.id);
+      if (clash) return NextResponse.json({ error: "Double-booking — the provider already has an appointment in that time.", conflict: true }, { status: 409 });
+    }
 
     const updated = await db.appointment.update({ where: { id: b.id }, data });
     return NextResponse.json({ ok: true, appointment: updated });

@@ -6,7 +6,8 @@ import { colorForApptStatus, colorForCategory } from "@/lib/utils";
 import CheckInButton from "@/components/billing/CheckInButton";
 import CopayButton from "@/components/billing/CopayButton";
 import {
-  patchAppointment, buildSlotList, GRID_SLOTS, SLOT_PX, type CalAppt,
+  patchAppointment, buildSlotList, slotIsFree, toMin, GRID_START_HOUR, GRID_SLOTS, SLOT_PX,
+  type CalAppt, type Busy,
 } from "./reschedule";
 
 function money(c: number) { return "$" + (c / 100).toFixed(2); }
@@ -34,6 +35,20 @@ export default function DayCalendar({ dayKey, appts: initial, copay, balance }: 
 
   const slots = useMemo(() => buildSlotList(), []);
 
+  // Live conflict detection: while dragging, the target provider's other
+  // appointments become "busy" intervals so we can mark open (green) vs
+  // clashing (red) slots and block a drop that would double-book.
+  const dragAppt = dragId ? rows.find((a) => a.id === dragId) || null : null;
+  const busy: Busy[] = dragAppt
+    ? rows
+        .filter((a) => a.id !== dragAppt.id && a.providerId === dragAppt.providerId && a.status !== "cancelled" && a.status !== "no-show")
+        .map((a) => ({ s: toMin(a.timeHHmm), e: toMin(a.timeHHmm) + a.durationMin }))
+    : [];
+  function slotFreeAt(i: number): boolean {
+    if (!dragAppt) return true;
+    return slotIsFree(GRID_START_HOUR * 60 + i * 30, dragAppt.durationMin, busy);
+  }
+
   function slotFromY(clientY: number, rectTop: number): number {
     const y = clientY - rectTop;
     return Math.max(0, Math.min(GRID_SLOTS - 1, Math.floor(y / SLOT_PX)));
@@ -48,6 +63,10 @@ export default function DayCalendar({ dayKey, appts: initial, copay, balance }: 
     const slot = slots[idx];
     const appt = rows.find((a) => a.id === id);
     if (!appt || appt.timeHHmm === slot.hhmm) return;
+    if (!slotFreeAt(idx)) {
+      setToast({ kind: "err", text: `That time would double-book ${appt.provLast || "the provider"} — pick an open (green) slot.` });
+      return;
+    }
     const prev = rows;
     // optimistic move
     setRows((rs) => rs.map((r) => r.id === id
@@ -81,12 +100,12 @@ export default function DayCalendar({ dayKey, appts: initial, copay, balance }: 
         onDrop={(e) => { e.preventDefault(); const rect = e.currentTarget.getBoundingClientRect(); doDrop(e.clientY, rect.top); }}
       >
         {slots.map((s) => (
-          <div key={s.hhmm} className="h-16 border-b border-slate-100 group relative cursor-pointer hover:bg-brand-50/40" onClick={() => newAt(s.hhmm)}>
+          <div key={s.hhmm} className={`h-16 border-b border-slate-100 group relative cursor-pointer ${dragId ? (slotFreeAt(s.i) ? "bg-emerald-50/70" : "bg-rose-50/60") : "hover:bg-brand-50/40"}`} onClick={() => newAt(s.hhmm)}>
             <span className="pointer-events-none absolute inset-0 hidden group-hover:flex items-center justify-center text-[11px] font-medium text-brand-500">+ New at {s.label}</span>
           </div>
         ))}
         {overSlot !== null && dragId && (
-          <div className="pointer-events-none absolute left-0 right-0 h-16 ring-2 ring-inset ring-brand-400 bg-brand-50/60 rounded" style={{ top: overSlot * SLOT_PX }} />
+          <div className={`pointer-events-none absolute left-0 right-0 h-16 ring-2 ring-inset rounded ${slotFreeAt(overSlot) ? "ring-emerald-500 bg-emerald-50/70" : "ring-rose-500 bg-rose-50/70"}`} style={{ top: overSlot * SLOT_PX }} />
         )}
         <div className="absolute inset-0 p-2 pointer-events-none">
           {rows.map((a) => (
