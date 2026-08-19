@@ -1025,3 +1025,16 @@ model FhirBulkJob {
   @@index([provider])
   @@index([status])
 }
+
+model CmsImport {
+  id            String   @id @default(cuid()) @map("_id")
+  patientId     String
+  env           String?
+  fhirPatientId String?
+  coverage      Json?
+  claims        Json?
+  claimCount    Int      @default(0)
+  importedById  String?
+  createdAt     DateTime @default(now())
+  @@index([patientId])
+}

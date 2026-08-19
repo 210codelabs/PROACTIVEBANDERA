@@ -3,6 +3,8 @@ import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import PatientChart, { loadPatientCtx } from "@/components/PatientChart";
 import MedEnrichment from "@/components/enrichment/MedEnrichment";
+import BlueButtonConnect from "@/components/cms/BlueButtonConnect";
+import { bbConfig } from "@/lib/cms/bluebutton";
 import { fmtDate } from "@/lib/utils";
 
 export default async function MedsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,6 +18,13 @@ export default async function MedsPage({ params }: { params: Promise<{ id: strin
   } catch {
     dataUnavailable = true;
   }
+  let lastImport: any = null;
+  try {
+    lastImport = await db.cmsImport.findFirst({ where: { patientId: id }, orderBy: { createdAt: "desc" } });
+  } catch {
+    lastImport = null;
+  }
+  const cfg = bbConfig();
 
   return (
     <PatientChart user={user} {...ctx} active="medications">
@@ -48,6 +57,18 @@ export default async function MedsPage({ params }: { params: Promise<{ id: strin
         )}
       </section>
       <MedEnrichment meds={meds.map((m) => ({ id: m.id, name: m.name, strength: m.strength, form: m.form, status: m.status, ndc: m.ndc }))} />
+      <BlueButtonConnect
+        patientId={id}
+        configured={cfg.configured}
+        env={cfg.env}
+        lastImport={lastImport ? {
+          coverage: (lastImport.coverage as any) || [],
+          claims: (lastImport.claims as any) || [],
+          claimCount: lastImport.claimCount || 0,
+          createdAt: (lastImport.createdAt?.toISOString?.() ?? String(lastImport.createdAt)),
+          env: lastImport.env || null,
+        } : null}
+      />
     </PatientChart>
   );
 }
