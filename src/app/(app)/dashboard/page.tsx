@@ -6,6 +6,7 @@ import Shell from "@/components/Shell";
 import { fmtTime, fmtDateTime, colorForApptStatus, colorForCategory } from "@/lib/utils";
 import JellyBeans from "@/components/JellyBeans";
 import LiveOpsPanel from "@/components/LiveOpsPanel";
+import RecallSweepBanner from "@/components/inventory/RecallSweepBanner";
 
 export default async function DashboardPage() {
   const user = await requireSession();
@@ -131,6 +132,7 @@ export default async function DashboardPage() {
             Some dashboard metrics are temporarily unavailable.
           </div>
         )}
+        <RecallSweepBanner />
         {/* greeting + KPIs */}
         <div className="lg:col-span-3 flex flex-wrap items-end justify-between gap-3">
           <div>

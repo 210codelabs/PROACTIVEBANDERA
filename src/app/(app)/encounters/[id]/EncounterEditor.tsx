@@ -7,6 +7,7 @@ import DictateButton from "@/components/DictateButton";
 import DrugSearch from "@/components/drugs/DrugSearch";
 import DrugReference from "@/components/drugs/DrugReference";
 import RecallAlert from "@/components/drugs/RecallAlert";
+import InteractionCheck from "@/components/drugs/InteractionCheck";
 import type { DrugHit } from "@/lib/openfda";
 
 function appendText(prev: string, t: string) {
@@ -45,6 +46,17 @@ const EXAM_TEMPLATES: { label: string; text: string }[] = [
   { label: "MSK / Back", text: "MSK: Paraspinal tenderness noted; ROM limited by pain; strength 5/5; SLR negative." },
   { label: "Skin", text: "Skin: Warm, dry, intact; no rashes or lesions." },
   { label: "Neuro", text: "Neuro: A&Ox3; CN II-XII grossly intact; sensation intact; gait steady." },
+];
+
+const DISCONTINUE_REASONS = [
+  "Adverse reaction",
+  "Ineffective",
+  "Completed course",
+  "Duplicate therapy",
+  "Patient request",
+  "Cost / access",
+  "Drug interaction",
+  "Other",
 ];
 
 const QUALITY_MEASURES: { key: string; label: string }[] = [
@@ -106,24 +118,34 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
   const [noteMeds, setNoteMeds] = useState<any[]>([]);
   const [discontinuedIds, setDiscontinuedIds] = useState<Set<string>>(new Set());
   const [medBusyId, setMedBusyId] = useState<string | null>(null);
+  const [discontinuingId, setDiscontinuingId] = useState<string | null>(null);
+  const [discontinueReason, setDiscontinueReason] = useState("");
 
   function pickMed(d: DrugHit) {
     setPendingMed(d);
     setMedSig("");
   }
 
-  async function discontinueMed(m: any) {
+  function beginDiscontinue(m: any) {
+    if (!m?.id) return;
+    setDiscontinuingId(m.id);
+    setDiscontinueReason("");
+  }
+
+  async function discontinueMed(m: any, reason: string) {
     if (!m?.id || discontinuedIds.has(m.id)) return;
     setMedBusyId(m.id);
     try {
       const r = await fetch(`/api/patients/${encounter.patientId}/medications/${m.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "discontinued" }),
+        body: JSON.stringify({ status: "discontinued", notes: reason || undefined }),
       });
       if (r.ok) {
         setDiscontinuedIds((prev: Set<string>) => new Set(prev).add(m.id));
-        const line = `Medication discontinued: ${m.name}${m.strength ? ` ${m.strength}` : ""}${m.form ? ` ${m.form}` : ""}`;
+        setDiscontinuingId(null);
+        setDiscontinueReason("");
+        const line = `Medication discontinued: ${m.name}${m.strength ? ` ${m.strength}` : ""}${m.form ? ` ${m.form}` : ""}${reason ? ` — reason: ${reason}` : ""}`;
         if (noteFormat === "simple") setSimpleBody((p: string) => appendBlock(p, line));
         else setP((p: string) => appendBlock(p, line));
       }
@@ -668,10 +690,21 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
                     {m.ndc && <span className="text-[10px] text-slate-400 font-mono shrink-0">NDC {m.ndc}</span>}
                     {disc ? (
                       <span className="chip bg-slate-200 text-slate-500 ring-slate-300 text-[10px] shrink-0">discontinued</span>
-                    ) : (!signed && m.id) ? (
-                      <button type="button" onClick={() => discontinueMed(m)} disabled={medBusyId === m.id} className="text-rose-500 hover:text-rose-700 text-xs shrink-0">{medBusyId === m.id ? "…" : "Discontinue"}</button>
+                    ) : (!signed && m.id && discontinuingId !== m.id) ? (
+                      <button type="button" onClick={() => beginDiscontinue(m)} className="text-rose-500 hover:text-rose-700 text-xs shrink-0">Discontinue</button>
                     ) : null}
                   </div>
+                  {!disc && discontinuingId === m.id && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-md bg-rose-50 ring-1 ring-rose-200 p-2">
+                      <span className="text-[11px] font-semibold text-rose-700">Reason:</span>
+                      <select className="input py-0.5 max-w-[190px] text-xs" value={discontinueReason} onChange={(e) => setDiscontinueReason(e.target.value)}>
+                        <option value="">Select a reason…</option>
+                        {DISCONTINUE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <button type="button" disabled={medBusyId === m.id || !discontinueReason} onClick={() => discontinueMed(m, discontinueReason)} className="btn-primary py-1 text-xs">{medBusyId === m.id ? "…" : "Confirm"}</button>
+                      <button type="button" onClick={() => { setDiscontinuingId(null); setDiscontinueReason(""); }} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+                    </div>
+                  )}
                   {m.ndc && !disc && <RecallAlert ndc={m.ndc} />}
                 </div>
               );
@@ -685,10 +718,21 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
                     {m.ndc && <span className="text-[10px] text-slate-400 font-mono shrink-0">NDC {m.ndc}</span>}
                     {disc ? (
                       <span className="chip bg-slate-200 text-slate-500 ring-slate-300 text-[10px] shrink-0">discontinued</span>
-                    ) : (!signed && m.id) ? (
-                      <button type="button" onClick={() => discontinueMed(m)} disabled={medBusyId === m.id} className="text-rose-500 hover:text-rose-700 text-xs shrink-0">{medBusyId === m.id ? "…" : "Discontinue"}</button>
+                    ) : (!signed && m.id && discontinuingId !== m.id) ? (
+                      <button type="button" onClick={() => beginDiscontinue(m)} className="text-rose-500 hover:text-rose-700 text-xs shrink-0">Discontinue</button>
                     ) : null}
                   </div>
+                  {!disc && discontinuingId === m.id && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-md bg-rose-50 ring-1 ring-rose-200 p-2">
+                      <span className="text-[11px] font-semibold text-rose-700">Reason:</span>
+                      <select className="input py-0.5 max-w-[190px] text-xs" value={discontinueReason} onChange={(e) => setDiscontinueReason(e.target.value)}>
+                        <option value="">Select a reason…</option>
+                        {DISCONTINUE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <button type="button" disabled={medBusyId === m.id || !discontinueReason} onClick={() => discontinueMed(m, discontinueReason)} className="btn-primary py-1 text-xs">{medBusyId === m.id ? "…" : "Confirm"}</button>
+                      <button type="button" onClick={() => { setDiscontinuingId(null); setDiscontinueReason(""); }} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+                    </div>
+                  )}
                   {m.ndc && !disc && <RecallAlert ndc={m.ndc} />}
                 </div>
               );
@@ -715,6 +759,13 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
                       <button type="button" onClick={() => { setPendingMed(null); setMedSig(""); }} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
                     </div>
                     {pendingMed.productNdc && <RecallAlert ndc={pendingMed.productNdc} />}
+                    <InteractionCheck
+                      ndc={pendingMed.productNdc}
+                      name={pendingMed.genericName || pendingMed.brandName}
+                      meds={[...noteMeds, ...meds]
+                        .filter((x: any) => !(x.id && discontinuedIds.has(x.id)))
+                        .map((x: any) => `${x.name}${x.strength ? ` ${x.strength}` : ""}`)}
+                    />
                     <DrugReference productNdc={pendingMed.productNdc} name={pendingMed.genericName || pendingMed.brandName} title="Official FDA labeling (reference)" />
                   </div>
                 )}

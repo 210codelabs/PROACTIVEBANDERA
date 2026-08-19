@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import PharmacyRoutingControls from "@/components/orders/PharmacyRoutingControls";
+import InventoryDrugLookup from "@/components/inventory/InventoryDrugLookup";
 import { fmtMoney, fmtRelative } from "@/lib/utils";
 import { ADDON_SERVICES } from "@/lib/modules";
 import { readAdminConfig } from "@/lib/admin/store";
@@ -17,7 +18,7 @@ export default async function PharmacyPage() {
   let pendingRx: Array<{ id: string; patientId: string; itemName: string; rxStrength: string | null; rxSig: string | null; createdAt: Date; patient: { firstName: string; lastName: string }; provider: { firstName: string; lastName: string } }> = [];
   let sentRxCount = 0;
   let pendingRxCount = 0;
-  let formulary: Array<{ id: string; name: string; strength: string | null; unit: string | null; quantityOnHand: number; reorderLevel: number; retailPriceCents: number; controlled: boolean }> = [];
+  let formulary: Array<{ id: string; name: string; sku: string; ndc: string | null; strength: string | null; unit: string | null; quantityOnHand: number; reorderLevel: number; retailPriceCents: number; controlled: boolean }> = [];
   let pharmacies: Array<{ id: string; name: string; network: string; city: string | null; state: string | null; phone: string | null; hours: string | null; services: string | null; preferred: boolean }> = [];
 
   try {
@@ -38,6 +39,7 @@ export default async function PharmacyPage() {
 
   const lowFormulary = formulary.filter((m) => m.quantityOnHand <= m.reorderLevel);
   const pharmacyAddOns = ADDON_SERVICES.filter((s) => s.category === "pharmacy");
+  const dispensaryStock = formulary.map((m) => ({ id: m.id, name: m.name, sku: m.sku, ndc: m.ndc, quantityOnHand: m.quantityOnHand, reorderLevel: m.reorderLevel, unit: m.unit }));
 
   return (
     <Shell user={user} pageTitle="Pharmacy" jellyBeans={<JellyBeans />}>
@@ -71,6 +73,9 @@ export default async function PharmacyPage() {
             <div className="mt-3 text-xs text-slate-600">Enable Pharmacy e-prescribe routing in Admin Operational Settings to activate this flow.</div>
           )}
         </section>
+
+        {/* Verify a product / NDC before dispensing (openFDA) */}
+        <InventoryDrugLookup inventory={dispensaryStock} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Pending queue */}
