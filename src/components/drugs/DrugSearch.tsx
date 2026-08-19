@@ -24,8 +24,12 @@ export default function DrugSearch({
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const justPicked = useRef(false);
 
   useEffect(() => {
+    // Skip the search that would otherwise fire right after a programmatic pick
+    // (we set the input value to the selected drug's display name).
+    if (justPicked.current) { justPicked.current = false; setItems([]); setOpen(false); return; }
     if (q.trim().length < 2) { setItems([]); return; }
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
@@ -50,7 +54,9 @@ export default function DrugSearch({
 
   function pick(d: DrugHit) {
     onSelect(d);
+    justPicked.current = true;
     setQ(d.display || d.brandName || d.genericName || "");
+    setItems([]);
     setOpen(false);
   }
 

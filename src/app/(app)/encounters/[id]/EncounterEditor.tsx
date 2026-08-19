@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { fmtMoney } from "@/lib/utils";
 import RefSelect from "@/components/RefSelect";
 import DictateButton from "@/components/DictateButton";
+import DrugSearch from "@/components/drugs/DrugSearch";
+import DrugReference from "@/components/drugs/DrugReference";
+import type { DrugHit } from "@/lib/openfda";
 
 function appendText(prev: string, t: string) {
   return prev ? `${prev.trimEnd()} ${t}` : t;
@@ -94,6 +97,52 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
   const [aiRx, setAiRx] = useState<any[]>([]);
   const [aiSafety, setAiSafety] = useState("");
   const [favorites, setFavorites] = useState<any[]>([]);
+
+  // ---- In-note medication entry (openFDA prefilled) ----
+  const [pendingMed, setPendingMed] = useState<DrugHit | null>(null);
+  const [medSig, setMedSig] = useState("");
+  const [medBusy, setMedBusy] = useState(false);
+  const [noteMeds, setNoteMeds] = useState<any[]>([]);
+
+  function pickMed(d: DrugHit) {
+    setPendingMed(d);
+    setMedSig("");
+  }
+
+  async function addMedication() {
+    if (!pendingMed) return;
+    setMedBusy(true);
+    const d = pendingMed;
+    const name = d.brandName || d.genericName || d.display;
+    const strength = d.strengths[0] || "";
+    const sig = medSig.trim();
+    try {
+      const r = await fetch(`/api/patients/${encounter.patientId}/medications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          strength,
+          form: d.dosageForm || "",
+          route: d.route || "",
+          sig: sig || null,
+          ndc: d.productNdc || null,
+        }),
+      });
+      const j = await r.json().catch(() => null);
+      if (r.ok && j?.medication) {
+        setNoteMeds((prev: any[]) => [{ ...j.medication, _new: true }, ...prev]);
+        // Reflect the documented medication inside the note itself.
+        const line = `Medication documented: ${name}${strength ? ` ${strength}` : ""}${d.dosageForm ? ` ${d.dosageForm}` : ""}${sig ? ` — ${sig}` : ""}${d.productNdc ? ` (NDC ${d.productNdc})` : ""}`;
+        if (noteFormat === "simple") setSimpleBody((p: string) => appendBlock(p, line));
+        else setP((p: string) => appendBlock(p, line));
+        setPendingMed(null);
+        setMedSig("");
+      }
+    } finally {
+      setMedBusy(false);
+    }
+  }
 
   // ---- My Dx List favorites ----
   useEffect(() => {
@@ -571,6 +620,59 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
                 <span className="label mt-2">Add diagnosis</span>
                 <RefSelect type="diagnosis" label="" name="_dx" showCode placeholder="Search ICD-10 or create new…"
                   onChange={({ code, display, item }) => { if (item) addDx({ icd10: code || display, description: display }); }} />
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Medications (in-note documentation, openFDA prefilled) */}
+        <section className="card">
+          <header className="px-4 py-3 border-b border-slate-200 font-semibold flex items-center justify-between">
+            <span>Medications</span>
+            <span className="chip bg-sky-100 text-sky-800 ring-sky-200 text-[10px]">openFDA</span>
+          </header>
+          <div className="p-4 space-y-2 text-sm">
+            {noteMeds.length === 0 && meds.length === 0 && (
+              <div className="text-slate-500 italic">No active medications documented.</div>
+            )}
+            {noteMeds.map((m: any, i: number) => (
+              <div key={m.id || `new-${i}`} className="flex items-center gap-2">
+                <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200 text-[10px]">added</span>
+                <span className="flex-1 truncate">{m.name}{m.strength ? ` ${m.strength}` : ""}{m.form ? ` ${m.form}` : ""}{m.sig ? ` — ${m.sig}` : ""}</span>
+                {m.ndc && <span className="text-[10px] text-slate-400 font-mono shrink-0">NDC {m.ndc}</span>}
+              </div>
+            ))}
+            {meds.map((m: any) => (
+              <div key={m.id} className="flex items-center gap-2 text-slate-600">
+                <span className="flex-1 truncate">{m.name}{m.strength ? ` ${m.strength}` : ""}{m.form ? ` ${m.form}` : ""}{m.sig ? ` — ${m.sig}` : ""}</span>
+                {m.ndc && <span className="text-[10px] text-slate-400 font-mono shrink-0">NDC {m.ndc}</span>}
+              </div>
+            ))}
+            {!signed && (
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <span className="label">Add medication (search FDA)</span>
+                <DrugSearch onSelect={pickMed} placeholder="Search FDA medications…" />
+                {pendingMed && (
+                  <div className="rounded-lg bg-slate-50 ring-1 ring-slate-200 p-2 space-y-2">
+                    <div className="text-[13px] font-medium text-slate-800">
+                      {pendingMed.brandName || pendingMed.genericName}
+                      {pendingMed.strengths[0] ? <span className="text-slate-500 font-normal"> · {pendingMed.strengths[0]}</span> : null}
+                    </div>
+                    <div className="text-[11px] text-slate-400 flex flex-wrap gap-x-2">
+                      {pendingMed.productNdc && <span>NDC {pendingMed.productNdc}</span>}
+                      {pendingMed.dosageForm && <span>{pendingMed.dosageForm}</span>}
+                      {pendingMed.route && <span>{pendingMed.route}</span>}
+                      {pendingMed.deaSchedule && <span className="text-amber-600 font-semibold">C-{pendingMed.deaSchedule}</span>}
+                    </div>
+                    <input className="input py-1" placeholder="Sig / directions (e.g., 1 tab PO daily)" value={medSig} onChange={(e) => setMedSig(e.target.value)} />
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={addMedication} disabled={medBusy} className="btn-primary py-1.5">{medBusy ? "Adding…" : "Add to chart"}</button>
+                      <button type="button" onClick={() => { setPendingMed(null); setMedSig(""); }} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+                    </div>
+                    <DrugReference productNdc={pendingMed.productNdc} name={pendingMed.genericName || pendingMed.brandName} title="Official FDA labeling (reference)" />
+                  </div>
+                )}
+                <p className="text-[10px] text-slate-400">Official FDA reference data — verify against allergies &amp; the patient&apos;s history before prescribing.</p>
               </div>
             )}
           </div>
