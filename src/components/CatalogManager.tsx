@@ -1,5 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
+import DrugSearch from "@/components/drugs/DrugSearch";
+import DrugReference from "@/components/drugs/DrugReference";
+import type { DrugHit } from "@/lib/openfda";
 
 type Item = {
   id: string;
@@ -44,8 +47,10 @@ export default function CatalogManager() {
   const [newDisplay, setNewDisplay] = useState("");
   const [newCode, setNewCode] = useState("");
   const [saving, setSaving] = useState(false);
+  const [drug, setDrug] = useState<DrugHit | null>(null);
 
   const current = CATALOGS.find((c) => c.type === active)!;
+  const showCode = current.coded || active === "medication";
 
   async function load() {
     setLoading(true);
@@ -63,6 +68,7 @@ export default function CatalogManager() {
     setEditing(null);
     setNewDisplay("");
     setNewCode("");
+    setDrug(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
@@ -70,17 +76,51 @@ export default function CatalogManager() {
     (i) => !q || i.display.toLowerCase().includes(q.toLowerCase()) || (i.code || "").toLowerCase().includes(q.toLowerCase()),
   );
 
+  // Prefill the "Add medication" form from an official openFDA product.
+  function pickDrug(d: DrugHit) {
+    const name = d.brandName || d.genericName || d.display;
+    const label = [name, d.strengths[0], d.dosageForm].filter(Boolean).join(" ").trim();
+    setNewDisplay(label || d.display);
+    setNewCode(d.productNdc || "");
+    setDrug(d);
+  }
+
   async function addNew() {
     if (!newDisplay.trim()) return;
     setSaving(true);
     try {
+      const payload: Record<string, unknown> = {
+        type: active,
+        display: newDisplay.trim(),
+        code: newCode.trim() || undefined,
+      };
+      // When prefilled from openFDA, persist the NDC + official reference data.
+      if (drug && active === "medication") {
+        payload.code = (newCode.trim() || drug.productNdc) || undefined;
+        payload.system = "openFDA-NDC";
+        payload.data = {
+          source: "openFDA",
+          productNdc: drug.productNdc || null,
+          rxcui: null,
+          brandName: drug.brandName || null,
+          genericName: drug.genericName || null,
+          dosageForm: drug.dosageForm || null,
+          route: drug.route || null,
+          strengths: drug.strengths || [],
+          activeIngredients: drug.activeIngredients || [],
+          deaSchedule: drug.deaSchedule || null,
+          labelerName: drug.labelerName || null,
+          pharmClass: drug.pharmClass || [],
+        };
+      }
       await fetch("/api/refdata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: active, display: newDisplay.trim(), code: newCode.trim() || undefined }),
+        body: JSON.stringify(payload),
       });
       setNewDisplay("");
       setNewCode("");
+      setDrug(null);
       await load();
     } finally {
       setSaving(false);
@@ -137,11 +177,44 @@ export default function CatalogManager() {
         </header>
 
         {/* Add new */}
+        {active === "medication" && (
+          <div className="px-4 pt-3 border-b border-slate-100 bg-sky-50/40">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="chip bg-sky-100 text-sky-800 ring-sky-200">openFDA</span>
+              <span className="text-xs text-slate-500">
+                Search the official FDA NDC Directory to prefill a new medication (name, strength, form &amp; NDC).
+              </span>
+            </div>
+            <DrugSearch onSelect={pickDrug} placeholder="Search FDA medications to prefill…" />
+            {drug && (
+              <div className="mt-2 mb-1 rounded-lg bg-white ring-1 ring-slate-200 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm">
+                    <span className="font-semibold text-slate-900">{drug.brandName || drug.genericName}</span>
+                    {drug.genericName && drug.genericName !== drug.brandName && (
+                      <span className="text-slate-500"> · {drug.genericName}</span>
+                    )}
+                    <div className="text-[11px] text-slate-400 flex flex-wrap gap-x-2">
+                      {drug.productNdc && <span>NDC {drug.productNdc}</span>}
+                      {drug.dosageForm && <span>{drug.dosageForm}</span>}
+                      {drug.route && <span>{drug.route}</span>}
+                      {drug.deaSchedule && <span className="text-amber-600 font-semibold">C-{drug.deaSchedule}</span>}
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => { setDrug(null); setNewDisplay(""); setNewCode(""); }} className="text-xs text-slate-400 hover:text-slate-600">Clear</button>
+                </div>
+                <div className="mt-2">
+                  <DrugReference productNdc={drug.productNdc} name={drug.genericName || drug.brandName} title="Official FDA labeling (reference)" />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-end gap-2">
-          {current.coded && (
+          {(current.coded || (active === "medication" && !!newCode)) && (
             <label className="block">
-              <span className="label">Code</span>
-              <input value={newCode} onChange={(e) => setNewCode(e.target.value)} className="input py-1 w-28 font-mono" placeholder="Code" />
+              <span className="label">{active === "medication" ? "NDC" : "Code"}</span>
+              <input value={newCode} onChange={(e) => setNewCode(e.target.value)} className="input py-1 w-32 font-mono" placeholder={active === "medication" ? "NDC" : "Code"} />
             </label>
           )}
           <label className="block flex-1 min-w-[200px]">
@@ -155,11 +228,11 @@ export default function CatalogManager() {
           <div className="p-6 text-sm text-slate-400">Loading…</div>
         ) : (
           <table className="data">
-            <thead><tr>{current.coded && <th className="w-28">Code</th>}<th>Value</th><th className="w-24">Status</th><th className="w-40 text-right">Actions</th></tr></thead>
+            <thead><tr>{showCode && <th className="w-32">{active === "medication" ? "NDC / Code" : "Code"}</th>}<th>Value</th><th className="w-24">Status</th><th className="w-40 text-right">Actions</th></tr></thead>
             <tbody>
               {filtered.map((item) => (
                 <tr key={item.id} className={item.active ? "" : "opacity-50"}>
-                  {current.coded && (
+                  {showCode && (
                     <td className="font-mono text-xs">
                       {editing === item.id ? (
                         <input value={editCode} onChange={(e) => setEditCode(e.target.value)} className="input py-0.5 w-24 font-mono" />

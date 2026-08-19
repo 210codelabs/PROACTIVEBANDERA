@@ -2605,3 +2605,18 @@ agent_communication:
 agent_communication:
     -agent: "testing"
     -message: "✅ Central Time timezone + clinic hours enforcement backend testing completed successfully. ALL 4 test scenarios passed with NO critical issues. Created /app/backend_test_timezone_hours.py with comprehensive test coverage. TEST 1 - TIMEZONE END-TO-END (CRITICAL): Verified server is running in America/Chicago timezone. Created appointment at 09:00 Central on 2026-08-10, observed startsAt='2026-08-10T14:00:00.000Z' which EXACTLY MATCHES expected value (09:00 CDT = UTC-5 = 14:00Z) ✅. This PROVES the Node process timezone is correctly pinned to Central Time. TEST 2 - HARD HOURS ENFORCEMENT ON POST /api/appointments: time:'08:00' (before 9AM) correctly rejected with 400 ✅, time:'20:30' (at/after 8PM) correctly rejected with 400 ✅, time:'09:00' (at 9AM) correctly accepted with 200 ✅, time:'10:00' (at 10AM) correctly accepted with 200 ✅. All error messages correctly state 'Appointments must start between 9:00 AM – 8:00 PM Central Time.' TEST 3 - PATCH RESCHEDULE WITH HOURS ENFORCEMENT: PATCH with time:'07:30' correctly rejected with 400 ✅, PATCH with time:'11:00' correctly accepted with 200 and new startsAt='2026-08-10T16:00:00.000Z' (11:00 CDT = 16:00 UTC) ✅. TEST 4 - PUBLIC REQUEST ENDPOINT: POST /api/appointments/request with preferredTime:'21:00' correctly rejected with 400 ✅, preferredTime:'09:30' correctly accepted with 200 ✅. Error message correctly states 'Please choose a time between 9:00 AM – 8:00 PM Central Time.' TEST 5 - PORTAL BOOKING: SKIPPED (patient portal session not available for testing) ⚠️. All timezone conversion (Central to UTC), clinic hours validation (9:00 AM - 8:00 PM Central enforced on start time), hard enforcement on all booking endpoints (POST /api/appointments, PATCH /api/appointments, POST /api/appointments/request), error messaging, and authentication working correctly. The server timezone is correctly pinned to America/Chicago via next.config.ts (process.env.TZ) and all booking logic respects Central Time hours via src/lib/clinic.ts clinicHoursError(). Feature is PRODUCTION-READY. No issues found. Ready for main agent to summarize and finish."
+
+
+## ---- Current Iteration — openFDA expansion into more medication surfaces ----
+frontend:
+  - task: "Catalog Autofill — openFDA drug search on the clinical Medications (RxNorm) catalog prefills new entries (name/strength/form + NDC persisted)"
+    implemented: true
+    working: true
+    file: "src/components/CatalogManager.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "When the 'Medications (RxNorm)' catalog is active in Settings > Clinical Catalogs, a new openFDA DrugSearch box appears in the Add-new area. Selecting an FDA product prefills the New value (brand/generic + first strength + dosage form) and the NDC field, shows a preview card + DrugReference (official SPL labeling), and on Add persists {code: NDC, system: 'openFDA-NDC', data: {productNdc, brand/generic, dosageForm, route, strengths, activeIngredients, deaSchedule, labelerName, pharmClass}} via existing POST /api/refdata. Table now shows an 'NDC / Code' column for medications. Reuses already-tested /api/drugs/search + /api/drugs/label and /api/refdata (no backend change). Type-clean (no new tsc errors; 8 pre-existing unrelated remain). Visually verified via authenticated Playwright screenshot: searched 'atorvastatin', got live FDA NDC Directory results (ATORVASTATIN CALCIUM 20 mg, NDC 71335-1507 · Bryant Ranch Prepack), selection prefilled the form. NOT user-confirmed in production."
