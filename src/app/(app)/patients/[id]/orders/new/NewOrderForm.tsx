@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import PharmacyPicker, { type Pharmacy } from "@/components/orders/PharmacyPicker";
 import RefSelect from "@/components/RefSelect";
+import DrugSearch from "@/components/drugs/DrugSearch";
+import DrugReference from "@/components/drugs/DrugReference";
 
 const LAB_PICKS = ["CBC w/ differential", "CMP (Comp Metabolic Panel)", "Lipid panel", "HbA1c", "TSH", "UA w/ reflex culture", "Wound culture"];
 const IMG_PICKS = ["X-ray, knee, 3 views", "MRI lumbar spine w/o contrast", "X-ray, chest 2 views", "Ultrasound, soft tissue"];
@@ -21,6 +23,7 @@ export default function NewOrderForm({ patientId, initialType, encounterId }: { 
   const [instructions, setInstructions] = useState("");
   const [priority, setPriority] = useState("routine");
   const [diag, setDiag] = useState("");
+  const [ndc, setNdc] = useState("");
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [loading, setLoading] = useState(false);
   const [orderTpls, setOrderTpls] = useState<any[]>([]);
@@ -59,6 +62,7 @@ export default function NewOrderForm({ patientId, initialType, encounterId }: { 
       body.rxSig = sig || [route, frequency].filter(Boolean).join(" ").trim();
       body.rxQty = qty;
       body.rxRefills = Number(refills) || 0;
+      body.rxNdc = ndc || undefined;
       if (pharmacy) body.pharmacyId = pharmacy.id;
     }
     const res = await fetch(`/api/patients/${patientId}/orders`, {
@@ -85,19 +89,36 @@ export default function NewOrderForm({ patientId, initialType, encounterId }: { 
       </div>
 
       {type === "rx" ? (
-        <RefSelect
-          type="medication"
-          label="Medication"
-          name="itemName"
-          showCode={false}
-          placeholder="Search medication or create new…"
-          onChange={({ display, item }) => {
-            const d = (item?.data ?? {}) as { name?: string; strength?: string; form?: string };
-            setName(d.name || display);
-            if (d.strength) setStrength(d.strength);
-            if (d.form) setForm(d.form);
-          }}
-        />
+        <div className="space-y-2">
+          <div>
+            <span className="label">Search FDA drug database</span>
+            <DrugSearch
+              placeholder="Search by brand or generic name (openFDA NDC Directory)…"
+              onSelect={(d) => {
+                setName(d.brandName || d.genericName);
+                if (d.strengths[0]) setStrength(d.strengths[0]);
+                if (d.dosageForm) setForm(d.dosageForm);
+                if (d.route) setRoute(d.route.split(",")[0].trim());
+                setNdc(d.productNdc);
+              }}
+            />
+            <p className="text-[11px] text-slate-400 mt-1">Auto-fills name, strength, form and route from the official FDA database. You can still edit any field or use the clinic catalog below.</p>
+          </div>
+          <RefSelect
+            type="medication"
+            label="Medication (name)"
+            name="itemName"
+            showCode={false}
+            placeholder="Or search the clinic catalog / type a name…"
+            defaultValue={name}
+            onChange={({ display, item }) => {
+              const d = (item?.data ?? {}) as { name?: string; strength?: string; form?: string };
+              setName(d.name || display);
+              if (d.strength) setStrength(d.strength);
+              if (d.form) setForm(d.form);
+            }}
+          />
+        </div>
       ) : (
         <div>
           <span className="label">{type === "lab" ? "Lab / Panel" : type === "imaging" ? "Study" : type === "referral" ? "Specialty" : "Procedure"}</span>
@@ -139,6 +160,9 @@ export default function NewOrderForm({ patientId, initialType, encounterId }: { 
             <Input label="Quantity" value={qty} onChange={e => setQty(e.target.value)} placeholder="30" />
             <Input label="Refills" value={refills} onChange={e => setRefills(e.target.value)} type="number" min="0" max="11" />
           </div>
+          {(ndc || name) && (
+            <DrugReference productNdc={ndc || undefined} name={!ndc ? name : undefined} title="FDA product labeling for this drug" />
+          )}
         </>
       )}
 

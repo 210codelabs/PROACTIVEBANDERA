@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import InventoryAdjust from "@/components/inventory/InventoryAdjust";
+import InventoryDrugLookup from "@/components/inventory/InventoryDrugLookup";
 import { colorForCategory, fmtDate, fmtMoney, fmtRelative } from "@/lib/utils";
 import { readAdminConfig } from "@/lib/admin/store";
 import { mapByIds } from "@/lib/safe-relations";
@@ -144,6 +145,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             </tbody>
           </table>
         </section>
+
+        <InventoryDrugLookup inventory={items.map((i) => ({ id: i.id, name: i.name, sku: i.sku, ndc: (i as any).ndc ?? null, quantityOnHand: i.quantityOnHand, reorderLevel: i.reorderLevel, unit: i.unit }))} />
 
         <section className="card">
           <header className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-900">Recent stock movements</header>

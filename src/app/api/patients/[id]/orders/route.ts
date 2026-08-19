@@ -70,6 +70,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           form: b.rxForm || null,
           route: b.rxRoute || null,
           sig: b.rxSig || null,
+          ndc: b.rxNdc || null,
           prescriberId: providerId,
           startDate: new Date(),
         },

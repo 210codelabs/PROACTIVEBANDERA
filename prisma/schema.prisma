@@ -318,6 +318,7 @@ model Medication {
   sig          String?  // dose instructions
   route        String?  // PO, IM, IV, topical
   frequency    String?
+  ndc          String?  // openFDA product NDC (when selected from FDA database)
   startDate    DateTime?
   endDate      DateTime?
   prescriberId String?
@@ -599,6 +600,7 @@ model InventoryItem {
   category         String   @default("supply") // medication | supply | retail | aesthetic | equipment
   form             String?  // tablet, vial, box, unit...
   strength         String?
+  ndc              String?  // openFDA product NDC (for labeling / national database match)
   unit             String?  @default("each")
   quantityOnHand   Int      @default(0)
   reorderLevel     Int      @default(0)
