@@ -307,3 +307,10 @@ User request: update the online User Guide + PDF with the newest enhancements.
 Delivered (content-only, src/lib/guide/content.ts — feeds BOTH the web guide at /guide/[slug] and the PDF at /api/guide/pdf):
 - Expanded the "Scheduling & Calendar" section: updated summary; added the optional Repeat step to New Appointment; new "Repeating visits" (Daily/Weekly/Every-2-weeks/Monthly, 2–26 occurrences, auto-skip of out-of-hours/clashing dates); new "Reschedule by dragging (every view)" describing Day (time), Week/Month (day), Staff (time + reassign provider); a tip on the green/red conflict coloring + blocked double-booking; and "Manage the day (Day view)" incl. click-an-empty-slot-to-create. Reused existing schedule.png / schedule-day.png shots.
 Verified: /guide/scheduling renders all new content; /api/guide/pdf returns application/pdf (~2.1 MB, valid %PDF- header). No renderer/route changes. Preview-only; redeploy to publish to proactiveclinics.com.
+
+## Iteration — Custom PWA install icon (Aug 2026, preview)
+User request: use the attached spine + heart (ECG) + red-cross + green-laurel emblem as the app icon when installing on Android / Windows desktop.
+Delivered (static assets only — no code changes; manifest.webmanifest + layout.tsx metadata already point at these filenames):
+- Regenerated from the emblem (source 500x481 on black): /public/icon-192.png, /public/icon-512.png (purpose "any"), /public/icon-maskable-512.png (Android adaptive, emblem scaled to ~74% safe-zone so the circular/squircle mask won't clip the laurel), /public/apple-touch-icon.png (180), and /public/favicon.ico (16/32/48/64). All on a black canvas that blends with the emblem's own dark background.
+- Trimmed near-black borders (bbox 372x406) then centered; "any" tiles fill ~90%.
+Verified: all assets serve 200 with correct content-types (image/png, image/x-icon, application/manifest+json) on localhost:3000; visually inspected 512 + maskable. Preview-only; user must redeploy to publish to proactiveclinics.com, then re-install the PWA (Android/Windows cache the old icon until reinstall).
