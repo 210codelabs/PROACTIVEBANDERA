@@ -18,12 +18,18 @@ const ACCENTS = [
 ];
 
 const SERVICE_ICONS = [
-  "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944 11.955 11.955 0 013.382 5.984 12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
-  "M3 12h4l3 8 4-16 3 8h4",
-  "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z",
+  // Clinical & Charting — clipboard with check
+  "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-5 8l1.5 1.5L15 11",
+  // AI Assistance — sparkles
   "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z",
-  "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
-  "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 6h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z",
+  // Billing & Revenue Cycle — card / payments
+  "M3 10h18M7 15h2m6 0h2M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z",
+  // Credentialing & Enterprise — verified shield
+  "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944 11.955 11.955 0 013.382 5.984 12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
+  // Attorney / PI — scales of justice
+  "M12 3v18m0-18l7 2m-7-2L5 5m0 0l-3 8a4 4 0 006 0L5 5zm14 0l3 8a4 4 0 01-6 0l3-8zM8 21h8",
+  // Interoperability & Data Exchange — share / network
+  "M8.7 10.7l6.6-3.4M8.7 13.3l6.6 3.4M18 5a2 2 0 11-4 0 2 2 0 014 0zM18 19a2 2 0 11-4 0 2 2 0 014 0zM8 12a2 2 0 11-4 0 2 2 0 014 0z",
 ];
 
 export default async function HomePage() {
@@ -31,6 +37,15 @@ export default async function HomePage() {
   const L = m.landing;
   return (
     <main id="top" className="min-h-screen bg-white text-slate-900">
+      <svg width="0" height="0" aria-hidden className="absolute -z-10">
+        <defs>
+          <linearGradient id="pcIconGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#1872f0" />
+            <stop offset="55%" stopColor="#125ddc" />
+            <stop offset="100%" stopColor="#dc2626" />
+          </linearGradient>
+        </defs>
+      </svg>
       <LandingHeader L={L} />
       <HeroAuth
         heading={L.heroTitle}
@@ -40,6 +55,7 @@ export default async function HomePage() {
         chips={[L.mostInsurances, L.homeVisits, L.ecosystem]}
       />
       <Services L={L} />
+      <StandardsStrip />
       <WhyChooseUs L={L} />
       <Testimonials L={L} />
       <BookBand L={L} />
@@ -160,6 +176,50 @@ function StatStrip({ L }: { L: LandingDict }) {
   );
 }
 
+function Emblem({ d, d2, size = "md" }: { d: string; d2?: string; size?: "sm" | "md" | "lg" }) {
+  const tile = size === "lg" ? "h-16 w-16 rounded-2xl" : size === "sm" ? "h-11 w-11 rounded-xl" : "h-14 w-14 rounded-2xl";
+  const ic = size === "lg" ? "h-8 w-8" : size === "sm" ? "h-5 w-5" : "h-7 w-7";
+  return (
+    <span className={`relative inline-grid ${tile} shrink-0 place-items-center bg-white ring-1 ring-slate-200/70 shadow-[0_14px_30px_-12px_rgba(2,6,23,0.4)]`}>
+      <span className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-br from-brand-500/12 via-transparent to-red-500/12" />
+      <span className="pointer-events-none absolute inset-px rounded-[inherit] ring-1 ring-inset ring-white/70" />
+      <svg className={`relative ${ic}`} fill="none" viewBox="0 0 24 24" aria-hidden>
+        <path stroke="url(#pcIconGrad)" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d={d} />
+        {d2 && <path stroke="url(#pcIconGrad)" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d={d2} />}
+      </svg>
+    </span>
+  );
+}
+
+function StandardsStrip() {
+  const standards = [
+    { k: "FHIR", sub: "R4" },
+    { k: "HL7", sub: "v2.x" },
+    { k: "C-CDA", sub: "CCD" },
+    { k: "X12 EDI", sub: "837 · 835 · 270" },
+    { k: "SMART", sub: "on FHIR" },
+    { k: "ICD-10", sub: "CM · PCS" },
+    { k: "CPT", sub: "HCPCS" },
+    { k: "NPI", sub: "NPPES" },
+  ];
+  return (
+    <section className="border-y border-slate-100 bg-gradient-to-b from-white to-brand-50/40">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400 mb-6">Built on open healthcare standards &amp; interoperability</p>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {standards.map((s) => (
+            <div key={s.k} className="group inline-flex items-center gap-2 rounded-full bg-white/80 backdrop-blur px-4 py-2 ring-1 ring-slate-200 shadow-sm hover:ring-brand-300 hover:shadow-md hover:-translate-y-0.5 transition">
+              <span className="h-2 w-2 rounded-full bg-gradient-to-br from-brand-500 to-red-500 shadow-[0_0_0_3px_rgba(24,114,240,0.10)]" />
+              <span className="text-sm font-extrabold tracking-tight text-brand-900">{s.k}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{s.sub}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Services({ L }: { L: LandingDict }) {
   return (
     <section id="services" className="py-16 sm:py-24 bg-white">
@@ -175,26 +235,23 @@ function Services({ L }: { L: LandingDict }) {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-7">
           {L.services.map((s, i) => {
-            const a = ACCENTS[i % ACCENTS.length];
             return (
               <article key={s.title} className="group relative rounded-2xl border border-slate-100 bg-white hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col">
                 <div className="relative h-44 overflow-hidden">
                   <img src={SERVICE_IMAGES[i % SERVICE_IMAGES.length]} alt={s.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/45 via-transparent to-transparent" />
-                  <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${a.bar}`} />
+                  <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-500 via-brand-600 to-red-500" />
                 </div>
                 <div className="p-6 flex flex-col flex-1">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className={`h-12 w-12 shrink-0 rounded-xl ${a.circle} grid place-items-center text-white shadow-md`}>
-                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={SERVICE_ICONS[i % SERVICE_ICONS.length]} /></svg>
-                    </div>
+                    <Emblem d={SERVICE_ICONS[i % SERVICE_ICONS.length]} />
                     <h3 className="text-lg font-bold text-brand-900 leading-tight">{s.title}</h3>
                   </div>
                   <p className="text-sm text-slate-600 mb-4 leading-relaxed">{s.description}</p>
                   <ul className="space-y-1.5 border-t border-slate-100 pt-4 mt-auto">
                     {s.items.map((item) => (
                       <li key={item} className="flex items-center gap-2 text-xs font-medium text-slate-500">
-                        <svg className={`w-3.5 h-3.5 ${a.text} shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><path stroke="url(#pcIconGrad)" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                         {item}
                       </li>
                     ))}
@@ -211,10 +268,14 @@ function Services({ L }: { L: LandingDict }) {
 
 function WhyChooseUs({ L }: { L: LandingDict }) {
   const icons = [
-    "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z",
-    "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
+    // One Unified Stack — layers
+    "M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5",
+    // Patient Engagement — people
     "M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4 0M13 7a4 4 0 11-2 0",
-    "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944 11.955 11.955 0 013.382 5.984 12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
+    // Analytics & Insights — chart
+    "M3 3v18h18M7 15l3-3 3 3 5-6",
+    // Built to Scale — enterprise building
+    "M3 21h18M5 21V5a2 2 0 012-2h6a2 2 0 012 2v16M15 21V9h2a2 2 0 012 2v10M8 7h2m-2 4h2m-2 4h2",
   ];
   return (
     <section id="why" className="relative py-16 sm:py-24 bg-gradient-to-b from-brand-50 to-white">
@@ -230,11 +291,10 @@ function WhyChooseUs({ L }: { L: LandingDict }) {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {L.reasons.map((r, i) => {
-            const a = ACCENTS[i % ACCENTS.length];
             return (
-              <div key={r.title} className="relative rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-xl transition p-6 text-center">
-                <div className={`mx-auto h-16 w-16 rounded-2xl ${a.circle} grid place-items-center text-white shadow-md mb-4`}>
-                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d={icons[i % icons.length]} /></svg>
+              <div key={r.title} className="group relative rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all p-6 text-center">
+                <div className="mx-auto mb-4 w-fit">
+                  <Emblem d={icons[i % icons.length]} size="lg" />
                 </div>
                 <h3 className="font-bold text-brand-900 mb-1.5">{r.title}</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">{r.description}</p>
@@ -302,8 +362,7 @@ function Testimonials({ L }: { L: LandingDict }) {
           <p className="mt-4 text-slate-600 text-lg">{L.testDesc}</p>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
-          {L.reviews.map((r, i) => {
-            const a = ACCENTS[i % ACCENTS.length];
+          {L.reviews.map((r) => {
             return (
               <figure key={r.name} className="relative rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-xl transition p-7 flex flex-col">
                 <div className="flex items-center gap-1 text-amber-400 mb-4">
@@ -313,7 +372,7 @@ function Testimonials({ L }: { L: LandingDict }) {
                 </div>
                 <blockquote className="text-slate-600 text-sm leading-relaxed flex-1">&ldquo;{r.text}&rdquo;</blockquote>
                 <figcaption className="mt-5 flex items-center gap-3 border-t border-slate-100 pt-4">
-                  <div className={`h-11 w-11 rounded-full ${a.circle} grid place-items-center text-white font-bold`}>{r.name.charAt(0)}</div>
+                  <div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-brand-600 to-red-600 text-white font-bold ring-2 ring-white shadow-md">{r.name.charAt(0)}</div>
                   <div>
                     <div className="font-bold text-brand-900 text-sm">{r.name}</div>
                     <div className="text-xs text-slate-500">{r.location}</div>
@@ -439,12 +498,11 @@ function ContactAndHours({ L }: { L: LandingDict }) {
           <h2 className="text-3xl sm:text-4xl font-extrabold text-brand-900">{L.contactTitle}</h2>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
-          {cards.map((c, i) => {
-            const a = ACCENTS[i % ACCENTS.length];
+          {cards.map((c) => {
             return (
-              <div key={c.title} className="rounded-2xl border border-slate-200 bg-white p-6 text-center hover:shadow-lg transition">
-                <div className={`h-14 w-14 rounded-2xl ${a.circle} grid place-items-center mx-auto mb-4 text-white shadow-md`}>
-                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d={c.icon} />{c.icon2 && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d={c.icon2} />}</svg>
+              <div key={c.title} className="rounded-2xl border border-slate-200 bg-white p-6 text-center hover:shadow-lg hover:-translate-y-0.5 transition-all">
+                <div className="mx-auto mb-4 w-fit">
+                  <Emblem d={c.icon} d2={c.icon2} />
                 </div>
                 <h3 className="font-bold text-brand-900 mb-1">{c.title}</h3>
                 {c.body}

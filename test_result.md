@@ -2931,3 +2931,15 @@ agent_communication:
         -working: true
         -agent: "main"
         -comment: "FRONTEND: New Appointment modal gained Repeat (none/daily/weekly/biweekly/monthly) + Occurrences (2..26) with a live hint; submit branches to POST /api/appointments/recurring (agent-tested 6/6) and surfaces created/skipped + 409 errors as inline banners; footer button shows 'Schedule N visits'. Verified via screenshot (Every 2 weeks, 4 occurrences, 'Schedule 4 visits'). Frontend agent NOT run (needs user OK)."
+
+  - task: "Premium landing page icons/emblems (glass tiles + gradient-stroked icons + standards strip)"
+    implemented: true
+    working: true
+    file: "src/app/page.tsx, src/components/HeroAuth.tsx"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "FRONTEND-ONLY visual polish. Replaced flat colored-square icon tiles across Services/Why/Contact with a reusable premium <Emblem> (glass white tile, soft shadow, ring + inner highlight, gradient-stroked inline-SVG icon via shared #pcIconGrad def). Swapped icon glyphs to fit each capability. Added <StandardsStrip> premium glass pills (FHIR/HL7/C-CDA/X12 EDI/SMART on FHIR/ICD-10/CPT/NPI). Upgraded HeroAuth trust chips to premium glass pills with meaningful icons, and testimonials avatar to a gradient. lucide NOT added (reused inline SVGs). Type-clean; verified via screenshots. Preview-only; redeploy to publish."

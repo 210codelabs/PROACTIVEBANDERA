@@ -271,3 +271,13 @@ Delivered:
 - RECURRING VISITS (backend, agent-tested 6/6): NEW POST /api/appointments/recurring {patientId,providerId,serviceTypeId?,day,time,reason?,location?,notes?,frequency,count} — daily|weekly|biweekly|monthly, count 2..26; builds the series, skips dates outside 9AM-8PM CT or that would double-book, creates the rest; returns {created,skipped,total,details}. Idempotent (re-running a series = all skipped).
 - RECURRING UI (frontend): NewApptButton got a Repeat select + Occurrences input + live hint; the Schedule button becomes "Schedule N visits"; POST 409s (single) and series results (created/skipped) surface as inline banners. Verified via screenshot ("Every 2 weeks", 4 occurrences, "Schedule 4 visits").
 Type-clean (same 8 baseline errors). No schema change. Preview-only; redeploy for production. NOTE: double-booking is HARD-BLOCKED on create + drag (clinics wanting intentional overbooking would need an override — not built).
+
+## Iteration — Premium landing icons/emblems (Aug 2026, preview)
+User request: replace flat "colored square" icon tiles with top-grade premium styling + official/standard emblems where they fit.
+Delivered (FRONTEND ONLY, page.tsx + HeroAuth.tsx; lucide NOT added — reused inline SVG paths):
+- Added a shared SVG linearGradient (#pcIconGrad, brand-600 -> brand-700 -> red-600) and a reusable <Emblem> tile: glassy white, layered soft shadow, thin ring + inner highlight, subtle brand/red gradient underlay, gradient-STROKED icon. Applied to Services (6), Why (4), and Contact (3) cards — replacing solid ACCENTS.circle colored squares.
+- Swapped SERVICE_ICONS + Why icons to glyphs that FIT the platform capabilities (clipboard-check, sparkles, card, verified-shield, scales, share/network; layers, people, line-chart, building).
+- NEW <StandardsStrip>: premium glass wordmark pills for open healthcare standards — FHIR R4, HL7 v2.x, C-CDA, X12 EDI (837/835/270), SMART on FHIR, ICD-10, CPT/HCPCS, NPI/NPPES (rendered between Services and Why).
+- Hero trust chips (HeroAuth): flat colored squares -> premium glass rounded pills with distinct meaningful icons (interoperability/share, AI/sparkles, ecosystem/layers).
+- Testimonials avatar -> brand->red gradient with white ring. Service-card top accent bar unified to a single brand->red premium gradient.
+Type-clean (same 8 baseline errors). Verified via screenshots (hero chips, services+standards, why). Preview-only; redeploy to publish to production (proactiveclinics.com).

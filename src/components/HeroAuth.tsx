@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 
 const SLIDES = ["/hero-slide-1.jpg", "/hero-slide-2.jpg", "/hero-slide-3.jpg", "/hero-slide-4.jpg"];
 
+// Meaningful icons per trust chip: interoperability · AI · ecosystem
+const CHIP_ICONS = [
+  "M8.7 10.7l6.6-3.4M8.7 13.3l6.6 3.4M18 5a2 2 0 11-4 0 2 2 0 014 0zM18 19a2 2 0 11-4 0 2 2 0 014 0zM8 12a2 2 0 11-4 0 2 2 0 014 0z",
+  "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z",
+  "M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5",
+];
+
 function useLang() {
   return useMemo<"es" | "en">(() => {
     if (typeof navigator === "undefined") return "en";
@@ -71,11 +78,11 @@ export default function HeroAuth({ heading, accent, tagline, subtitle, chips }: 
             <p className="mt-4 text-base sm:text-lg text-brand-50/90 max-w-xl leading-relaxed">{subtitle}</p>
 
             {/* Trust chips */}
-            <div className="mt-7 grid grid-cols-1 sm:grid-cols-3 gap-2 max-w-2xl">
+            <div className="mt-7 flex flex-wrap gap-2.5 max-w-2xl">
               {chips.map((c, i) => (
-                <div key={c} className="flex items-center gap-2.5 rounded-xl bg-white/10 backdrop-blur-sm ring-1 ring-white/15 px-3 py-2.5">
-                  <span className={`h-8 w-8 shrink-0 rounded-lg grid place-items-center text-white ${["bg-brand-500", "bg-emerald-500", "bg-red-500"][i % 3]}`}>
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                <div key={c} className="group inline-flex items-center gap-2.5 rounded-full bg-white/10 backdrop-blur-md ring-1 ring-white/20 px-4 py-2.5 shadow-lg shadow-black/10 hover:bg-white/15 transition">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/15 ring-1 ring-white/25">
+                    <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d={CHIP_ICONS[i % CHIP_ICONS.length]} /></svg>
                   </span>
                   <span className="text-xs sm:text-sm font-semibold text-white leading-tight">{c}</span>
                 </div>
