@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { checkEligibility, getStediConfig, StediError } from "@/lib/stedi";
+import { getReusableCheck, daysSince, ELIGIBILITY_MIN_INTERVAL_DAYS } from "@/lib/coverage";
 
 // GET /api/stedi/eligibility?patientId=... -> recent eligibility checks
 export async function GET(req: Request) {
@@ -67,7 +68,25 @@ export async function POST(req: Request) {
     lastName,
     dateOfBirth,
     dateOfService,
+    force,
   } = body as Record<string, any>;
+
+  // Cost control: eligibility is verified on demand only, and at most once every
+  // 30 days per patient. If a successful check already exists inside that window
+  // we reuse it (unless the caller explicitly forces a fresh check).
+  if (patientId && !force) {
+    const reusable = await getReusableCheck(String(patientId));
+    if (reusable) {
+      const ageDays = daysSince(reusable.createdAt);
+      return NextResponse.json({
+        ok: true,
+        cached: true,
+        check: reusable,
+        ageDays,
+        skippedReason: `Reused a verified check from ${ageDays} day(s) ago — coverage is re-verified at most once every ${ELIGIBILITY_MIN_INTERVAL_DAYS} days. Use "Force re-check" to run a new one.`,
+      });
+    }
+  }
 
   // Hydrate from the patient record when a patientId is provided.
   let patientName: string | undefined;

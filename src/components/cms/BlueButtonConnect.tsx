@@ -20,6 +20,7 @@ export default function BlueButtonConnect({
   const [showAll, setShowAll] = useState(false);
   const [addedMeds, setAddedMeds] = useState<Set<string>>(new Set());
   const [medBusy, setMedBusy] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   async function addMed(drug: string, ndc?: string | null) {
     setMedBusy(drug);
@@ -27,11 +28,28 @@ export default function BlueButtonConnect({
       const r = await fetch(`/api/patients/${patientId}/medications`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: drug, ndc: ndc || null, notes: "From Medicare Part D claim (Blue Button)" }),
+        body: JSON.stringify({ name: drug, ndc: ndc || null, source: "cms-bluebutton", notes: "From Medicare Part D claim (Blue Button)" }),
       });
       if (r.ok) setAddedMeds((prev) => new Set(prev).add(drug));
     } finally {
       setMedBusy("");
+    }
+  }
+
+  async function addAllMeds(meds: { drug?: string | null; ndc?: string | null }[]) {
+    setBulkBusy(true);
+    try {
+      for (const m of meds) {
+        if (!m.drug || addedMeds.has(m.drug)) continue;
+        const r = await fetch(`/api/patients/${patientId}/medications`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: m.drug, ndc: m.ndc || null, source: "cms-bluebutton", notes: "From Medicare Part D claim (Blue Button)" }),
+        });
+        if (r.ok) setAddedMeds((prev) => new Set(prev).add(m.drug!));
+      }
+    } finally {
+      setBulkBusy(false);
     }
   }
 
@@ -79,8 +97,18 @@ export default function BlueButtonConnect({
             <div className="text-[11px] text-slate-400">Last import: {new Date(lastImport.createdAt).toLocaleString()} · {lastImport.env || env}</div>
             {partDMeds.length > 0 && (
               <div className="rounded-lg bg-teal-50 ring-1 ring-teal-200 p-3">
-                <div className="font-medium text-teal-900 mb-1">Suggested medications (from Part D pharmacy claims)</div>
-                <p className="text-[11px] text-teal-700 mb-2">Reconcile with the patient before adding to the chart — a fill claim isn&apos;t confirmation the patient is still taking it.</p>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="font-medium text-teal-900">Suggested medications (from Part D pharmacy claims)</div>
+                  <button
+                    type="button"
+                    onClick={() => addAllMeds(partDMeds.map((c) => ({ drug: c.drug, ndc: c.ndc })))}
+                    disabled={bulkBusy || partDMeds.every((c) => addedMeds.has(c.drug!))}
+                    className="shrink-0 rounded bg-teal-700 px-2 py-1 text-white text-xs font-semibold hover:bg-teal-800 disabled:opacity-50"
+                  >
+                    {bulkBusy ? "Importing…" : "Import all to chart"}
+                  </button>
+                </div>
+                <p className="text-[11px] text-teal-700 mb-2">Reconcile with the patient before adding to the chart — a fill claim isn&apos;t confirmation the patient is still taking it. Duplicates are skipped automatically.</p>
                 <ul className="space-y-1.5">
                   {partDMeds.map((c, i) => {
                     const done = addedMeds.has(c.drug!);
@@ -136,6 +164,32 @@ export default function BlueButtonConnect({
             <div className="text-[10px] text-slate-400">Source: CMS Blue Button 2.0 (patient-authorized). Claims/coverage only — reconcile clinically; not a substitute for a medication or allergy list.</div>
           </>
         )}
+
+        {/* Other national record sources — gated behind vendor onboarding */}
+        <div className="rounded-lg ring-1 ring-slate-200 bg-slate-50 p-3">
+          <div className="font-medium text-slate-800 mb-1">Import prior records from other networks</div>
+          <p className="text-[11px] text-slate-500 mb-2">
+            Bringing in a patient&apos;s prescriptions, immunizations, and allergies recorded by other providers requires a
+            connected national/state network. These require vendor onboarding, agreements, and credentials before they can be enabled.
+          </p>
+          <ul className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {[
+              { name: "Medication history", net: "Surescripts", desc: "Cross-provider fill history" },
+              { name: "Immunizations", net: "State IIS (e.g. ImmTrac2)", desc: "Registry immunization records" },
+              { name: "Allergies & summaries", net: "Carequality / CommonWell", desc: "HIE clinical summary (C-CDA)" },
+            ].map((s) => (
+              <li key={s.name} className="rounded-md bg-white ring-1 ring-slate-200 p-2">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[13px] font-medium text-slate-800">{s.name}</span>
+                  <span className="chip bg-slate-100 text-slate-500 ring-slate-200 text-[9px]">Connect required</span>
+                </div>
+                <div className="text-[11px] text-slate-500">{s.net}</div>
+                <div className="text-[10px] text-slate-400">{s.desc}</div>
+                <button type="button" disabled className="mt-1.5 w-full rounded bg-slate-100 text-slate-400 text-[11px] font-semibold py-1 cursor-not-allowed">Not connected</button>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );

@@ -5,6 +5,7 @@ import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import PharmacyRoutingControls from "@/components/orders/PharmacyRoutingControls";
 import InventoryDrugLookup from "@/components/inventory/InventoryDrugLookup";
+import DrugDatabaseSearch from "@/components/drugs/DrugDatabaseSearch";
 import { fmtMoney, fmtRelative } from "@/lib/utils";
 import { ADDON_SERVICES } from "@/lib/modules";
 import { readAdminConfig } from "@/lib/admin/store";
@@ -76,6 +77,9 @@ export default async function PharmacyPage() {
 
         {/* Verify a product / NDC before dispensing (openFDA) */}
         <InventoryDrugLookup inventory={dispensaryStock} />
+
+        {/* Full medication database search (openFDA + RxNorm) */}
+        <DrugDatabaseSearch title="Medication database search" />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Pending queue */}

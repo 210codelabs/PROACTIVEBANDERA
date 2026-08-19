@@ -11,6 +11,43 @@ export type CoverageSummaryItem = { label: string; value: string };
 /** Number of days after which a saved eligibility check is considered "stale". */
 export const COVERAGE_STALE_DAYS = 30;
 
+/**
+ * Minimum interval (days) between paid Stedi eligibility checks for the same
+ * patient. If a SUCCESSFUL (active) check already exists inside this window we
+ * reuse it instead of spending another transaction. Overridable with `force`.
+ */
+export const ELIGIBILITY_MIN_INTERVAL_DAYS = 30;
+
+/** Whole days elapsed since a date (0 if invalid/absent). */
+export function daysSince(d: Date | string | null | undefined): number {
+  if (!d) return Number.POSITIVE_INFINITY;
+  const t = new Date(d).getTime();
+  if (isNaN(t)) return Number.POSITIVE_INFINITY;
+  return Math.floor((Date.now() - t) / 86_400_000);
+}
+
+/**
+ * Return the most recent SUCCESSFUL (active) eligibility check for a patient
+ * that is still inside the reuse window, or null. Used to decide whether an
+ * on-demand verification can be skipped to save cost.
+ */
+export async function getReusableCheck(
+  patientId: string,
+  withinDays: number = ELIGIBILITY_MIN_INTERVAL_DAYS,
+) {
+  if (!patientId) return null;
+  try {
+    const last = await db.eligibilityCheck.findFirst({
+      where: { patientId, status: "active" },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!last) return null;
+    return daysSince(last.createdAt) < withinDays ? last : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Pull a dollar copay amount (as a string like "25" or "25.00") from a summary. */
 export function extractCopayDollars(summary: unknown): string | null {
   if (!Array.isArray(summary)) return null;

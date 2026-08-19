@@ -34,6 +34,8 @@ export default function EligibilityChecker({ patient, defaultPayerId = "" }: { p
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Check | null>(null);
   const [history, setHistory] = useState<Check[]>([]);
+  const [force, setForce] = useState(false);
+  const [cachedNote, setCachedNote] = useState<string | null>(null);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -51,16 +53,17 @@ export default function EligibilityChecker({ patient, defaultPayerId = "" }: { p
 
   async function run(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true); setError(null); setResult(null);
+    setLoading(true); setError(null); setResult(null); setCachedNote(null);
     try {
       const res = await fetch("/api/stedi/eligibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId: patient?.id, payerId, firstName, lastName, dateOfBirth: dob, memberId }),
+        body: JSON.stringify({ patientId: patient?.id, payerId, firstName, lastName, dateOfBirth: dob, memberId, force }),
       });
       const d = await res.json();
       if (!res.ok || d.error) { setError(d.error || "Eligibility check failed."); }
       if (d.check) setResult(d.check);
+      if (d.cached && d.skippedReason) setCachedNote(d.skippedReason);
       loadHistory();
     } catch {
       setError("Could not reach the eligibility service.");
@@ -94,10 +97,19 @@ export default function EligibilityChecker({ patient, defaultPayerId = "" }: { p
         </label>
         <div className="flex items-end">
           <button className="btn-primary w-full" disabled={loading} type="submit">
-            {loading ? "Checking…" : "Check coverage"}
+            {loading ? "Checking…" : force ? "Force re-check" : "Verify eligibility"}
           </button>
         </div>
       </form>
+
+      <label className="flex items-center gap-2 text-xs text-slate-600 -mt-1">
+        <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} className="rounded border-slate-300" />
+        Force re-check (bypass the 30-day reuse window — runs a new paid clearinghouse check)
+      </label>
+
+      {cachedNote && (
+        <div className="rounded-md bg-sky-50 text-sky-800 ring-1 ring-sky-200 px-3 py-2 text-sm">{cachedNote}</div>
+      )}
 
       {error && <div className="rounded-md bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-3 py-2 text-sm">{error}</div>}
 

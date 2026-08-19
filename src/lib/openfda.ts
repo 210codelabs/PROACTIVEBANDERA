@@ -112,6 +112,53 @@ export async function searchDrugs(qRaw: string, limit = 12): Promise<DrugHit[]> 
   return out;
 }
 
+export type DrugSearchFilters = { form?: string; route?: string; schedule?: string; productType?: string };
+
+/** Common facet values for the full-search filter dropdowns (openFDA NDC values). */
+export const DRUG_FACETS = {
+  form: ["TABLET", "CAPSULE", "SOLUTION", "INJECTION", "CREAM", "OINTMENT", "SUSPENSION", "SYRUP", "PATCH", "AEROSOL", "GEL", "LOTION", "POWDER", "SUPPOSITORY"],
+  route: ["ORAL", "TOPICAL", "INTRAVENOUS", "INTRAMUSCULAR", "SUBCUTANEOUS", "OPHTHALMIC", "OTIC", "NASAL", "INHALATION", "RECTAL", "TRANSDERMAL"],
+  schedule: ["CII", "CIII", "CIV", "CV"],
+  productType: ["HUMAN PRESCRIPTION DRUG", "HUMAN OTC DRUG"],
+};
+
+/**
+ * Full paginated openFDA NDC search with optional filters. Returns the page of
+ * results plus the TOTAL matching count (from openFDA meta) so the UI can page.
+ */
+export async function searchDrugsPaged(
+  qRaw: string,
+  opts: { page?: number; pageSize?: number } & DrugSearchFilters = {},
+): Promise<{ results: DrugHit[]; total: number; page: number; pageSize: number }> {
+  const pageSize = Math.min(Math.max(Number(opts.pageSize) || 25, 1), 100);
+  const page = Math.max(Number(opts.page) || 1, 1);
+  const skip = (page - 1) * pageSize;
+
+  const clauses: string[] = [];
+  const safe = sanitizeTerm(qRaw);
+  if (safe.length >= 2) clauses.push(`(brand_name:${safe}* OR generic_name:${safe}*)`);
+  if (opts.form) clauses.push(`dosage_form:"${sanitizeTerm(opts.form)}"`);
+  if (opts.route) clauses.push(`route:"${sanitizeTerm(opts.route)}"`);
+  if (opts.schedule) clauses.push(`dea_schedule:"${sanitizeTerm(opts.schedule)}"`);
+  if (opts.productType) clauses.push(`product_type:"${sanitizeTerm(opts.productType)}"`);
+  if (!clauses.length) return { results: [], total: 0, page, pageSize };
+
+  const search = clauses.join(" AND ");
+  const data = await openFda("ndc", { search, limit: pageSize, skip }, 120000);
+  const total = Number(data?.meta?.results?.total ?? (data.results?.length || 0));
+
+  const seen = new Set<string>();
+  const out: DrugHit[] = [];
+  for (const d of data.results || []) {
+    const hit = normalizeNdc(d);
+    const key = hit.productNdc || hit.display;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(hit);
+  }
+  return { results: out, total, page, pageSize };
+}
+
 export async function ndcLookup(ndcRaw: string): Promise<DrugHit | null> {
   const norm = String(ndcRaw || "").trim();
   let data = await openFda("ndc", { search: `product_ndc.exact:"${norm}"`, limit: 1 }, 3600000);

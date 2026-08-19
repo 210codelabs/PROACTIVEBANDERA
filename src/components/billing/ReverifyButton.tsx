@@ -21,7 +21,7 @@ export default function ReverifyButton({ patientId, payerId }: { patientId: stri
       const r = await fetch("/api/stedi/eligibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId, payerId: payerId || undefined }),
+        body: JSON.stringify({ patientId, payerId: payerId || undefined, force: true }),
       });
       const d = await r.json();
       if (d.error && !d.check) { setErr(true); setMsg(d.error.slice(0, 60)); }

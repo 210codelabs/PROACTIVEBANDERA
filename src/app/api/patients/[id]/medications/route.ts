@@ -24,6 +24,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const name = (b?.name ?? "").toString().trim();
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
+  const ndc = b?.ndc ? String(b.ndc).trim() : null;
+
+  // Idempotency for imports/one-click adds: skip if an active med with the same
+  // normalized name (and NDC, when present) already exists. Compare in JS to
+  // avoid regex-sensitive Mongo insensitive matching.
+  try {
+    const existing = await db.medication.findMany({ where: { patientId: id, status: "active" } });
+    const norm = (s: string | null | undefined) => String(s || "").trim().toLowerCase();
+    const dup = existing.find((m) => norm(m.name) === norm(name) && (!ndc || !m.ndc || norm(m.ndc) === norm(ndc)));
+    if (dup) return NextResponse.json({ ok: true, medication: dup, duplicate: true });
+  } catch {
+    /* best-effort dedupe */
+  }
+
   const created = await db.medication.create({
     data: {
       patientId: id,
@@ -33,10 +47,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       route: b?.route ? String(b.route).trim() : null,
       sig: b?.sig ? String(b.sig).trim() : null,
       frequency: b?.frequency ? String(b.frequency).trim() : null,
-      ndc: b?.ndc ? String(b.ndc).trim() : null,
+      ndc,
       prescriberId: user.role === "provider" ? user.id : null,
       startDate: new Date(),
       status: "active",
+      source: b?.source ? String(b.source).trim() : "manual",
       notes: b?.notes ? String(b.notes).trim() : null,
     },
   });

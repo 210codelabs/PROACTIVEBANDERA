@@ -5,6 +5,9 @@ import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import InventoryAdjust from "@/components/inventory/InventoryAdjust";
 import InventoryDrugLookup from "@/components/inventory/InventoryDrugLookup";
+import InventoryToolbar from "@/components/inventory/InventoryToolbar";
+import ProductEditButton from "@/components/inventory/ProductEditButton";
+import DrugDatabaseSearch from "@/components/drugs/DrugDatabaseSearch";
 import { colorForCategory, fmtDate, fmtMoney, fmtRelative } from "@/lib/utils";
 import { readAdminConfig } from "@/lib/admin/store";
 import { mapByIds } from "@/lib/safe-relations";
@@ -113,20 +116,34 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 {CATEGORY_LABEL[cat] || cat}
               </Link>
             ))}
-            <Link href="/pos" className="chip bg-indigo-100 text-indigo-800 ring-indigo-200 hover:bg-indigo-200 ml-auto">Open checkout</Link>
+            <div className="ml-auto flex items-center gap-2">
+              <InventoryToolbar disabled={!enabled} />
+              <Link href="/pos" className="chip bg-indigo-100 text-indigo-800 ring-indigo-200 hover:bg-indigo-200">Open checkout</Link>
+            </div>
           </header>
           <table className="data">
             <thead>
-              <tr><th>Item</th><th>Category</th><th>On hand</th><th>Reorder</th><th>Cost</th><th>Retail</th><th>Location</th><th>Status / action</th></tr>
+              <tr><th></th><th>Item</th><th>Category</th><th>On hand</th><th>Reorder</th><th>Cost</th><th>Retail</th><th>Location</th><th>Status / action</th></tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && <tr><td colSpan={8} className="text-center text-slate-500 py-10">No inventory items in this view.</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={9} className="text-center text-slate-500 py-10">No inventory items in this view.</td></tr>}
               {filtered.map((i) => {
                 const state = stockState(i);
+                const img = (i as any).imageUrl as string | null;
                 return (
                   <tr key={i.id}>
+                    <td className="w-12">
+                      <div className="h-9 w-9 rounded-md ring-1 ring-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center">
+                        {img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={img} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-[8px] text-slate-300">—</span>
+                        )}
+                      </div>
+                    </td>
                     <td>
-                      <div className="font-medium text-slate-900">{i.name}</div>
+                      <div className="font-medium text-slate-900">{i.name}{(i as any).edition ? <span className="text-xs text-slate-500 font-normal"> · {(i as any).edition}</span> : null}</div>
                       <div className="text-[11px] text-slate-500 font-mono">{i.sku}{i.controlled ? " · controlled" : ""}{i.expiresAt ? ` · exp ${fmtDate(i.expiresAt)}` : ""}</div>
                     </td>
                     <td><span className={`chip ${colorForCategory(i.category)}`}>{CATEGORY_LABEL[i.category] || i.category}</span></td>
@@ -138,6 +155,21 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     <td>
                       <span className={`chip ${state.chip}`}>{state.label}</span>
                       {enabled && <InventoryAdjust itemId={i.id} unit={i.unit || "each"} />}
+                      {enabled && (
+                        <ProductEditButton
+                          item={{
+                            id: i.id, sku: i.sku, name: i.name, category: i.category,
+                            edition: (i as any).edition ?? null, form: (i as any).form ?? null,
+                            strength: i.strength, ndc: (i as any).ndc ?? null, unit: i.unit,
+                            quantityOnHand: i.quantityOnHand, reorderLevel: i.reorderLevel,
+                            unitCostCents: i.unitCostCents, retailPriceCents: i.retailPriceCents,
+                            taxable: (i as any).taxable ?? false, controlled: i.controlled,
+                            location: i.location, supplier: i.supplier, lotNumber: (i as any).lotNumber ?? null,
+                            expiresAt: i.expiresAt ? new Date(i.expiresAt).toISOString() : null,
+                            imageUrl: (i as any).imageUrl ?? null,
+                          }}
+                        />
+                      )}
                     </td>
                   </tr>
                 );
@@ -147,6 +179,9 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </section>
 
         <InventoryDrugLookup inventory={items.map((i) => ({ id: i.id, name: i.name, sku: i.sku, ndc: (i as any).ndc ?? null, quantityOnHand: i.quantityOnHand, reorderLevel: i.reorderLevel, unit: i.unit }))} />
+
+        {/* Full product / medication database search (openFDA + RxNorm) */}
+        <DrugDatabaseSearch title="Product / medication database search" />
 
         <section className="card">
           <header className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-900">Recent stock movements</header>

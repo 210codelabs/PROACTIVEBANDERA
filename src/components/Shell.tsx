@@ -101,6 +101,7 @@ export default function Shell({
     { label: t("nav.appointmentRequests"), href: "/appointment-requests", icon: <Icon.Inbox /> },
     { label: t("nav.patients"), href: "/patients", icon: <Icon.Users /> },
     { label: t("nav.encounters"), href: "/encounters", icon: <Icon.Clipboard /> },
+    { label: "Specialties", href: "/specialties", icon: <Icon.Stethoscope /> },
     { label: t("nav.orders"), href: "/orders", icon: <Icon.Beaker /> },
     {
       label: "Intake",
@@ -151,7 +152,7 @@ export default function Shell({
   const groupedNav: NavSection[] = [
     {
       title: t("sections.clinical"),
-      items: NAV.filter((item) => ["/dashboard", "/schedule", "/appointment-requests", "/patients", "/encounters", "/orders", "/intake-forms", "/npi-lookup", "/settings/charting", "/modules"].includes(item.href)),
+      items: NAV.filter((item) => ["/dashboard", "/schedule", "/appointment-requests", "/patients", "/encounters", "/specialties", "/orders", "/intake-forms", "/npi-lookup", "/settings/charting", "/modules"].includes(item.href)),
     },
     {
       title: t("sections.pharmacyRetail"),

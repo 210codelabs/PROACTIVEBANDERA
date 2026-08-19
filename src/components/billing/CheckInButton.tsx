@@ -29,8 +29,8 @@ export default function CheckInButton({ appointmentId, status }: { appointmentId
       if (!r.ok) { setTone("err"); setToast(d.error || "Check-in failed"); return; }
       if (d.coverage) {
         const s = d.coverage.status;
-        if (s === "active") { setTone("ok"); setToast("Checked in · coverage ACTIVE"); }
-        else { setTone("warn"); setToast(`Checked in · coverage ${String(s).toUpperCase()}`); }
+        if (s === "active") { setTone("ok"); setToast(d.coverageNote || "Checked in · coverage ACTIVE"); }
+        else { setTone("warn"); setToast(d.coverageNote || `Checked in · coverage ${String(s).toUpperCase()}`); }
       } else {
         setTone("warn");
         setToast(d.coverageNote ? `Checked in · ${d.coverageNote}` : "Checked in");

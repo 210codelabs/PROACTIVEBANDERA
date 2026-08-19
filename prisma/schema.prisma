@@ -291,6 +291,7 @@ model Allergy {
   severity     String?  // mild | moderate | severe | life-threatening
   onsetDate    DateTime?
   status       String   @default("active") // active | inactive | resolved
+  source       String?  // manual | intake | fhir-import
   notes        String?
   createdAt    DateTime @default(now())
 }
@@ -323,6 +324,7 @@ model Medication {
   endDate      DateTime?
   prescriberId String?
   status       String   @default("active") // active | discontinued | completed
+  source       String?  // manual | intake | cms-bluebutton | fhir-import | surescripts
   notes        String?
   createdAt    DateTime @default(now())
 }
@@ -354,6 +356,7 @@ model Immunization {
   givenAt      DateTime
   lot          String?
   site         String?
+  source       String?  // manual | iis-import | fhir-import
   notes        String?
 }
 
@@ -612,6 +615,8 @@ model InventoryItem {
   location         String?  // dispensary, front-retail, aesthetics-room, supply-room
   supplier         String?
   controlled       Boolean  @default(false)
+  imageUrl         String?  // product photo (served from /api/uploads/<id>)
+  edition          String?  // product edition / variant label
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -1036,5 +1041,74 @@ model CmsImport {
   claimCount    Int      @default(0)
   importedById  String?
   createdAt     DateTime @default(now())
+  @@index([patientId])
+}
+
+// -------------------------------------------------------------
+// Uploaded binary assets (product photos, etc.) stored in Mongo.
+// Served via GET /api/uploads/[id]. Keep files small (<= ~3 MB).
+// -------------------------------------------------------------
+model Upload {
+  id          String   @id @default(cuid()) @map("_id")
+  filename    String?
+  mime        String
+  size        Int      @default(0)
+  data        String   // base64-encoded bytes
+  kind        String?  // inventory | specialty | other
+  createdById String?
+  createdAt   DateTime @default(now())
+}
+
+// Managed inventory categories (in addition to the built-in category slugs).
+model InventoryCategory {
+  id          String   @id @default(cuid()) @map("_id")
+  slug        String   @unique
+  name        String
+  description String?
+  color       String?  // optional chip color hint
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// Clinical Specialties (Cardiology, Pediatrics, ...) with linked
+// providers/specialists and connected patients.
+// -------------------------------------------------------------
+model Specialty {
+  id          String   @id @default(cuid()) @map("_id")
+  slug        String   @unique
+  name        String
+  description String?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  providers   SpecialtyProvider[]
+  patients    SpecialtyPatient[]
+}
+
+model SpecialtyProvider {
+  id          String    @id @default(cuid()) @map("_id")
+  specialtyId String
+  specialty   Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+  userId      String    // User (provider/specialist)
+  role        String?   // Lead | Specialist | Consultant
+  createdAt   DateTime  @default(now())
+  @@index([specialtyId])
+  @@index([userId])
+}
+
+model SpecialtyPatient {
+  id          String    @id @default(cuid()) @map("_id")
+  specialtyId String
+  specialty   Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+  patientId   String
+  providerId  String?   // the assigned specialist (User)
+  note        String?
+  createdAt   DateTime  @default(now())
+  @@index([specialtyId])
   @@index([patientId])
 }

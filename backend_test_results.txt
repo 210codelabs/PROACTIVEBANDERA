@@ -1,0 +1,269 @@
+================================================================================
+BACKEND TESTING: 6 NEW FEATURES (Aug 2026 batch)
+================================================================================
+Base URL: https://nextjs-ssr-stack.preview.emergentagent.com
+Login: admin@proactiveclinic.com
+
+=== LOGIN ===
+Login status: 200
+✅ Login successful
+
+================================================================================
+TEST 1: STEDI ELIGIBILITY ON-DEMAND + 30-DAY CACHE + CHECK-IN
+================================================================================
+
+--- Step 1: POST /api/stedi/eligibility without auth cookie -> 401 ---
+Status: 401
+✅ PASS: Returns 401 without auth cookie
+
+--- Step 2: POST /api/stedi/eligibility with auth (Stedi may be unconfigured) ---
+Status: 200
+Response: {
+  "ok": true,
+  "check": {
+    "id": "cmt0355bk0014118mizqcdyh3",
+    "patientId": null,
+    "patientName": "User, Test",
+    "payerId": "ABHDB",
+    "payerName": "Community Health Plan of Washington (CHPW)",
+    "memberId": null,
+    "status": "error",
+    "planName": null,
+    "summary": [
+      {
+        "label": "Rejection",
+        "value": "Subscriber/Insured Not Found"
+      }
+    ],
+    "raw": {
+      "meta": {
+        "senderId": "STEDI",
+        "submitterId": "117151744",
+        "a
+✅ PASS: Returns 200 (Stedi is configured)
+   New check created: status=error
+✅ PASS: New check structure correct
+
+--- Step 3: Find appointment for check-in test ---
+Found patient: Eleanor Adams (ID: cms87vx850017l4ocyz5zfz89)
+Found appointment ID: cms87vxcd004cl4ocrvwn5qq6
+
+--- Step 4: POST /api/appointments/[id]/checkin ---
+Status: 200
+Response keys: ['ok', 'appointment', 'coverage', 'coverageNote']
+   Coverage: present
+   CoverageNote: Last verified 9d ago — verify eligibility if needed.
+✅ PASS: Check-in returns ok:true with appointment.status='checked-in'
+✅ PASS: Check-in returns coverage/coverageNote (no auto-verify)
+
+✅ TEST 1 COMPLETE: Stedi eligibility on-demand + check-in
+
+================================================================================
+TEST 2: FULL DRUG DB PAGINATED SEARCH
+================================================================================
+
+--- Step 1: GET /api/drugs/search?q=lisinopril&pageSize=25 ---
+Status: 200
+Response keys: ['results', 'total', 'page', 'pageSize', 'totalPages', 'filters', 'rxnorm', 'source']
+   Results count: 25
+   Total: 397
+   Page: 1
+   PageSize: 25
+   TotalPages: 16
+   RxNorm: present
+✅ PASS: Paginated search returns correct structure
+
+--- Step 2: GET /api/drugs/search?q=lisinopril&pageSize=25&page=2 ---
+Status: 200
+   Page 2 results count: 25
+✅ PASS: Page 2 works correctly
+
+--- Step 3: GET /api/drugs/search?q=amoxicillin&pageSize=50&form=CAPSULE ---
+Status: 200
+   Results with CAPSULE filter: 50
+✅ PASS: Filter by form works
+
+--- Step 4: GET /api/drugs/search?q=lisin (typeahead mode) ---
+Status: 200
+   Typeahead results count: 12
+✅ PASS: Typeahead mode still works (no total field)
+
+--- Step 5: GET /api/drugs/search without auth cookie -> 401 ---
+Status: 401
+✅ PASS: Returns 401 without auth cookie
+
+✅ TEST 2 COMPLETE: Drug DB paginated search
+
+================================================================================
+TEST 3: IMAGE UPLOAD STORAGE
+================================================================================
+
+--- Step 1: POST /api/uploads without auth cookie -> 401 ---
+Status: 401
+✅ PASS: Returns 401 without auth cookie
+
+--- Step 2: POST /api/uploads with small PNG file ---
+Status: 200
+Response: {
+  "id": "cmt03580h0015118m8ulpa0na",
+  "url": "/api/uploads/cmt03580h0015118m8ulpa0na",
+  "mime": "image/png",
+  "size": 70
+}
+   Upload ID: cmt03580h0015118m8ulpa0na
+   Upload URL: /api/uploads/cmt03580h0015118m8ulpa0na
+✅ PASS: PNG upload returns correct structure
+
+--- Step 3: GET uploaded image ---
+Status: 200
+   Content-Type: image/png
+   Body size: 70 bytes
+✅ PASS: GET returns image with correct Content-Type
+
+--- Step 4: POST /api/uploads with non-image file -> 400 ---
+Status: 400
+   Error: Only PNG, JPG, WEBP, GIF or SVG images are allowed.
+✅ PASS: Non-image returns 400
+
+--- Step 5: GET /api/uploads/bogus123 -> 404 ---
+Status: 404
+✅ PASS: Bogus ID returns 404
+
+✅ TEST 3 COMPLETE: Image upload storage
+
+================================================================================
+TEST 4: INVENTORY ITEM + CATEGORY CRUD
+================================================================================
+
+--- Step 1: GET /api/inventory/categories ---
+Status: 200
+   Categories count: 5
+   Built-in categories: ['medication', 'supply', 'retail', 'aesthetic', 'equipment']
+✅ PASS: GET categories returns built-ins
+
+--- Step 2: POST /api/inventory/categories {name:'Lab Reagents'} ---
+Status: 200
+   Created category ID: cmt0358ev0016118m9v1xdwjl
+✅ PASS: POST category creates new category
+
+--- Step 3: POST same category name again -> 409 ---
+Status: 409
+✅ PASS: Duplicate category returns 409
+
+--- Step 4: POST /api/inventory (create item) ---
+Status: 200
+   Created item ID: cmt0358kj0017118mntzv5438
+   SKU: SUP-MT0358KG
+✅ PASS: POST inventory item creates item with auto SKU
+
+--- Step 5: PATCH /api/inventory/[id] (update item) ---
+Status: 200
+✅ PASS: PATCH updates item
+
+--- Step 6: GET /api/inventory?q=Test%20Product ---
+Status: 200
+✅ PASS: GET inventory finds created item
+
+--- Step 7: DELETE /api/inventory/[id] (soft delete) ---
+Status: 200
+✅ PASS: DELETE soft-deletes item
+✅ PASS: Deleted item not in active list
+
+--- Step 8: DELETE /api/inventory/categories/cmt0358ev0016118m9v1xdwjl ---
+Status: 200
+✅ PASS: DELETE category works
+
+--- Step 9: POST /api/inventory without auth cookie -> 401 ---
+Status: 401
+✅ PASS: Returns 401 without auth cookie
+
+✅ TEST 4 COMPLETE: Inventory CRUD
+
+================================================================================
+TEST 5: CLINICAL SPECIALTIES CRUD + LINKING
+================================================================================
+
+--- Step 1: GET /api/specialties ---
+Status: 200
+   Specialties count: 18
+   Sample specialties: ['Cardiology', 'Pediatrics', 'Dermatology', 'Orthopedics', 'Neurology']
+✅ PASS: GET specialties returns seeded list
+
+--- Step 2: POST /api/specialties {name:'QA Specialty'} ---
+Status: 200
+   Created specialty ID: cmt03599m001a118mvb57sy0b
+✅ PASS: POST creates new specialty
+
+--- Step 3: POST same specialty name again -> 409 ---
+Status: 409
+✅ PASS: Duplicate specialty returns 409
+
+--- Step 4: GET /api/providers ---
+Status: 200
+   Providers count: 9
+   Using provider: Devon Jones (ID: cms87vx750002l4ocpa8kp1wx)
+✅ PASS: GET providers returns list
+
+--- Step 5: POST /api/specialties/[id]/providers ---
+Status: 200
+   Created provider link ID: cmt0359iq001c118maoftx5kd
+✅ PASS: POST links provider to specialty
+
+--- Step 6: POST same provider link again -> 409 ---
+Status: 409
+✅ PASS: Duplicate provider link returns 409
+
+--- Step 7: GET patient for linking ---
+Status: 200
+   Using patient: Eleanor Adams (ID: cms87vx850017l4ocyz5zfz89)
+
+--- Step 8: POST /api/specialties/[id]/patients ---
+Status: 200
+   Created patient link ID: cmt0359rr001e118mrqbo4cnx
+✅ PASS: POST links patient to specialty
+
+--- Step 9: GET /api/specialties/[id] (with links) ---
+Status: 200
+   Providers linked: 1
+   Patients linked: 1
+✅ PASS: GET specialty returns linked providers/patients
+
+--- Step 10: DELETE /api/specialties/[id]/providers?linkId=cmt0359iq001c118maoftx5kd ---
+Status: 200
+✅ PASS: DELETE provider link works
+
+--- Step 11: DELETE /api/specialties/[id]/patients?linkId=cmt0359rr001e118mrqbo4cnx ---
+Status: 200
+✅ PASS: DELETE patient link works
+
+--- Step 12: DELETE /api/specialties/cmt03599m001a118mvb57sy0b ---
+Status: 200
+✅ PASS: DELETE specialty works
+
+--- Step 13: GET /api/specialties without auth cookie -> 401 ---
+Status: 401
+✅ PASS: Returns 401 without auth cookie
+
+✅ TEST 5 COMPLETE: Specialties CRUD + linking
+
+================================================================================
+TEST 6: PATIENT MEDICATIONS POST SOURCE + DEDUPE
+================================================================================
+
+--- Step 1: Get patient ID ---
+Status: 200
+   Using patient: Eleanor Adams (ID: cms87vx850017l4ocyz5zfz89)
+
+--- Step 2: POST /api/patients/[id]/medications with source ---
+Status: 200
+
+❌ TEST 6 FAILED: Expected 201, got 200
+Traceback (most recent call last):
+  File "/app/backend_test_new_features.py", line 662, in test_medications_dedupe
+    assert resp.status_code == 201, f"Expected 201, got {resp.status_code}"
+           ^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Expected 201, got 200
+
+================================================================================
+ALL TESTS COMPLETE
+================================================================================
