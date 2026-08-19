@@ -301,3 +301,9 @@ User-selected enhancements (FRONTEND ONLY):
 - TAP-OUTSIDE CLOSE: added a document mousedown/touchstart listener (active only while open) using a headerRef — clicking/tapping anywhere outside the header closes the menu; Escape also closes it.
 - BAKED IMAGES: downloaded the 6 Platform card images into /public (platform-clinical/ai/billing/credentialing/attorney/interop.jpg, valid JPEGs) and pointed SERVICE_IMAGES at the local paths, so they load from our own domain instead of Unsplash/Pexels CDNs. Verified HEAD /platform-clinical.jpg -> 200 image/jpeg.
 Type-clean (same 8 baseline errors). Verified via 414px screenshots (open menu, tap-outside close). Preview-only; redeploy to publish to proactiveclinics.com.
+
+## Iteration — User Guide updated for new scheduling features (Aug 2026, preview)
+User request: update the online User Guide + PDF with the newest enhancements.
+Delivered (content-only, src/lib/guide/content.ts — feeds BOTH the web guide at /guide/[slug] and the PDF at /api/guide/pdf):
+- Expanded the "Scheduling & Calendar" section: updated summary; added the optional Repeat step to New Appointment; new "Repeating visits" (Daily/Weekly/Every-2-weeks/Monthly, 2–26 occurrences, auto-skip of out-of-hours/clashing dates); new "Reschedule by dragging (every view)" describing Day (time), Week/Month (day), Staff (time + reassign provider); a tip on the green/red conflict coloring + blocked double-booking; and "Manage the day (Day view)" incl. click-an-empty-slot-to-create. Reused existing schedule.png / schedule-day.png shots.
+Verified: /guide/scheduling renders all new content; /api/guide/pdf returns application/pdf (~2.1 MB, valid %PDF- header). No renderer/route changes. Preview-only; redeploy to publish to proactiveclinics.com.
