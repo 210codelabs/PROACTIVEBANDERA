@@ -294,3 +294,10 @@ Delivered (FRONTEND ONLY, src/components/LandingHeader.tsx):
 - Kiosk ("Modo Kiosco") button changed from `hidden lg:inline-flex` to ALWAYS visible: icon-only on phones (<640px), icon+label on sm+.
 - Language switcher + Install App are hidden on the mobile topbar (md:block) and surfaced inside the hamburger instead; Book/Request-a-Demo stays on the bar at all sizes.
 - Desktop (md+) unchanged: full nav incl. Attorney Portal, lang, install, kiosk (now labeled from md up), Book. Type-clean; verified via 414px screenshots. Preview-only; redeploy to publish.
+
+## Iteration — Mobile menu polish + baked Platform images (Aug 2026, preview)
+User-selected enhancements (FRONTEND ONLY):
+- SLIDE/FADE: mobile dropdown in LandingHeader.tsx is now always-rendered and animated via grid-rows-[0fr]→[1fr] + opacity + a small -translate-y, transition duration-300 ease-out (smooth slide-down + fade on open/close; collapses fully when closed with pointer-events-none + aria-hidden).
+- TAP-OUTSIDE CLOSE: added a document mousedown/touchstart listener (active only while open) using a headerRef — clicking/tapping anywhere outside the header closes the menu; Escape also closes it.
+- BAKED IMAGES: downloaded the 6 Platform card images into /public (platform-clinical/ai/billing/credentialing/attorney/interop.jpg, valid JPEGs) and pointed SERVICE_IMAGES at the local paths, so they load from our own domain instead of Unsplash/Pexels CDNs. Verified HEAD /platform-clinical.jpg -> 200 image/jpeg.
+Type-clean (same 8 baseline errors). Verified via 414px screenshots (open menu, tap-outside close). Preview-only; redeploy to publish to proactiveclinics.com.

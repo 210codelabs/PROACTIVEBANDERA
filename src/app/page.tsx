@@ -9,18 +9,12 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 const HERO_IMAGE = "/hero-proactive.png";
 
 const SERVICE_IMAGES = [
-  // Clinical & Charting
-  "https://images.unsplash.com/photo-1576091160550-2173dba999ef?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwxfHxkb2N0b3IlMjBsYXB0b3AlMjBFSFJ8ZW58MHx8fHwxNzg3MTI5MzIzfDA&ixlib=rb-4.1.0&q=85&w=800",
-  // AI Assistance
-  "https://images.unsplash.com/photo-1694903089438-bf28d4697d9a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDR8MHwxfHNlYXJjaHwxfHxoZWFsdGhjYXJlJTIwQUl8ZW58MHx8fHwxNzg3MTI5MzIzfDA&ixlib=rb-4.1.0&q=85&w=800",
-  // Billing & Revenue Cycle
-  "https://images.unsplash.com/photo-1708449903767-c4e97772c26e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MTJ8MHwxfHNlYXJjaHw0fHxoZWFsdGhjYXJlJTIwZmluYW5jZXxlbnwwfHx8fDE3ODcxMjkzMzh8MA&ixlib=rb-4.1.0&q=85&w=800",
-  // Credentialing & Enterprise
-  "https://images.pexels.com/photos/7108401/pexels-photo-7108401.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-  // Attorney / PI Workflows
-  "https://images.pexels.com/photos/7841469/pexels-photo-7841469.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-  // Interoperability & Data Exchange
-  "https://images.unsplash.com/photo-1644088379091-d574269d422f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwxfHxkYXRhJTIwbmV0d29ya3xlbnwwfHx8fDE3ODcxMjkzMjN8MA&ixlib=rb-4.1.0&q=85&w=800",
+  "/platform-clinical.jpg",       // Clinical & Charting
+  "/platform-ai.jpg",             // AI Assistance
+  "/platform-billing.jpg",        // Billing & Revenue Cycle
+  "/platform-credentialing.jpg",  // Credentialing & Enterprise
+  "/platform-attorney.jpg",       // Attorney / PI Workflows
+  "/platform-interop.jpg",        // Interoperability & Data Exchange
 ];
 
 // Brochure-inspired rotating accents: blue -> green -> red

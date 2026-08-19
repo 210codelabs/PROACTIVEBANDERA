@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import InstallAppButton from "@/components/InstallAppButton";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -26,12 +26,32 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // Close the mobile menu when tapping/clicking anywhere outside the header,
+  // or pressing Escape.
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
   const navLink = `relative py-1 transition-colors duration-200 after:absolute after:left-0 after:-bottom-0.5 after:h-0.5 after:w-0 after:rounded-full after:bg-current after:transition-all after:duration-300 hover:after:w-full ${
     solid ? "text-slate-600 hover:text-brand-700" : "text-white/90 hover:text-white"
   }`;
 
   return (
     <header
+      ref={headerRef}
       className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
         solid
           ? "bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm"
@@ -119,26 +139,33 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
         </div>
       </div>
 
-      {/* Mobile dropdown menu */}
-      {menuOpen && (
-        <div className="md:hidden border-t border-slate-100 bg-white shadow-lg">
-          <nav className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex flex-col gap-1 text-[15px] font-semibold text-slate-700">
-            <a href="#services" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navServices}</a>
-            <a href="#why" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navWhy}</a>
-            <a href="#testimonials" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.testKicker}</a>
-            <a href="#contact" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navContact}</a>
-            <a href="/guide" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">Guide</a>
-            <a href="/attorney" onClick={() => setMenuOpen(false)} className="mt-1 inline-flex items-center gap-2 rounded-lg bg-orange-700 px-3 py-2.5 text-white font-bold hover:bg-red-600">
-              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 21h18M6 18V9m12 9V9M4 9h16L12 3 4 9zm5 9v-4h6v4" /></svg>
-              Attorney Portal
-            </a>
-            <div className="mt-3 flex items-center gap-3 border-t border-slate-100 pt-3">
-              <LanguageSwitcher />
-              <InstallAppButton variant="landing" scrolled={true} />
-            </div>
-          </nav>
+      {/* Mobile dropdown menu (animated slide + fade) */}
+      <div
+        className={`md:hidden grid overflow-hidden transition-all duration-300 ease-out ${
+          menuOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0 pointer-events-none"
+        }`}
+        aria-hidden={!menuOpen}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className={`border-t border-slate-100 bg-white shadow-lg transition-transform duration-300 ease-out ${menuOpen ? "translate-y-0" : "-translate-y-2"}`}>
+            <nav className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex flex-col gap-1 text-[15px] font-semibold text-slate-700">
+              <a href="#services" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navServices}</a>
+              <a href="#why" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navWhy}</a>
+              <a href="#testimonials" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.testKicker}</a>
+              <a href="#contact" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navContact}</a>
+              <a href="/guide" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">Guide</a>
+              <a href="/attorney" onClick={() => setMenuOpen(false)} className="mt-1 inline-flex items-center gap-2 rounded-lg bg-orange-700 px-3 py-2.5 text-white font-bold hover:bg-red-600">
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 21h18M6 18V9m12 9V9M4 9h16L12 3 4 9zm5 9v-4h6v4" /></svg>
+                Attorney Portal
+              </a>
+              <div className="mt-3 flex items-center gap-3 border-t border-slate-100 pt-3">
+                <LanguageSwitcher />
+                <InstallAppButton variant="landing" scrolled={true} />
+              </div>
+            </nav>
+          </div>
         </div>
-      )}
+      </div>
     </header>
   );
 }
