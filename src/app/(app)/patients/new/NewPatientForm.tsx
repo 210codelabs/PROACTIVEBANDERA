@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import RefSelect from "@/components/RefSelect";
 import PayerAutocomplete from "@/components/billing/PayerAutocomplete";
+import MedNormalizeTool from "@/components/enrichment/MedNormalizeTool";
 
 type Attorney = { id: string; name: string; firm: string | null; email: string };
 type Summary = { label: string; value: string };
@@ -326,6 +327,7 @@ export default function NewPatientForm() {
 
       {/* Right pane: coverage + prior authorization */}
       <aside className="space-y-4 xl:sticky xl:top-4">
+        <MedNormalizeTool />
         <div className="card card-pad">
           <h3 className="section-title mb-2">Coverage &amp; benefits</h3>
           {!eligResult && !eligError && (

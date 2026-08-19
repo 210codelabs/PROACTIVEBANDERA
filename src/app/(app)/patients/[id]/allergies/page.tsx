@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import PatientChart, { loadPatientCtx } from "@/components/PatientChart";
 import { fmtDate } from "@/lib/utils";
 import AddAllergyForm from "./AddAllergyForm";
+import AllergyNormalize from "@/components/enrichment/AllergyNormalize";
 
 export default async function AllergyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -46,6 +47,7 @@ export default async function AllergyPage({ params }: { params: Promise<{ id: st
           <div className="p-4"><AddAllergyForm patientId={id} /></div>
         </section>
       </div>
+      <AllergyNormalize allergies={all.map((a) => ({ id: a.id, substance: a.substance, reaction: a.reaction, severity: a.severity, status: a.status }))} />
     </PatientChart>
   );
 }
