@@ -285,3 +285,12 @@ Type-clean (same 8 baseline errors). Verified via screenshots (hero chips, servi
 ## Iteration — Topic-matched Platform card images (Aug 2026, preview)
 User request: replace the generic photos in the "THE PLATFORM" section (6 capability cards) with images that match each card's title/topic.
 Delivered (FRONTEND ONLY): SERVICE_IMAGES in src/app/page.tsx swapped from /svc-1..6.jpg to 6 topic-relevant stock photos (Unsplash/Pexels, sourced via vision_expert), in the exact card order: Clinical & Charting (EHR laptop+stethoscope), AI Assistance (robot+human hand on digital interface), Billing & Revenue Cycle (stethoscope on calculator), Credentialing & Enterprise (business team meeting), Attorney/PI (law office), Interoperability & Data Exchange (abstract data network). Plain <img loading="lazy"> so no next.config domains needed. Verified via screenshots (both rows). NOTE: images are REMOTE URLs — for production reliability they could be downloaded into /public later. Preview-only; redeploy to publish to proactiveclinics.com.
+
+## Iteration — Mobile landing header (hamburger + always-visible Kiosk) (Aug 2026, preview)
+User request: on mobile use a hamburger menu; keep the Kiosk-mode button always visible on the topbar (kiosks are large tablets); remove Attorney Portal from the topbar and put it in the hamburger dropdown.
+Delivered (FRONTEND ONLY, src/components/LandingHeader.tsx):
+- Added a hamburger toggle (md:hidden) + a mobile dropdown panel containing the nav links (Platform/Why/Testimonials/Contact/Guide) + the Attorney Portal button + Language switcher + Install App. Panel closes on link tap and auto-closes when resized to >=768px.
+- New `solid = scrolled || menuOpen` so opening the menu over the transparent hero switches the bar to solid white (color logo + dark controls) for legibility.
+- Kiosk ("Modo Kiosco") button changed from `hidden lg:inline-flex` to ALWAYS visible: icon-only on phones (<640px), icon+label on sm+.
+- Language switcher + Install App are hidden on the mobile topbar (md:block) and surfaced inside the hamburger instead; Book/Request-a-Demo stays on the bar at all sizes.
+- Desktop (md+) unchanged: full nav incl. Attorney Portal, lang, install, kiosk (now labeled from md up), Book. Type-clean; verified via 414px screenshots. Preview-only; redeploy to publish.

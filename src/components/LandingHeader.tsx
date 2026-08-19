@@ -9,6 +9,8 @@ type LandingDict = Dictionary["landing"];
 
 export default function LandingHeader({ L }: { L: LandingDict }) {
   const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const solid = scrolled || menuOpen;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -17,14 +19,21 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Close the mobile menu when the viewport grows to desktop
+  useEffect(() => {
+    const onResize = () => { if (window.innerWidth >= 768) setMenuOpen(false); };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const navLink = `relative py-1 transition-colors duration-200 after:absolute after:left-0 after:-bottom-0.5 after:h-0.5 after:w-0 after:rounded-full after:bg-current after:transition-all after:duration-300 hover:after:w-full ${
-    scrolled ? "text-slate-600 hover:text-brand-700" : "text-white/90 hover:text-white"
+    solid ? "text-slate-600 hover:text-brand-700" : "text-white/90 hover:text-white"
   }`;
 
   return (
     <header
       className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-        scrolled
+        solid
           ? "bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm"
           : "bg-transparent border-b border-transparent"
       }`}
@@ -34,7 +43,7 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
           <a href="#top" className="flex items-center gap-4 shrink-0">
             {/* Color logo on solid header, white logo over the hero */}
             <img
-              src={scrolled ? "/pclinic-header.png?v=2" : "/pclinic-footer.png?v=2"}
+              src={solid ? "/pclinic-header.png?v=2" : "/pclinic-footer.png?v=2"}
               alt="Proactive Clinic"
               className="h-12 sm:h-14 w-auto object-contain transition-all duration-300"
             />
@@ -55,26 +64,32 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <LanguageSwitcher className={`mr-1 ${scrolled ? "" : "text-white"}`} />
+            <span className="hidden md:block">
+              <LanguageSwitcher className={`mr-1 ${solid ? "" : "text-white"}`} />
+            </span>
 
-            <InstallAppButton variant="landing" scrolled={scrolled} />
+            <span className="hidden md:block">
+              <InstallAppButton variant="landing" scrolled={solid} />
+            </span>
 
+            {/* Kiosk mode — ALWAYS visible (kiosks are large tablets) */}
             <a
               href="/kiosk"
-              className={`hidden lg:inline-flex items-center gap-2 whitespace-nowrap rounded-full text-[13px] xl:text-sm font-bold px-3 xl:px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 ${
-                scrolled
+              aria-label="Kiosk mode"
+              className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full text-[13px] xl:text-sm font-bold px-2.5 sm:px-3 xl:px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 ${
+                solid
                   ? "text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50"
                   : "text-white ring-1 ring-white/50 hover:bg-white/10"
               }`}
             >
               <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17.25V21m6-3.75V21M4.5 4.5h15a1.5 1.5 0 011.5 1.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 15V6a1.5 1.5 0 011.5-1.5z" /></svg>
-              Modo Kiosco
+              <span className="hidden sm:inline">Modo Kiosco</span>
             </a>
 
             <a
               href="/book"
-              className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full text-[13px] xl:text-sm font-bold px-4 sm:px-5 py-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 ${
-                scrolled
+              className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full text-[13px] xl:text-sm font-bold px-3.5 sm:px-5 py-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 ${
+                solid
                   ? "bg-brand-700 hover:bg-brand-800 text-white"
                   : "bg-white text-brand-700 hover:bg-brand-50 ring-1 ring-white/60"
               }`}
@@ -83,9 +98,47 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
               <span className="hidden sm:inline">{L.scheduleVisit}</span>
               <span className="sm:hidden">Book</span>
             </a>
+
+            {/* Hamburger — mobile only */}
+            <button
+              type="button"
+              aria-label="Menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((o) => !o)}
+              className={`md:hidden inline-flex items-center justify-center h-10 w-10 rounded-lg ring-1 transition-colors ${
+                solid ? "text-slate-700 ring-slate-200 hover:bg-slate-100" : "text-white ring-white/40 hover:bg-white/10"
+              }`}
+            >
+              {menuOpen ? (
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              ) : (
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+              )}
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Mobile dropdown menu */}
+      {menuOpen && (
+        <div className="md:hidden border-t border-slate-100 bg-white shadow-lg">
+          <nav className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex flex-col gap-1 text-[15px] font-semibold text-slate-700">
+            <a href="#services" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navServices}</a>
+            <a href="#why" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navWhy}</a>
+            <a href="#testimonials" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.testKicker}</a>
+            <a href="#contact" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navContact}</a>
+            <a href="/guide" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">Guide</a>
+            <a href="/attorney" onClick={() => setMenuOpen(false)} className="mt-1 inline-flex items-center gap-2 rounded-lg bg-orange-700 px-3 py-2.5 text-white font-bold hover:bg-red-600">
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 21h18M6 18V9m12 9V9M4 9h16L12 3 4 9zm5 9v-4h6v4" /></svg>
+              Attorney Portal
+            </a>
+            <div className="mt-3 flex items-center gap-3 border-t border-slate-100 pt-3">
+              <LanguageSwitcher />
+              <InstallAppButton variant="landing" scrolled={true} />
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
