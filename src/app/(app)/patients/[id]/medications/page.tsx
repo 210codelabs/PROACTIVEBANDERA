@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import PatientChart, { loadPatientCtx } from "@/components/PatientChart";
+import MedEnrichment from "@/components/enrichment/MedEnrichment";
 import { fmtDate } from "@/lib/utils";
 
 export default async function MedsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -46,6 +47,7 @@ export default async function MedsPage({ params }: { params: Promise<{ id: strin
           </table>
         )}
       </section>
+      <MedEnrichment meds={meds.map((m) => ({ id: m.id, name: m.name, strength: m.strength, form: m.form, status: m.status, ndc: m.ndc }))} />
     </PatientChart>
   );
 }
