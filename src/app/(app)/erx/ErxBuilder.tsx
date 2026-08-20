@@ -20,7 +20,11 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [providerNpi, setProviderNpi] = useState(defaultNpi);
   const [providerDea, setProviderDea] = useState(defaultDea);
+  const [profileDea, setProfileDea] = useState(defaultDea); // last value saved to the provider profile
   const [savingProfile, setSavingProfile] = useState<string>("");
+  const [histQ, setHistQ] = useState("");
+  const [histFrom, setHistFrom] = useState("");
+  const [histTo, setHistTo] = useState("");
   const [controlled, setControlled] = useState<{ schedule: string; label: string } | null>(null);
   const [ctrlLoading, setCtrlLoading] = useState(false);
   const [confirmCtrl, setConfirmCtrl] = useState(false);
@@ -129,9 +133,27 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
       const r = await fetch("/api/me/prescriber", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ npi: providerNpi, dea: providerDea }) });
       const d = await r.json();
       setSavingProfile(d.ok ? "saved" : "err");
+      if (d.ok) setProfileDea(providerDea);
     } catch { setSavingProfile("err"); }
     setTimeout(() => setSavingProfile(""), 2500);
   }
+
+  // Controlled drug picked but the provider PROFILE has no DEA saved yet.
+  const deaProfileGap = !!controlled && !profileDea.trim();
+
+  const filteredHistory = history.filter((h) => {
+    const q = histQ.trim().toLowerCase();
+    if (q) {
+      const hay = [h.medName, h.strength, h.patientName, h.sig, h.deaSchedule].filter(Boolean).join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (histFrom || histTo) {
+      const day = new Date(h.createdAt).toISOString().slice(0, 10);
+      if (histFrom && day < histFrom) return false;
+      if (histTo && day > histTo) return false;
+    }
+    return true;
+  });
 
   async function submit() {
     setErr(null);
@@ -192,15 +214,31 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
         <section className="card card-pad space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-slate-900">Signed prescriptions {patient ? <span className="text-slate-400 font-normal">· {patient.lastName}, {patient.firstName}</span> : <span className="text-slate-400 font-normal">· all recent</span>}</h3>
-            <span className="text-xs text-slate-400">{history.length} shown</span>
+            <span className="text-xs text-slate-400">{filteredHistory.length} of {history.length}</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
+            <label className="text-sm"><span className="label">Search</span>
+              <input className="input w-full" placeholder="Medication, patient, sig…" value={histQ} onChange={(e) => setHistQ(e.target.value)} />
+            </label>
+            <label className="text-sm"><span className="label">From</span>
+              <input type="date" className="input" value={histFrom} onChange={(e) => setHistFrom(e.target.value)} />
+            </label>
+            <label className="text-sm"><span className="label">To</span>
+              <input type="date" className="input" value={histTo} onChange={(e) => setHistTo(e.target.value)} />
+            </label>
+            {(histQ || histFrom || histTo) && (
+              <button type="button" onClick={() => { setHistQ(""); setHistFrom(""); setHistTo(""); }} className="btn-secondary py-2 px-3 text-sm">Clear</button>
+            )}
           </div>
           {histLoading ? (
             <p className="text-sm text-slate-400">Loading history…</p>
           ) : history.length === 0 ? (
             <p className="text-sm text-slate-400">No signed prescriptions{patient ? " for this patient" : ""} yet.</p>
+          ) : filteredHistory.length === 0 ? (
+            <p className="text-sm text-slate-400">No prescriptions match your search / date filter.</p>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {history.map((h) => (
+              {filteredHistory.map((h) => (
                 <li key={h.id} className="flex items-center gap-3 py-2.5">
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-slate-900 truncate">
@@ -220,6 +258,27 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
           )}
         </section>
       ) : (
+      <>
+      {deaProfileGap && (
+        <div className="rounded-lg bg-rose-50 ring-1 ring-rose-300 p-3">
+          <div className="flex items-start gap-2">
+            <span className="text-lg leading-none">🛡️</span>
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-rose-800">Controlled substance selected ({controlled?.label}) — no DEA on your profile</div>
+              {providerDea.trim() ? (
+                <p className="text-[12px] text-rose-700 mt-0.5">You entered a DEA number below but it isn&apos;t saved to your profile yet. Save it once so every controlled Rx auto-fills.</p>
+              ) : (
+                <p className="text-[12px] text-rose-700 mt-0.5">Enter your DEA number under <span className="font-medium">Prescriber</span> (right) — it&apos;s required to sign this prescription — then save it to your profile.</p>
+              )}
+            </div>
+            {providerDea.trim() && (
+              <button type="button" onClick={saveProfile} className="btn-primary py-1.5 px-3 text-xs shrink-0">
+                {savingProfile === "saving" ? "Saving…" : savingProfile === "saved" ? "Saved ✓" : "Save DEA to profile"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <section className="card card-pad space-y-3">
           <h3 className="font-semibold text-slate-900">Patient</h3>
@@ -349,6 +408,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
         <p className="text-[10px] text-slate-400">The PDF includes the practice letterhead &amp; NPI, pharmacy details, and your NPI + e-signature. Demo build — not for clinical use.</p>
       </section>
       </div>
+      </>
       )}
     </div>
   );
