@@ -11,6 +11,7 @@ export default function ErxBuilder({ providerName }: { providerName: string }) {
   const [patQ, setPatQ] = useState("");
   const [patResults, setPatResults] = useState<Pat[]>([]);
   const [patient, setPatient] = useState<Pat | null>(null);
+  const [currentMeds, setCurrentMeds] = useState<any[]>([]);
   const [med, setMed] = useState({ medName: "", strength: "", form: "", ndc: "" });
   const [rx, setRx] = useState({ sig: "", quantity: "", refills: "0", daw: false, notes: "" });
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
@@ -28,6 +29,17 @@ export default function ErxBuilder({ providerName }: { providerName: string }) {
     }, 250);
     return () => clearTimeout(t);
   }, [patQ, patient]);
+
+  // Auto-load the selected patient's current medication list.
+  useEffect(() => {
+    if (!patient?.id) { setCurrentMeds([]); return; }
+    let live = true;
+    fetch(`/api/patients/${patient.id}/medications`)
+      .then((r) => r.json())
+      .then((d) => { if (live) setCurrentMeds(d.medications || []); })
+      .catch(() => { if (live) setCurrentMeds([]); });
+    return () => { live = false; };
+  }, [patient?.id]);
 
   async function submit() {
     setErr(null);
@@ -78,12 +90,32 @@ export default function ErxBuilder({ providerName }: { providerName: string }) {
             <span className="text-sm font-medium">{patient.lastName}, {patient.firstName} <span className="text-slate-400 font-mono text-xs">{patient.mrn}</span></span>
             <button onClick={() => setPatient(null)} className="chip bg-white ring-slate-200 text-xs">Change</button>
           </div>
-        ) : (
-          <div className="relative">
+        ) : (          <div className="relative">
             <input className="input w-full" placeholder="Search patient by name / MRN…" value={patQ} onChange={(e) => setPatQ(e.target.value)} />
             {patResults.length > 0 && (
               <ul className="absolute z-20 mt-1 w-full rounded-lg bg-white ring-1 ring-slate-200 shadow-lg max-h-56 overflow-auto">
                 {patResults.map((p) => <li key={p.id}><button onClick={() => { setPatient(p); setPatResults([]); }} className="w-full text-left px-3 py-2 hover:bg-brand-50 text-sm">{p.lastName}, {p.firstName} <span className="text-slate-400 font-mono text-xs">{p.mrn}</span></button></li>)}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {patient && (
+          <div className="rounded-lg ring-1 ring-slate-200 bg-slate-50 p-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold text-slate-700">Current medications ({currentMeds.length})</span>
+              {patient.id && <a href={`/patients/${patient.id}`} className="text-[11px] text-brand-700 hover:underline">Open chart</a>}
+            </div>
+            {currentMeds.length === 0 ? (
+              <p className="text-[11px] text-slate-400">No active medications on file for this patient.</p>
+            ) : (
+              <ul className="space-y-1 max-h-40 overflow-auto">
+                {currentMeds.map((m) => (
+                  <li key={m.id} className="flex items-center gap-2 text-xs bg-white rounded ring-1 ring-slate-200 px-2 py-1">
+                    <span className="flex-1 truncate"><span className="font-medium text-slate-800">{m.name}</span>{m.strength ? ` · ${m.strength}` : ""}{m.sig ? <span className="text-slate-400"> — {m.sig}</span> : null}</span>
+                    <button type="button" onClick={() => { setMed({ medName: m.name || "", strength: m.strength || "", form: m.form || "", ndc: m.ndc || "" }); if (m.sig) setRx((p) => ({ ...p, sig: m.sig })); }} className="chip bg-brand-100 text-brand-800 ring-brand-200 text-[10px] shrink-0">Prescribe again</button>
+                  </li>
+                ))}
               </ul>
             )}
           </div>

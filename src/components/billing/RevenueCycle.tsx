@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import PayerAutocomplete from "@/components/billing/PayerAutocomplete";
 
 type Payer = { id: string; name: string; stediId?: string | null; supportsEligibility: boolean; supportsClaims: boolean; supportsRemittance: boolean; active: boolean };
 type Enrollment = { id: string; providerName: string; npi: string; payerId?: string | null; payerName?: string | null; bankAccountId?: string | null; transactions?: any; status: string; stediEnrollmentId?: string | null; createdAt: string };
@@ -191,9 +192,14 @@ function PriorAuthTab({ flash, configured, defaultPayerId }: { flash: Flash; con
             )}
           </div>
           {form.patientId && <p className="text-xs text-emerald-700">Patient: {form.patientName}</p>}
-          <div className="grid grid-cols-2 gap-2">
-            <input className="input" placeholder="Payer ID" value={form.payerId} onChange={(e) => setForm({ ...form, payerId: e.target.value })} />
-            <input className="input" placeholder="Payer name" value={form.payerName} onChange={(e) => setForm({ ...form, payerName: e.target.value })} />
+          <div className="grid grid-cols-1 gap-1">
+            <PayerAutocomplete
+              value={form.payerName}
+              onChange={(v) => setForm({ ...form, payerName: v })}
+              onSelect={({ name, payerId }) => setForm({ ...form, payerName: name, payerId })}
+              placeholder="Search payer (Stedi)…"
+            />
+            {form.payerId && <span className="text-[11px] text-slate-400">Stedi payer ID: <span className="font-mono">{form.payerId}</span></span>}
           </div>
           <input className="input" placeholder="Member ID" value={form.memberId} onChange={(e) => setForm({ ...form, memberId: e.target.value })} />
           <input className="input" placeholder="Service (e.g. MRI lumbar, PT eval)" value={form.serviceType} onChange={(e) => setForm({ ...form, serviceType: e.target.value })} />

@@ -147,6 +147,7 @@ export default function Shell({
     const settingsIndex = NAV.findIndex((item) => item.href === "/settings");
     NAV.splice(settingsIndex, 0, { label: t("nav.admin"), href: "/admin", icon: <Icon.Shield /> });
     NAV.splice(settingsIndex, 0, { label: "Database & Security", href: "/admin/database", icon: <Icon.Cog /> });
+    NAV.splice(settingsIndex, 0, { label: "Connection Health", href: "/admin/connections", icon: <Icon.Chart /> });
   }
 
   const isItemActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
@@ -166,7 +167,7 @@ export default function Shell({
     },
     {
       title: t("sections.administration"),
-      items: NAV.filter((item) => ["/settings", "/admin", "/admin/database"].includes(item.href)),
+      items: NAV.filter((item) => ["/settings", "/admin", "/admin/database", "/admin/connections"].includes(item.href)),
     },
   ].filter((section) => section.items.length > 0);
 

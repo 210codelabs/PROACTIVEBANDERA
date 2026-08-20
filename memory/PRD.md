@@ -365,3 +365,9 @@ Delivered / verified:
 - Confirmed already-correct wiring (no change needed): patient registration (NewPatientForm) payer uses PayerAutocomplete; pharmacy selection uses PharmacyPicker (internal + NPPES national registry + import); medications use openFDA DrugSearch; Medicare coverage/meds via BlueButtonConnect.
 - Remaining raw payer-ID inputs are in advanced/manual tools by design (AiCodingAssistant, RevenueCycle manual claim entry line ~195/519, InsuranceCard field) — can be swapped to PayerAutocomplete on request.
 Note: A full app-wide "every box" audit is large; this pass wired the primary insurance-eligibility + eRx flows. Preview-only; redeploy to publish.
+
+## Iteration — Payer wiring + eRx meds + Connection Health (Aug 2026, preview)
+1) Stedi payer searchbox wired into remaining tools: AiCodingAssistant (merged payer name+ID into <PayerAutocomplete/>), RevenueCycle manual claim entry (replaced payer id/name inputs with PayerAutocomplete). InsuranceCard + NewPatientForm already used it. So insurance/payer entry is a Stedi searchbox across eligibility, patient registration, insurance card, claim entry, AI coding.
+2) eRx patient meds auto-load: ErxBuilder now fetches /api/patients/[id]/medications when a patient is selected and shows a "Current medications" panel with a "Prescribe again" button that prefills med name/strength/form/ndc + sig.
+3) Connection Health admin page: new /admin/connections (admin-only, nav under Administration) + GET /api/admin/connections/status. Live-pings NPPES + openFDA (real HTTP + latency), reports configured status for Stedi, CMS Blue Button (env), and Resend. Re-check button.
+Verified: /api/admin/connections/status -> Stedi configured, NPPES up 144ms, openFDA up 260ms, BlueButton sandbox, Resend not_configured; /admin/connections, /billing, /erx all 200 no crash. Preview-only; redeploy to publish.

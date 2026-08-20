@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import PayerAutocomplete from "@/components/billing/PayerAutocomplete";
 
 type Review = {
   summary: string; cleanClaimReady: boolean; medicalNecessity: string;
@@ -59,8 +60,15 @@ export default function AiCodingAssistant() {
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-sm"><span className="label">CPT / HCPCS</span><input className="input" value={cpt} onChange={(e) => setCpt(e.target.value)} placeholder="97161, 97110, 99213" /></label>
             <label className="block text-sm"><span className="label">ICD-10</span><input className="input" value={icd} onChange={(e) => setIcd(e.target.value)} placeholder="M54.5, M25.561" /></label>
-            <label className="block text-sm"><span className="label">Payer name</span><input className="input" value={payerName} onChange={(e) => setPayerName(e.target.value)} placeholder="UnitedHealthcare" /></label>
-            <label className="block text-sm"><span className="label">Payer ID (Stedi)</span><input className="input" value={payerId} onChange={(e) => setPayerId(e.target.value)} placeholder="87726" /></label>
+            <label className="block text-sm col-span-2"><span className="label">Payer (search Stedi)</span>
+              <PayerAutocomplete
+                value={payerName}
+                onChange={(v) => setPayerName(v)}
+                onSelect={({ name, payerId }) => { setPayerName(name); setPayerId(payerId); }}
+                placeholder="Search insurer / payer name…"
+              />
+              {payerId && <span className="text-[11px] text-slate-400">Stedi payer ID: <span className="font-mono">{payerId}</span></span>}
+            </label>
             <label className="block text-sm col-span-2"><span className="label">Member / subscriber ID</span><input className="input" value={memberId} onChange={(e) => setMemberId(e.target.value)} placeholder="UHC123456789" /></label>
           </div>
           <label className="block text-sm"><span className="label">Clinical note / superbill context</span>
