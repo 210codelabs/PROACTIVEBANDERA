@@ -125,6 +125,7 @@ export default function Shell({
       ],
     },
     { label: t("nav.pharmacy"), href: "/pharmacy", icon: <Icon.Pill /> },
+    { label: "eRx", href: "/erx", icon: <Icon.Pill /> },
     { label: t("nav.pos"), href: "/pos", icon: <Icon.Register /> },
     { label: t("nav.inventory"), href: "/inventory", icon: <Icon.Box /> },
     {
@@ -157,7 +158,7 @@ export default function Shell({
     },
     {
       title: t("sections.pharmacyRetail"),
-      items: NAV.filter((item) => ["/pharmacy", "/pos", "/inventory"].includes(item.href)),
+      items: NAV.filter((item) => ["/pharmacy", "/erx", "/pos", "/inventory"].includes(item.href)),
     },
     {
       title: t("sections.operations"),

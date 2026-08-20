@@ -347,3 +347,12 @@ Delivered:
 - Middleware: /demo (PUBLIC_EXACT) + /api/demo (PUBLIC_PREFIX) are public (no login).
 Verified: /demo renders 200 public; POST /api/demo -> {ok:true, emailStatus:"skipped", referenceId} (lead persisted). 
 BLOCKER for live email: RESEND_API_KEY + EMAIL_FROM (verified sender domain in Resend) are NOT set — email currently skipped. Need user to provide Resend API key + a verified from-address. Preview-only; redeploy to publish.
+
+## Iteration — eRx (E-Prescription) (Aug 2026, preview)
+User request: add eRx sidebar item wired to FDA meds + NPPES pharmacy + integrations; print/export PDF prescription with practice letterhead/NPI/signature + provider NPI + e-signature (typed or drawn).
+Delivered:
+- Sidebar "eRx" under Pharmacy & Retail -> /erx (src/app/(app)/erx/page.tsx + ErxBuilder.tsx + SignaturePad.tsx).
+- Builder wires EXISTING integrations: patient via /api/patients/search, medication via openFDA DrugSearch (name/strength/form/ndc), pharmacy via PharmacyPicker (internal + NPPES national registry), sig/qty/refills/DAW/notes, provider name (from session) + editable provider NPI, and a provider e-signature pad (Type OR Draw on canvas -> PNG dataURL).
+- New Prisma model Prescription. POST /api/erx creates the signed Rx (and a best-effort Order type=rx when a patient is linked). GET /api/erx lists recent.
+- PDF: GET /api/erx/[id]/pdf (pdf-lib) with branded letterhead pulling practice name/NPI/address/phone from getStediConfig() (admin-configured; falls back to "Proactive Clinic"), patient block, Rx symbol + medication/sig/qty/refills/DAW, pharmacy block (name/addr/phone/NPI), and signature block (embedded drawn PNG or cursive typed name) + provider NPI + "Electronically signed" timestamp.
+Verified: /erx 200; POST /api/erx -> {ok,id}; PDF -> 200 application/pdf valid %PDF-; sidebar /erx link present. Preview-only; redeploy to publish. NOTE: letterhead NPI/address come from Stedi/admin config; set them for a complete letterhead.
