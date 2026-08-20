@@ -18,6 +18,10 @@ type ClientProviderState = {
   subServiceCredentials: Record<string, Record<string, string>>;
   secretsSet: Record<string, boolean>;
   subServiceSecretsSet: Record<string, Record<string, boolean>>;
+  secretHints: Record<string, string>;
+  subServiceSecretHints: Record<string, Record<string, string>>;
+  lastEditedAt: string | null;
+  lastEditedBy: string | null;
   validation: {
     status: "untested" | "success" | "error";
     message: string;
@@ -42,6 +46,10 @@ function blankProvider(): ClientProviderState {
     subServiceCredentials: {},
     secretsSet: {},
     subServiceSecretsSet: {},
+    secretHints: {},
+    subServiceSecretHints: {},
+    lastEditedAt: null,
+    lastEditedBy: null,
     validation: EMPTY_VALIDATION,
   };
 }
@@ -369,6 +377,7 @@ export default function ProviderIntegrations({ initialState }: { initialState: C
                               field={field}
                               value={ps.credentials[field.key] ?? ""}
                               isSet={Boolean(ps.secretsSet[field.key])}
+                              hint={ps.secretHints[field.key] ?? ""}
                               onChange={(v) => setCredential(provider.key, field.key, v)}
                             />
                           ))}
@@ -404,6 +413,7 @@ export default function ProviderIntegrations({ initialState }: { initialState: C
                                         field={field}
                                         value={ps.subServiceCredentials[sub.key]?.[field.key] ?? ""}
                                         isSet={Boolean(ps.subServiceSecretsSet[sub.key]?.[field.key])}
+                                        hint={ps.subServiceSecretHints[sub.key]?.[field.key] ?? ""}
                                         onChange={(v) => setSubCredential(provider.key, sub.key, field.key, v)}
                                       />
                                     ))}
@@ -439,6 +449,11 @@ export default function ProviderIntegrations({ initialState }: { initialState: C
                         </button>
                         <ValidationBanner validation={ps.validation} />
                       </div>
+                      {ps.lastEditedAt && (
+                        <p className="text-[11px] text-slate-400">
+                          <span aria-hidden>🕓</span> Last edited{ps.lastEditedBy ? ` by ${ps.lastEditedBy}` : ""} · {new Date(ps.lastEditedAt).toLocaleString()}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -477,11 +492,13 @@ function CredentialInput({
   field,
   value,
   isSet,
+  hint,
   onChange,
 }: {
   field: FieldDef;
   value: string;
   isSet: boolean;
+  hint?: string;
   onChange: (v: string) => void;
 }) {
   const isSecret = field.type === "password";
@@ -500,6 +517,11 @@ function CredentialInput({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
       />
+      {isSecret && isSet && !value && hint && (
+        <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-emerald-700">
+          <span aria-hidden>🔑</span> Active key: <span className="font-mono">{hint}</span>
+        </span>
+      )}
       {field.help && <span className="block text-[11px] text-slate-400 mt-0.5">{field.help}</span>}
     </label>
   );

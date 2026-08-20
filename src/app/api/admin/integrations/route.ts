@@ -24,14 +24,15 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  await requireAdminSession();
+  const user = await requireAdminSession();
   const body = await req.json().catch(() => ({}));
   const parse = Body.safeParse(body);
   if (!parse.success) {
     return NextResponse.json({ error: "Invalid integration payload" }, { status: 400 });
   }
 
-  await saveIntegrations(parse.data.providers as Record<string, IncomingProviderState>);
+  const editorName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email || "Admin";
+  await saveIntegrations(parse.data.providers as Record<string, IncomingProviderState>, { name: editorName });
   // Return the sanitized (secret-free) state so the client can re-sync.
   const state = await readIntegrationsForClient();
   return NextResponse.json({ ok: true, state });

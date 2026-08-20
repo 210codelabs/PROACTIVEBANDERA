@@ -22,6 +22,8 @@ export type ProviderState = {
   subServiceCredentials: Record<string, Record<string, string>>;
   oauthConnected: boolean;
   validation: ProviderValidation;
+  lastEditedAt: string | null;
+  lastEditedBy: string | null;
 };
 
 export type IntegrationsState = {
@@ -34,6 +36,8 @@ export type ClientProviderState = Omit<ProviderState, "credentials" | "subServic
   subServiceCredentials: Record<string, Record<string, string>>;
   secretsSet: Record<string, boolean>;
   subServiceSecretsSet: Record<string, Record<string, boolean>>;
+  secretHints: Record<string, string>;
+  subServiceSecretHints: Record<string, Record<string, string>>;
 };
 
 export type ClientIntegrationsState = {
@@ -51,7 +55,18 @@ function emptyProviderState(): ProviderState {
     subServiceCredentials: {},
     oauthConnected: false,
     validation: { status: "untested", message: "", checkedAt: null, subServices: {} },
+    lastEditedAt: null,
+    lastEditedBy: null,
   };
+}
+
+// Reveal only the last 4 characters of a stored secret so an admin can confirm
+// WHICH key is active without exposing it. Never returns the full value.
+function maskHint(value: string): string {
+  const v = String(value || "");
+  if (!v) return "";
+  if (v.length <= 4) return "••••";
+  return "••••" + v.slice(-4);
 }
 
 function defaultState(): IntegrationsState {
@@ -98,9 +113,11 @@ function sanitizeProvider(provider: ProviderDef, state: ProviderState): ClientPr
   const secretKeys = new Set(provider.fields.filter(isSecretField).map((f) => f.key));
   const credentials: Record<string, string> = {};
   const secretsSet: Record<string, boolean> = {};
+  const secretHints: Record<string, string> = {};
   for (const [key, value] of Object.entries(state.credentials)) {
     if (secretKeys.has(key)) {
       secretsSet[key] = Boolean(value);
+      secretHints[key] = maskHint(value);
       credentials[key] = "";
     } else {
       credentials[key] = value;
@@ -109,14 +126,17 @@ function sanitizeProvider(provider: ProviderDef, state: ProviderState): ClientPr
 
   const subServiceCredentials: Record<string, Record<string, string>> = {};
   const subServiceSecretsSet: Record<string, Record<string, boolean>> = {};
+  const subServiceSecretHints: Record<string, Record<string, string>> = {};
   for (const sub of provider.subServices ?? []) {
     const subSecretKeys = new Set((sub.extraFields ?? []).filter(isSecretField).map((f) => f.key));
     const stored = state.subServiceCredentials[sub.key] ?? {};
     const out: Record<string, string> = {};
     const setMap: Record<string, boolean> = {};
+    const hintMap: Record<string, string> = {};
     for (const [key, value] of Object.entries(stored)) {
       if (subSecretKeys.has(key)) {
         setMap[key] = Boolean(value);
+        hintMap[key] = maskHint(value);
         out[key] = "";
       } else {
         out[key] = value;
@@ -124,6 +144,7 @@ function sanitizeProvider(provider: ProviderDef, state: ProviderState): ClientPr
     }
     subServiceCredentials[sub.key] = out;
     subServiceSecretsSet[sub.key] = setMap;
+    subServiceSecretHints[sub.key] = hintMap;
   }
 
   return {
@@ -131,10 +152,14 @@ function sanitizeProvider(provider: ProviderDef, state: ProviderState): ClientPr
     oauthConnected: state.oauthConnected,
     subServices: state.subServices,
     validation: state.validation,
+    lastEditedAt: state.lastEditedAt ?? null,
+    lastEditedBy: state.lastEditedBy ?? null,
     credentials,
     subServiceCredentials,
     secretsSet,
     subServiceSecretsSet,
+    secretHints,
+    subServiceSecretHints,
   };
 }
 
@@ -177,6 +202,7 @@ export type IncomingProviderState = {
 
 export async function saveIntegrations(
   incoming: Record<string, IncomingProviderState>,
+  editor?: { name: string },
 ): Promise<IntegrationsState> {
   const current = await readIntegrations();
   const next: IntegrationsState = { providers: {}, updatedAt: new Date().toISOString() };
@@ -204,6 +230,14 @@ export async function saveIntegrations(
       prev.enabled !== sub.enabled ||
       JSON.stringify(prev.subServices) !== JSON.stringify(sub.subServices ?? {});
 
+    // A broader "did the stored config actually change" check drives the audit
+    // stamp (who last edited & when) — includes credential/secret changes too.
+    const configChanged =
+      selectionChanged ||
+      JSON.stringify(prev.credentials) !== JSON.stringify(credentials) ||
+      JSON.stringify(prev.subServiceCredentials) !== JSON.stringify(subServiceCredentials) ||
+      prev.oauthConnected !== (sub.oauthConnected ?? prev.oauthConnected);
+
     next.providers[provider.key] = {
       enabled: Boolean(sub.enabled),
       credentials,
@@ -213,6 +247,8 @@ export async function saveIntegrations(
       validation: selectionChanged
         ? { status: "untested", message: "", checkedAt: null, subServices: {} }
         : prev.validation,
+      lastEditedAt: configChanged && editor ? next.updatedAt : (prev.lastEditedAt ?? null),
+      lastEditedBy: configChanged && editor ? editor.name : (prev.lastEditedBy ?? null),
     };
   }
 
