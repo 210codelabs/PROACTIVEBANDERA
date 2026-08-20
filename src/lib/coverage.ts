@@ -59,9 +59,19 @@ export function extractCopayDollars(summary: unknown): string | null {
   return m ? m[1] : null;
 }
 
-/** Latest saved eligibility check for a single patient (or null). */
+/**
+ * Latest coverage to DISPLAY for a patient. Prefers the most recent SUCCESSFUL
+ * (active) eligibility check so a later failed / misspelled / errored attempt
+ * never replaces the last known-good coverage on the chart. Falls back to the
+ * latest check of any status only when the patient has never had an active one.
+ */
 export async function getLatestCoverage(patientId: string) {
   try {
+    const active = await db.eligibilityCheck.findFirst({
+      where: { patientId, status: "active" },
+      orderBy: { createdAt: "desc" },
+    });
+    if (active) return active;
     return await db.eligibilityCheck.findFirst({
       where: { patientId },
       orderBy: { createdAt: "desc" },
@@ -71,7 +81,12 @@ export async function getLatestCoverage(patientId: string) {
   }
 }
 
-/** Map of patientId -> latest saved eligibility check (or absent if none). */
+/**
+ * Map of patientId -> coverage to display. Prefers each patient's most recent
+ * ACTIVE check (last valid coverage), falling back to their latest check of any
+ * status only if no active check exists. This keeps the chart / worklist showing
+ * the last valid and active insurance even after a failed verification attempt.
+ */
 export async function getLatestCoverageMap(patientIds: string[]) {
   const map = new Map<string, any>();
   const ids = Array.from(new Set(patientIds.filter(Boolean)));
@@ -81,9 +96,14 @@ export async function getLatestCoverageMap(patientIds: string[]) {
       where: { patientId: { in: ids } },
       orderBy: { createdAt: "desc" },
     });
+    const latestAny = new Map<string, any>();
     for (const c of checks) {
-      if (c.patientId && !map.has(c.patientId)) map.set(c.patientId, c);
+      if (!c.patientId) continue;
+      if (!latestAny.has(c.patientId)) latestAny.set(c.patientId, c);
+      if (c.status === "active" && !map.has(c.patientId)) map.set(c.patientId, c);
     }
+    // Patients with no active check ever fall back to their latest attempt.
+    for (const [pid, c] of latestAny) if (!map.has(pid)) map.set(pid, c);
   } catch {
     /* ignore */
   }

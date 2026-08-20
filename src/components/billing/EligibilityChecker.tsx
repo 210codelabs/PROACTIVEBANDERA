@@ -75,8 +75,21 @@ export default function EligibilityChecker({ patient, defaultPayerId = "" }: { p
     }
   }
 
+  const lastActive = history.find((h) => h.status === "active") || null;
+
   return (
     <div className="space-y-4">
+      {lastActive && (
+        <div className="rounded-lg bg-emerald-50 ring-1 ring-emerald-200 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="chip ring-1 bg-emerald-100 text-emerald-800 ring-emerald-200">ACTIVE ON FILE</span>
+            <span className="text-sm font-semibold text-emerald-900">{lastActive.payerName || lastActive.payerId}</span>
+            {lastActive.planName && <span className="text-xs text-emerald-700">· {lastActive.planName}</span>}
+            <span className="ml-auto text-[11px] text-emerald-700">Verified {new Date(lastActive.createdAt).toLocaleDateString()}</span>
+          </div>
+          <p className="mt-1 text-[11px] text-emerald-700">This is the last valid, active coverage on record. Running a new verification will not change it unless a new active result is confirmed.</p>
+        </div>
+      )}
       <form onSubmit={run} className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <label className="text-sm sm:col-span-2">
           <span className="label">Payer (search Stedi directory)</span>

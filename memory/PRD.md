@@ -410,3 +410,12 @@ Rewrote AnalyticsBoard into a light dashboard builder (frontend only; still GET 
 - Layouts dropdown: Save current as…, load/delete named layouts (localStorage), plus Copy/Import layout JSON for portability across browsers.
 - Existing Export PDF / Share / Presentation retained; toast feedback added.
 - Persistence: layout v2 key (order, hidden, custom[], spans{}) + saved-layouts key in localStorage. Compiles (307 auth redirect); no NEW TS errors (2 pre-existing baseline HBars errors unchanged). Frontend-only; not run through frontend agent. Preview-only; redeploy to publish.
+
+## Bugfix — Payer search empty (prod) + verification must preserve last active coverage (2026, preview)
+Reported on PRODUCTION (runs pre-fix code — needs redeploy). Two parts:
+1) Payer search shows nothing: root cause is the searchStediPayers wrong-endpoint bug already fixed in preview (now uses healthcare.us.stedi.com/2024-04-01/payers/search — verified returns real filtered payers). Production still runs old code → REDEPLOY required.
+2) Verification must be read-only for coverage and the chart must keep showing the LAST VALID ACTIVE insurance even when a new check is misspelled/errored:
+   - Confirmed the eligibility POST already never writes patient.insurerName/payerId/memberId (verification is read-only; coverage only changes via approved InsuranceCard edit / registration).
+   - Fixed src/lib/coverage.ts getLatestCoverage + getLatestCoverageMap to PREFER the most recent status==="active" check (fallback to latest-any only if no active ever). Previously they returned latest-of-any-status, so a failed "UNI error" attempt replaced the displayed coverage on the schedule badge + eligibility report. DB-validated: latest-any="UNI(error)" but getLatestCoverage now returns "UNITEDHEALTHCARE active" (PASS).
+   - Added an "ACTIVE ON FILE" card at the top of EligibilityChecker showing the last active coverage (persists despite newer errored checks) with a note that verifying won't change it unless a new active result is confirmed.
+Compiles (307 auth); no new TS errors. Preview-only; redeploy to publish to production.
