@@ -11,14 +11,20 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   const [patQ, setPatQ] = useState("");
   const [patResults, setPatResults] = useState<Pat[]>([]);
   const [patient, setPatient] = useState<Pat | null>(null);
+  const [tab, setTab] = useState<"new" | "history">("new");
+  const [history, setHistory] = useState<any[]>([]);
+  const [histLoading, setHistLoading] = useState(false);
   const [currentMeds, setCurrentMeds] = useState<any[]>([]);
-  const [med, setMed] = useState({ medName: "", strength: "", form: "", ndc: "" });
+  const [med, setMed] = useState({ medName: "", strength: "", form: "", ndc: "", deaSchedule: "" });
   const [rx, setRx] = useState({ sig: "", quantity: "", refills: "0", daw: false, notes: "" });
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [providerNpi, setProviderNpi] = useState(defaultNpi);
   const [providerDea, setProviderDea] = useState(defaultDea);
   const [savingProfile, setSavingProfile] = useState<string>("");
-  const [interactions, setInteractions] = useState<{ flagged: { med: string; matchedTerm: string }[]; hasLabel: boolean } | null>(null);
+  const [controlled, setControlled] = useState<{ schedule: string; label: string } | null>(null);
+  const [ctrlLoading, setCtrlLoading] = useState(false);
+  const [confirmCtrl, setConfirmCtrl] = useState(false);
+  const [interactions, setInteractions] = useState<{ flagged: { med: string; matchedTerm: string; level: "high" | "moderate" | "low"; basis: string }[]; hasLabel: boolean; maxLevel: string | null } | null>(null);
   const [intxLoading, setIntxLoading] = useState(false);
   const [ackIntx, setAckIntx] = useState(false);
   const [sig, setSig] = useState<{ type: "typed" | "drawn"; data: string } | null>(null);
@@ -61,12 +67,61 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
           body: JSON.stringify({ name, ndc: med.ndc || undefined, meds: currentMeds.map((m) => m.name) }),
         });
         const d = await r.json();
-        if (live) setInteractions({ flagged: d.flagged || [], hasLabel: !!d.hasLabel });
+        if (live) setInteractions({ flagged: d.flagged || [], hasLabel: !!d.hasLabel, maxLevel: d.maxLevel || null });
       } catch { if (live) setInteractions(null); }
       finally { if (live) setIntxLoading(false); }
     }, 500);
     return () => { live = false; clearTimeout(t); };
   }, [med.medName, med.ndc, currentMeds]);
+
+  // Controlled-substance detection: flag the medication's DEA schedule so the
+  // signing step can require a DEA number + explicit confirmation.
+  useEffect(() => {
+    setConfirmCtrl(false);
+    const name = med.medName.trim();
+    if (!name) { setControlled(null); return; }
+    // If the drug was picked from openFDA search we already know its schedule.
+    if (med.deaSchedule) {
+      const roman = med.deaSchedule.toUpperCase().replace(/^C/, "");
+      setControlled({ schedule: "C" + roman, label: "Schedule " + roman });
+      return;
+    }
+    let live = true;
+    setCtrlLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch("/api/drugs/schedule", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, ndc: med.ndc || undefined }),
+        });
+        const d = await r.json();
+        if (live) setControlled(d?.controlled ? { schedule: d.schedule, label: d.label } : null);
+      } catch { if (live) setControlled(null); }
+      finally { if (live) setCtrlLoading(false); }
+    }, 500);
+    return () => { live = false; clearTimeout(t); };
+  }, [med.medName, med.ndc, med.deaSchedule]);
+
+  // Rx history for the History tab.
+  useEffect(() => {
+    if (tab !== "history") return;
+    let live = true;
+    setHistLoading(true);
+    const url = patient?.id ? `/api/erx?patientId=${encodeURIComponent(patient.id)}` : "/api/erx";
+    fetch(url)
+      .then((r) => r.json())
+      .then((d) => { if (live) setHistory(d.prescriptions || []); })
+      .catch(() => { if (live) setHistory([]); })
+      .finally(() => { if (live) setHistLoading(false); });
+    return () => { live = false; };
+  }, [tab, patient?.id]);
+
+  function rePrescribe(h: any) {
+    setMed({ medName: h.medName || "", strength: h.strength || "", form: h.form || "", ndc: h.ndc || "", deaSchedule: h.deaSchedule || "" });
+    setRx({ sig: h.sig || "", quantity: h.quantity || "", refills: String(h.refills ?? 0), daw: !!h.daw, notes: h.notes || "" });
+    setSig(null); setAckIntx(false); setConfirmCtrl(false); setErr(null);
+    setTab("new");
+  }
 
   async function saveProfile() {
     setSavingProfile("saving");
@@ -84,6 +139,12 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
     if (!patient && !patQ.trim()) { setErr("Select a patient."); return; }
     if (!sig) { setErr("Add your e-signature to sign the prescription."); return; }
     if (interactions && interactions.flagged.length > 0 && !ackIntx) { setErr("Potential interactions found — review and acknowledge before signing."); return; }
+    if (controlled) {
+      const dea = providerDea.trim();
+      if (!dea) { setErr(`A DEA number is required to prescribe a controlled substance (${controlled.label}). Add it under Prescriber.`); return; }
+      if (!/^[A-Za-z]{2}\d{7}$/.test(dea)) { setErr("Enter a valid DEA number (2 letters followed by 7 digits) for controlled substances."); return; }
+      if (!confirmCtrl) { setErr(`Confirm the ${controlled.label} controlled-substance prescription before signing.`); return; }
+    }
     setBusy(true);
     try {
       const body = {
@@ -91,6 +152,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
         patientName: patient ? `${patient.lastName}, ${patient.firstName}` : patQ.trim(),
         patientDob: patient?.dob ? String(patient.dob).slice(0, 10) : null,
         ...med,
+        deaSchedule: controlled?.schedule || null,
         sig: rx.sig, quantity: rx.quantity, refills: parseInt(rx.refills, 10) || 0, daw: rx.daw, notes: rx.notes,
         pharmacyName: pharmacy?.name || null, pharmacyPhone: pharmacy?.phone || null,
         pharmacyAddress: pharmacy ? [pharmacy.city, pharmacy.state].filter(Boolean).join(", ") : null,
@@ -113,16 +175,54 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
         <p className="text-sm text-slate-500 mt-1">The eRx has been recorded and e-signed.</p>
         <div className="mt-4 flex justify-center gap-2">
           <a href={`/api/erx/${savedId}/pdf`} target="_blank" rel="noopener" className="btn-primary">Print / Download PDF</a>
-          <button onClick={() => { setSavedId(null); setMed({ medName: "", strength: "", form: "", ndc: "" }); setRx({ sig: "", quantity: "", refills: "0", daw: false, notes: "" }); setSig(null); setPatient(null); setPatQ(""); setPharmacy(null); }} className="btn-secondary">New prescription</button>
+          <button onClick={() => { setSavedId(null); setMed({ medName: "", strength: "", form: "", ndc: "", deaSchedule: "" }); setRx({ sig: "", quantity: "", refills: "0", daw: false, notes: "" }); setSig(null); setPatient(null); setPatQ(""); setPharmacy(null); }} className="btn-secondary">New prescription</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-5xl">
-      <section className="card card-pad space-y-3">
-        <h3 className="font-semibold text-slate-900">Patient</h3>
+    <div className="max-w-5xl space-y-4">
+      <div className="inline-flex rounded-lg bg-slate-100 p-1 ring-1 ring-slate-200">
+        <button onClick={() => setTab("new")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${tab === "new" ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>New prescription</button>
+        <button onClick={() => setTab("history")} className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${tab === "history" ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Rx history</button>
+      </div>
+
+      {tab === "history" ? (
+        <section className="card card-pad space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900">Signed prescriptions {patient ? <span className="text-slate-400 font-normal">· {patient.lastName}, {patient.firstName}</span> : <span className="text-slate-400 font-normal">· all recent</span>}</h3>
+            <span className="text-xs text-slate-400">{history.length} shown</span>
+          </div>
+          {histLoading ? (
+            <p className="text-sm text-slate-400">Loading history…</p>
+          ) : history.length === 0 ? (
+            <p className="text-sm text-slate-400">No signed prescriptions{patient ? " for this patient" : ""} yet.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {history.map((h) => (
+                <li key={h.id} className="flex items-center gap-3 py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-slate-900 truncate">
+                      {h.medName}{h.strength ? ` ${h.strength}` : ""}
+                      {h.deaSchedule && <span className="ml-2 inline-flex items-center rounded bg-amber-600 px-1.5 py-0.5 text-[9px] font-bold text-white align-middle">{h.deaSchedule}</span>}
+                    </div>
+                    <div className="text-xs text-slate-500 truncate">{[h.patientName, h.sig].filter(Boolean).join(" · ")}</div>
+                    <div className="text-[11px] text-slate-400">{new Date(h.createdAt).toLocaleString()} · Qty {h.quantity || "—"} · Refills {h.refills ?? 0}{h.pharmacyName ? ` · ${h.pharmacyName}` : ""}</div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <a href={`/api/erx/${h.id}/pdf`} target="_blank" rel="noopener" className="chip bg-white ring-slate-200 text-xs hover:bg-slate-50">Reprint</a>
+                    <button onClick={() => rePrescribe(h)} className="chip bg-brand-100 text-brand-800 ring-brand-200 text-xs">Re-prescribe</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <section className="card card-pad space-y-3">
+          <h3 className="font-semibold text-slate-900">Patient</h3>
         {patient ? (
           <div className="flex items-center justify-between rounded-lg bg-brand-50 ring-1 ring-brand-200 px-3 py-2">
             <span className="text-sm font-medium">{patient.lastName}, {patient.firstName} <span className="text-slate-400 font-mono text-xs">{patient.mrn}</span></span>
@@ -151,7 +251,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
                 {currentMeds.map((m) => (
                   <li key={m.id} className="flex items-center gap-2 text-xs bg-white rounded ring-1 ring-slate-200 px-2 py-1">
                     <span className="flex-1 truncate"><span className="font-medium text-slate-800">{m.name}</span>{m.strength ? ` · ${m.strength}` : ""}{m.sig ? <span className="text-slate-400"> — {m.sig}</span> : null}</span>
-                    <button type="button" onClick={() => { setMed({ medName: m.name || "", strength: m.strength || "", form: m.form || "", ndc: m.ndc || "" }); if (m.sig) setRx((p) => ({ ...p, sig: m.sig })); }} className="chip bg-brand-100 text-brand-800 ring-brand-200 text-[10px] shrink-0">Prescribe again</button>
+                    <button type="button" onClick={() => { setMed({ medName: m.name || "", strength: m.strength || "", form: m.form || "", ndc: m.ndc || "", deaSchedule: "" }); if (m.sig) setRx((p) => ({ ...p, sig: m.sig })); }} className="chip bg-brand-100 text-brand-800 ring-brand-200 text-[10px] shrink-0">Prescribe again</button>
                   </li>
                 ))}
               </ul>
@@ -160,7 +260,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
         )}
 
         <h3 className="font-semibold text-slate-900 pt-1">Medication (FDA)</h3>
-        <DrugSearch onSelect={(d) => setMed({ medName: d.brandName || d.genericName || "", strength: d.strengths?.[0] || "", form: d.dosageForm || "", ndc: d.productNdc || "" })} />
+        <DrugSearch onSelect={(d) => setMed({ medName: d.brandName || d.genericName || "", strength: d.strengths?.[0] || "", form: d.dosageForm || "", ndc: d.productNdc || "", deaSchedule: d.deaSchedule || "" })} />
         <div className="grid grid-cols-2 gap-2">
           <label className="text-sm"><span className="label">Medication *</span><input className="input w-full" value={med.medName} onChange={(e) => setMed({ ...med, medName: e.target.value })} /></label>
           <label className="text-sm"><span className="label">Strength</span><input className="input w-full" value={med.strength} onChange={(e) => setMed({ ...med, strength: e.target.value })} /></label>
@@ -174,21 +274,51 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
           <label className="text-sm flex items-end gap-2 pb-2"><input type="checkbox" checked={rx.daw} onChange={(e) => setRx({ ...rx, daw: e.target.checked })} /> DAW</label>
         </div>
 
+        {controlled && (
+          <div className="rounded-lg bg-amber-50 ring-1 ring-amber-300 p-3">
+            <div className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+              <span className="inline-flex items-center rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{controlled.schedule}</span>
+              Controlled substance — {controlled.label}
+            </div>
+            <p className="mt-1 text-[11px] text-amber-800">A valid DEA number is required and an extra confirmation must be checked before signing.</p>
+            {!providerDea.trim() && <p className="mt-1 text-[11px] font-medium text-rose-700">⚠ No DEA number on file — add it under Prescriber →</p>}
+            <label className="mt-2 flex items-start gap-2 text-xs text-amber-900">
+              <input type="checkbox" className="mt-0.5" checked={confirmCtrl} onChange={(e) => setConfirmCtrl(e.target.checked)} />
+              I confirm this {controlled.label} controlled-substance prescription is clinically appropriate and authorized under my DEA registration.
+            </label>
+            <p className="mt-1 text-[10px] text-amber-600">Best-effort classification from openFDA — not certified EPCS / DEA e-prescribing.</p>
+          </div>
+        )}
+        {!controlled && ctrlLoading && med.medName && (
+          <div className="text-[11px] text-slate-400">Checking controlled-substance status…</div>
+        )}
+
         {med.medName && currentMeds.length > 0 && (
           <div>
             {intxLoading ? (
               <div className="text-[11px] text-slate-400">Checking interactions with current meds…</div>
             ) : interactions && interactions.flagged.length > 0 ? (
-              <div className="rounded-lg bg-rose-50 ring-1 ring-rose-200 p-3">
-                <div className="text-sm font-semibold text-rose-800">⚠ Possible interaction with current medications</div>
-                <ul className="mt-1 text-xs text-rose-700 list-disc pl-4">
-                  {interactions.flagged.map((f, i) => <li key={i}><span className="font-medium">{med.medName}</span> label references <span className="font-medium">{f.med}</span></li>)}
+              <div className={`rounded-lg p-3 ring-1 ${interactions.maxLevel === "high" ? "bg-rose-50 ring-rose-200" : interactions.maxLevel === "moderate" ? "bg-amber-50 ring-amber-200" : "bg-slate-50 ring-slate-200"}`}>
+                <div className={`text-sm font-semibold ${interactions.maxLevel === "high" ? "text-rose-800" : interactions.maxLevel === "moderate" ? "text-amber-800" : "text-slate-800"}`}>
+                  ⚠ Possible interaction{interactions.flagged.length > 1 ? "s" : ""} with current medications
+                </div>
+                <ul className="mt-1.5 space-y-1.5">
+                  {interactions.flagged.map((f, i) => {
+                    const c = f.level === "high" ? "bg-rose-600" : f.level === "moderate" ? "bg-amber-500" : "bg-slate-400";
+                    const lbl = f.level === "high" ? "HIGH" : f.level === "moderate" ? "MODERATE" : "LOW";
+                    return (
+                      <li key={i} className="flex items-start gap-2 text-xs text-slate-700">
+                        <span className={`mt-0.5 inline-flex items-center rounded ${c} px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0`}>{lbl}</span>
+                        <span><span className="font-medium">{med.medName}</span> ↔ <span className="font-medium">{f.med}</span> <span className="text-slate-400">— {f.basis}</span></span>
+                      </li>
+                    );
+                  })}
                 </ul>
-                <label className="mt-2 flex items-center gap-2 text-xs text-rose-800">
+                <label className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-800">
                   <input type="checkbox" checked={ackIntx} onChange={(e) => setAckIntx(e.target.checked)} />
-                  I have reviewed these and choose to proceed
+                  I have reviewed these interactions and choose to proceed
                 </label>
-                <p className="mt-1 text-[10px] text-rose-500">Informational (openFDA label text) — not a verified interaction engine.</p>
+                <p className="mt-1 text-[10px] text-slate-500">Severity inferred from openFDA label sections (boxed warning / contraindications / warnings) — not a verified interaction engine.</p>
               </div>
             ) : interactions && interactions.hasLabel ? (
               <div className="text-[11px] text-emerald-600">✓ No label interactions found against the patient&apos;s {currentMeds.length} current med(s).</div>
@@ -218,6 +348,8 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
         <button onClick={submit} disabled={busy} className="btn-primary w-full py-3">{busy ? "Signing…" : "Sign & generate prescription"}</button>
         <p className="text-[10px] text-slate-400">The PDF includes the practice letterhead &amp; NPI, pharmacy details, and your NPI + e-signature. Demo build — not for clinical use.</p>
       </section>
+      </div>
+      )}
     </div>
   );
 }

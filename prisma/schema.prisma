@@ -1155,6 +1155,7 @@ model Prescription {
   providerName   String
   providerNpi    String?
   providerDea    String?
+  deaSchedule    String?  // controlled-substance schedule if applicable (C-II..C-V)
   providerId     String?
   signatureType  String?  // typed | drawn
   signatureData  String?  // typed name or PNG data URL

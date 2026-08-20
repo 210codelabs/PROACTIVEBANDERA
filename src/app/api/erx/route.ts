@@ -26,14 +26,17 @@ const Body = z.object({
   providerName: z.string().min(1),
   providerNpi: z.string().optional().nullable(),
   providerDea: z.string().optional().nullable(),
+  deaSchedule: z.string().optional().nullable(),
   signatureType: z.enum(["typed", "drawn"]).optional().nullable(),
   signatureData: z.string().optional().nullable(),
 });
 
-// GET /api/erx -> recent prescriptions
-export async function GET() {
+// GET /api/erx?patientId=... -> recent prescriptions (optionally for one patient)
+export async function GET(req: Request) {
   try { await requireSession(); } catch { return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); }
-  const items = await db.prescription.findMany({ orderBy: { createdAt: "desc" }, take: 50 }).catch(() => []);
+  const patientId = new URL(req.url).searchParams.get("patientId")?.trim() || "";
+  const where = patientId ? { patientId } : {};
+  const items = await db.prescription.findMany({ where, orderBy: { createdAt: "desc" }, take: 50 }).catch(() => []);
   return NextResponse.json({ prescriptions: items });
 }
 
@@ -52,6 +55,7 @@ export async function POST(req: Request) {
         sig: b.sig || null, quantity: b.quantity || null, refills: b.refills ?? 0, daw: b.daw ?? false, notes: b.notes || null,
         pharmacyName: b.pharmacyName || null, pharmacyAddress: b.pharmacyAddress || null, pharmacyNpi: b.pharmacyNpi || null, pharmacyPhone: b.pharmacyPhone || null,
         providerName: b.providerName, providerNpi: b.providerNpi || null, providerDea: b.providerDea || null, providerId: user.id,
+        deaSchedule: b.deaSchedule || null,
         signatureType: b.signatureType || null, signatureData: b.signatureData || null,
         status: "signed",
       },

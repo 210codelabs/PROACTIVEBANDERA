@@ -52,6 +52,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   page.drawText("Rx", { x: 40, y: y - 4, size: 26, font: bold, color: navy });
   const medLine = [rx.medName, rx.strength].filter(Boolean).join(" ");
   T(medLine, 82, 15, bold); y -= 20;
+  if ((rx as any).deaSchedule) {
+    page.drawText(ascii(`CONTROLLED SUBSTANCE - ${(rx as any).deaSchedule}`), { x: 82, y: y + 2, size: 9, font: bold, color: rgb(0.7, 0.1, 0.1) });
+    y -= 14;
+  }
   T([rx.form ? `Form: ${rx.form}` : "", rx.ndc ? `NDC: ${rx.ndc}` : ""].filter(Boolean).join("    "), 82, 10, font, gray); y -= 22;
   T(`Sig: ${rx.sig || "—"}`, 82, 12, font); y -= 18;
   T(`Quantity: ${rx.quantity || "—"}      Refills: ${rx.refills}      ${rx.daw ? "Dispense As Written (DAW)" : "Substitution permitted"}`, 82, 11, font); y -= 18;
