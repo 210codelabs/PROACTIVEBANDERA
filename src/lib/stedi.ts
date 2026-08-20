@@ -224,11 +224,19 @@ export function normalizeEligibility(raw: any): EligibilityResult {
   return { status, payerName, planName: planName ? String(planName) : undefined, summary, raw };
 }
 
-// ---- Payers (Stedi payer directory) ----
+// ---- Payers (Stedi Search Payers API) ----
+// Uses the Search Payers endpoint (healthcare base + /payers/search), which does
+// case-insensitive fuzzy matching on payer name / ID / alias. The older
+// payers.us.stedi.com/payers endpoint only LISTS the directory and ignores the
+// query, so it must NOT be used for search. query is required (default "*");
+// pageSize min is 10. Results are wrapped as { payer: {...} } — we flatten them
+// so callers keep reading displayName / stediId / primaryPayerId directly.
 export async function searchStediPayers(query: string): Promise<any[]> {
-  const qs = query ? `?query=${encodeURIComponent(query)}&pageSize=25` : "?pageSize=25";
-  const body = await stediFetch<any>(STEDI_BASE.payers, `/payers${qs}`, { method: "GET" });
-  return body?.items || body?.payers || [];
+  const q = (query && query.trim()) || "*";
+  const qs = `?query=${encodeURIComponent(q)}&pageSize=25`;
+  const body = await stediFetch<any>(STEDI_BASE.healthcare, `/payers/search${qs}`, { method: "GET" });
+  const items = body?.items || body?.payers || [];
+  return Array.isArray(items) ? items.map((it: any) => it?.payer || it) : [];
 }
 
 // ---- Enrollment (transaction enrollment; NOT clinical credentialing) ----
