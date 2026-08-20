@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import PayerAutocomplete from "@/components/billing/PayerAutocomplete";
 
 type Patient = { id: string; firstName: string; lastName: string; dob?: string; memberId?: string | null; insurerName?: string | null };
 type Summary = { label: string; value: string };
@@ -26,6 +27,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 export default function EligibilityChecker({ patient, defaultPayerId = "" }: { patient?: Patient; defaultPayerId?: string }) {
   const [payerId, setPayerId] = useState(defaultPayerId);
+  const [payerName, setPayerName] = useState(patient?.insurerName ?? "");
   const [firstName, setFirstName] = useState(patient?.firstName ?? "");
   const [lastName, setLastName] = useState(patient?.lastName ?? "");
   const [dob, setDob] = useState(patient?.dob ? String(patient.dob).slice(0, 10) : "");
@@ -53,12 +55,13 @@ export default function EligibilityChecker({ patient, defaultPayerId = "" }: { p
 
   async function run(e: React.FormEvent) {
     e.preventDefault();
+    if (!payerId) { setError("Select a payer from the Stedi directory first."); return; }
     setLoading(true); setError(null); setResult(null); setCachedNote(null);
     try {
       const res = await fetch("/api/stedi/eligibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId: patient?.id, payerId, firstName, lastName, dateOfBirth: dob, memberId, force }),
+        body: JSON.stringify({ patientId: patient?.id, payerId, payerName, firstName, lastName, dateOfBirth: dob, memberId, force }),
       });
       const d = await res.json();
       if (!res.ok || d.error) { setError(d.error || "Eligibility check failed."); }
@@ -75,9 +78,16 @@ export default function EligibilityChecker({ patient, defaultPayerId = "" }: { p
   return (
     <div className="space-y-4">
       <form onSubmit={run} className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <label className="text-sm">
-          <span className="label">Payer ID</span>
-          <input className="input" value={payerId} onChange={(e) => setPayerId(e.target.value)} placeholder="e.g. 87726" required />
+        <label className="text-sm sm:col-span-2">
+          <span className="label">Payer (search Stedi directory)</span>
+          <PayerAutocomplete
+            value={payerName}
+            onChange={(v) => { setPayerName(v); }}
+            onSelect={(s) => { setPayerName(s.name); setPayerId(s.payerId); }}
+            placeholder="Search insurer / payer name…"
+          />
+          <input type="hidden" value={payerId} readOnly required />
+          {payerId && <span className="text-[11px] text-slate-400">Stedi payer ID: <span className="font-mono">{payerId}</span></span>}
         </label>
         <label className="text-sm">
           <span className="label">Member ID</span>

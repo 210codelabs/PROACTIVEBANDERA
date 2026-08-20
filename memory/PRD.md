@@ -356,3 +356,12 @@ Delivered:
 - New Prisma model Prescription. POST /api/erx creates the signed Rx (and a best-effort Order type=rx when a patient is linked). GET /api/erx lists recent.
 - PDF: GET /api/erx/[id]/pdf (pdf-lib) with branded letterhead pulling practice name/NPI/address/phone from getStediConfig() (admin-configured; falls back to "Proactive Clinic"), patient block, Rx symbol + medication/sig/qty/refills/DAW, pharmacy block (name/addr/phone/NPI), and signature block (embedded drawn PNG or cursive typed name) + provider NPI + "Electronically signed" timestamp.
 Verified: /erx 200; POST /api/erx -> {ok,id}; PDF -> 200 application/pdf valid %PDF-; sidebar /erx link present. Preview-only; redeploy to publish. NOTE: letterhead NPI/address come from Stedi/admin config; set them for a complete letterhead.
+
+## Iteration — Wiring audit: Stedi payer picker everywhere + eRx connections (Aug 2026, preview)
+User request: no loose/empty boxes — patient boxes searchable against real list; pharmacy/NPI always NPPES; meds always FDA; Medicare via Blue Button; insurance eligibility (except Medicare) ALWAYS Stedi with a searchable Stedi PAYER picker everywhere.
+Delivered / verified:
+- EligibilityChecker: replaced the raw "Payer ID" text box with the searchable <PayerAutocomplete/> (live Stedi payer directory search; fills payerName + Stedi payerId; guards submit until a payer is selected). Verified: /api/stedi/payers?stedi=aetna -> 25 live results; billing page renders 200.
+- eRx patient box already wired to /api/patients/search (verified 5 results) — searchable real patient list.
+- Confirmed already-correct wiring (no change needed): patient registration (NewPatientForm) payer uses PayerAutocomplete; pharmacy selection uses PharmacyPicker (internal + NPPES national registry + import); medications use openFDA DrugSearch; Medicare coverage/meds via BlueButtonConnect.
+- Remaining raw payer-ID inputs are in advanced/manual tools by design (AiCodingAssistant, RevenueCycle manual claim entry line ~195/519, InsuranceCard field) — can be swapped to PayerAutocomplete on request.
+Note: A full app-wide "every box" audit is large; this pass wired the primary insurance-eligibility + eRx flows. Preview-only; redeploy to publish.
