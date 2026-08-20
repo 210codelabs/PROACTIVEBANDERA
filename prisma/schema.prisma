@@ -192,6 +192,7 @@ model User {
   lastName       String
   role           String   // provider | nurse | frontdesk | billing | admin
   npi            String?  // for providers
+  dea            String?  // DEA number (providers)
   credential     String?  // MD, DO, NP, PA, RN, DPT, etc.
   specialty      String?
   active         Boolean  @default(true)
@@ -1153,6 +1154,7 @@ model Prescription {
   pharmacyPhone  String?
   providerName   String
   providerNpi    String?
+  providerDea    String?
   providerId     String?
   signatureType  String?  // typed | drawn
   signatureData  String?  // typed name or PNG data URL

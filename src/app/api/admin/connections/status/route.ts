@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
-import { getStediConfig } from "@/lib/stedi";
+import { getStediConfig, searchStediPayers } from "@/lib/stedi";
 import { bbConfig } from "@/lib/cms/bluebutton";
 import { emailConfigured } from "@/lib/email";
 
@@ -21,13 +21,27 @@ async function ping(url: string, ms = 6000): Promise<{ ok: boolean; ms: number; 
   }
 }
 
-// GET /api/admin/connections/status
-export async function GET() {
+// GET /api/admin/connections/status[?deep=1]
+export async function GET(req: Request) {
   let user; try { user = await requireSession(); } catch { return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); }
   if (user.role !== "admin") return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
+  const deep = new URL(req.url).searchParams.get("deep") === "1";
   const stedi = await getStediConfig().catch(() => null as any);
   const bb = bbConfig();
+
+  // Optional live Stedi payer-directory ping (only on deep check + configured).
+  let stediLive: { state: string; detail: string } | null = null;
+  if (deep && stedi?.apiKey) {
+    const started = Date.now();
+    try {
+      const res = await searchStediPayers("aetna");
+      const n = Array.isArray(res) ? res.length : 0;
+      stediLive = { state: n > 0 ? "up" : "down", detail: `Payer directory reachable · ${n} results · ${Date.now() - started} ms` };
+    } catch (e: any) {
+      stediLive = { state: "down", detail: `Ping failed: ${String(e?.message || e).slice(0, 80)}` };
+    }
+  }
 
   // Live public pings (no keys, free)
   const [nppes, openfda] = await Promise.all([
@@ -37,10 +51,10 @@ export async function GET() {
 
   const checks = [
     {
-      key: "stedi", name: "Stedi — Eligibility & Claims", category: "Insurance / RCM", live: false,
+      key: "stedi", name: "Stedi — Eligibility & Claims", category: "Insurance / RCM", live: Boolean(stediLive),
       configured: Boolean(stedi?.apiKey),
-      state: stedi?.apiKey ? "configured" : "not_configured",
-      detail: stedi?.apiKey ? `Enabled: ${stedi.enabled ? "yes" : "no"}${stedi.orgName ? " · " + stedi.orgName : ""}${stedi.defaultPayerId ? " · default payer " + stedi.defaultPayerId : ""}` : "Add your Stedi API key in Settings → Integrations.",
+      state: stediLive ? stediLive.state : (stedi?.apiKey ? "configured" : "not_configured"),
+      detail: stediLive ? stediLive.detail : (stedi?.apiKey ? `Enabled: ${stedi.enabled ? "yes" : "no"}${stedi.orgName ? " · " + stedi.orgName : ""}${stedi.defaultPayerId ? " · default payer " + stedi.defaultPayerId : ""}` : "Add your Stedi API key in Settings → Integrations."),
       usedFor: "All non-Medicare eligibility (270/271), claims, ERA.",
     },
     {

@@ -84,6 +84,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
   page.drawText(ascii(rx.providerName), { x: 40, y: sigY + 10, size: 12, font: bold });
   if (rx.providerNpi) page.drawText(ascii(`Provider NPI: ${rx.providerNpi}`), { x: 40, y: sigY - 4, size: 10, font, color: gray });
+  if (rx.providerDea) page.drawText(ascii(`DEA: ${rx.providerDea}`), { x: 200, y: sigY - 4, size: 10, font, color: gray });
   page.drawText(ascii(`Electronically signed · ${new Date(rx.createdAt).toLocaleString()}`), { x: 40, y: sigY - 18, size: 8, font, color: gray });
 
   page.drawText("This prescription was generated electronically by " + ascii(clinicName) + ".", { x: 40, y: 40, size: 8, font, color: gray });

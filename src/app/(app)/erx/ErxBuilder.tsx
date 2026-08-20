@@ -7,7 +7,7 @@ import SignaturePad from "./SignaturePad";
 
 type Pat = { id: string; firstName: string; lastName: string; dob?: string; mrn?: string };
 
-export default function ErxBuilder({ providerName }: { providerName: string }) {
+export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea = "" }: { providerName: string; defaultNpi?: string; defaultDea?: string }) {
   const [patQ, setPatQ] = useState("");
   const [patResults, setPatResults] = useState<Pat[]>([]);
   const [patient, setPatient] = useState<Pat | null>(null);
@@ -15,7 +15,12 @@ export default function ErxBuilder({ providerName }: { providerName: string }) {
   const [med, setMed] = useState({ medName: "", strength: "", form: "", ndc: "" });
   const [rx, setRx] = useState({ sig: "", quantity: "", refills: "0", daw: false, notes: "" });
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
-  const [providerNpi, setProviderNpi] = useState("");
+  const [providerNpi, setProviderNpi] = useState(defaultNpi);
+  const [providerDea, setProviderDea] = useState(defaultDea);
+  const [savingProfile, setSavingProfile] = useState<string>("");
+  const [interactions, setInteractions] = useState<{ flagged: { med: string; matchedTerm: string }[]; hasLabel: boolean } | null>(null);
+  const [intxLoading, setIntxLoading] = useState(false);
+  const [ackIntx, setAckIntx] = useState(false);
   const [sig, setSig] = useState<{ type: "typed" | "drawn"; data: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -41,11 +46,44 @@ export default function ErxBuilder({ providerName }: { providerName: string }) {
     return () => { live = false; };
   }, [patient?.id]);
 
+  // Interaction check: when a medication is chosen and the patient has current
+  // meds, ask openFDA whether the new drug's label interactions mention any of them.
+  useEffect(() => {
+    setAckIntx(false);
+    const name = med.medName.trim();
+    if (!name || currentMeds.length === 0) { setInteractions(null); return; }
+    let live = true;
+    setIntxLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch("/api/drugs/interactions", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, ndc: med.ndc || undefined, meds: currentMeds.map((m) => m.name) }),
+        });
+        const d = await r.json();
+        if (live) setInteractions({ flagged: d.flagged || [], hasLabel: !!d.hasLabel });
+      } catch { if (live) setInteractions(null); }
+      finally { if (live) setIntxLoading(false); }
+    }, 500);
+    return () => { live = false; clearTimeout(t); };
+  }, [med.medName, med.ndc, currentMeds]);
+
+  async function saveProfile() {
+    setSavingProfile("saving");
+    try {
+      const r = await fetch("/api/me/prescriber", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ npi: providerNpi, dea: providerDea }) });
+      const d = await r.json();
+      setSavingProfile(d.ok ? "saved" : "err");
+    } catch { setSavingProfile("err"); }
+    setTimeout(() => setSavingProfile(""), 2500);
+  }
+
   async function submit() {
     setErr(null);
     if (!med.medName.trim()) { setErr("Select or enter a medication."); return; }
     if (!patient && !patQ.trim()) { setErr("Select a patient."); return; }
     if (!sig) { setErr("Add your e-signature to sign the prescription."); return; }
+    if (interactions && interactions.flagged.length > 0 && !ackIntx) { setErr("Potential interactions found — review and acknowledge before signing."); return; }
     setBusy(true);
     try {
       const body = {
@@ -57,7 +95,7 @@ export default function ErxBuilder({ providerName }: { providerName: string }) {
         pharmacyName: pharmacy?.name || null, pharmacyPhone: pharmacy?.phone || null,
         pharmacyAddress: pharmacy ? [pharmacy.city, pharmacy.state].filter(Boolean).join(", ") : null,
         pharmacyNpi: (pharmacy as any)?.ncpdpId || null,
-        providerName, providerNpi: providerNpi || null,
+        providerName, providerNpi: providerNpi || null, providerDea: providerDea || null,
         signatureType: sig.type, signatureData: sig.data,
       };
       const r = await fetch("/api/erx", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -135,6 +173,28 @@ export default function ErxBuilder({ providerName }: { providerName: string }) {
           <label className="text-sm"><span className="label">Refills</span><input type="number" className="input w-full" value={rx.refills} onChange={(e) => setRx({ ...rx, refills: e.target.value })} /></label>
           <label className="text-sm flex items-end gap-2 pb-2"><input type="checkbox" checked={rx.daw} onChange={(e) => setRx({ ...rx, daw: e.target.checked })} /> DAW</label>
         </div>
+
+        {med.medName && currentMeds.length > 0 && (
+          <div>
+            {intxLoading ? (
+              <div className="text-[11px] text-slate-400">Checking interactions with current meds…</div>
+            ) : interactions && interactions.flagged.length > 0 ? (
+              <div className="rounded-lg bg-rose-50 ring-1 ring-rose-200 p-3">
+                <div className="text-sm font-semibold text-rose-800">⚠ Possible interaction with current medications</div>
+                <ul className="mt-1 text-xs text-rose-700 list-disc pl-4">
+                  {interactions.flagged.map((f, i) => <li key={i}><span className="font-medium">{med.medName}</span> label references <span className="font-medium">{f.med}</span></li>)}
+                </ul>
+                <label className="mt-2 flex items-center gap-2 text-xs text-rose-800">
+                  <input type="checkbox" checked={ackIntx} onChange={(e) => setAckIntx(e.target.checked)} />
+                  I have reviewed these and choose to proceed
+                </label>
+                <p className="mt-1 text-[10px] text-rose-500">Informational (openFDA label text) — not a verified interaction engine.</p>
+              </div>
+            ) : interactions && interactions.hasLabel ? (
+              <div className="text-[11px] text-emerald-600">✓ No label interactions found against the patient&apos;s {currentMeds.length} current med(s).</div>
+            ) : null}
+          </div>
+        )}
       </section>
 
       <section className="card card-pad space-y-3">
@@ -145,6 +205,12 @@ export default function ErxBuilder({ providerName }: { providerName: string }) {
         <div className="grid grid-cols-2 gap-2">
           <label className="text-sm"><span className="label">Provider</span><input className="input w-full" value={providerName} disabled /></label>
           <label className="text-sm"><span className="label">Provider NPI</span><input className="input w-full" value={providerNpi} onChange={(e) => setProviderNpi(e.target.value)} placeholder="10-digit NPI" /></label>
+          <label className="text-sm"><span className="label">DEA number</span><input className="input w-full" value={providerDea} onChange={(e) => setProviderDea(e.target.value)} placeholder="e.g. AB1234563" /></label>
+          <div className="flex items-end">
+            <button type="button" onClick={saveProfile} className="btn-secondary w-full py-2 text-sm">
+              {savingProfile === "saving" ? "Saving…" : savingProfile === "saved" ? "Saved to profile ✓" : savingProfile === "err" ? "Couldn't save" : "Save NPI/DEA to my profile"}
+            </button>
+          </div>
         </div>
         <SignaturePad onChange={setSig} />
 

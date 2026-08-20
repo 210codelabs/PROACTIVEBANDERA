@@ -18,23 +18,26 @@ export default function ConnectionsClient() {
   const [checkedAt, setCheckedAt] = useState<string>("");
   const [err, setErr] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (deep = false) => {
     setLoading(true); setErr(null);
     try {
-      const r = await fetch("/api/admin/connections/status");
+      const r = await fetch(`/api/admin/connections/status${deep ? "?deep=1" : ""}`);
       const d = await r.json();
       if (!r.ok) { setErr(d.error || "Failed to load status."); return; }
       setChecks(d.checks || []); setCheckedAt(d.checkedAt || "");
     } catch { setErr("Failed to load status."); } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(false); }, [load]);
 
   return (
     <div className="space-y-4 max-w-4xl">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm text-slate-500">Live status of every external integration wired into the platform.</p>
-        <button onClick={load} disabled={loading} className="ml-auto btn-secondary py-1.5 text-sm">{loading ? "Checking…" : "Re-check"}</button>
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={() => load(true)} disabled={loading} className="btn-secondary py-1.5 text-sm">Deep-check Stedi</button>
+          <button onClick={() => load(false)} disabled={loading} className="btn-secondary py-1.5 text-sm">{loading ? "Checking…" : "Re-check"}</button>
+        </div>
       </div>
       {checkedAt && <p className="text-[11px] text-slate-400">Last checked {new Date(checkedAt).toLocaleString()}</p>}
       {err && <div className="rounded-md bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-3 py-2 text-sm">{err}</div>}

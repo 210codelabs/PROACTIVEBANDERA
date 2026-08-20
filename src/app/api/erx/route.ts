@@ -25,6 +25,7 @@ const Body = z.object({
   pharmacyPhone: z.string().optional().nullable(),
   providerName: z.string().min(1),
   providerNpi: z.string().optional().nullable(),
+  providerDea: z.string().optional().nullable(),
   signatureType: z.enum(["typed", "drawn"]).optional().nullable(),
   signatureData: z.string().optional().nullable(),
 });
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
         medName: b.medName, strength: b.strength || null, form: b.form || null, ndc: b.ndc || null,
         sig: b.sig || null, quantity: b.quantity || null, refills: b.refills ?? 0, daw: b.daw ?? false, notes: b.notes || null,
         pharmacyName: b.pharmacyName || null, pharmacyAddress: b.pharmacyAddress || null, pharmacyNpi: b.pharmacyNpi || null, pharmacyPhone: b.pharmacyPhone || null,
-        providerName: b.providerName, providerNpi: b.providerNpi || null, providerId: user.id,
+        providerName: b.providerName, providerNpi: b.providerNpi || null, providerDea: b.providerDea || null, providerId: user.id,
         signatureType: b.signatureType || null, signatureData: b.signatureData || null,
         status: "signed",
       },
