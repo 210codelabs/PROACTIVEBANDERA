@@ -1112,3 +1112,21 @@ model SpecialtyPatient {
   @@index([specialtyId])
   @@index([patientId])
 }
+
+// Sales/demo leads captured from the public "Request a Demo" marketing page.
+model DemoRequest {
+  id            String   @id @default(cuid()) @map("_id")
+  name          String
+  email         String
+  phone         String?
+  organization  String?
+  role          String?
+  practiceSize  String?
+  interests     Json?    // string[]
+  preferredTime String?
+  message       String?
+  source        String?  // landing | header | cta
+  emailStatus   String   @default("pending") // sent | failed | skipped | pending
+  createdAt     DateTime @default(now())
+  @@index([createdAt])
+}

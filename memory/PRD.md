@@ -337,3 +337,13 @@ Delivered (backend agent-tested; UI screenshot-verified in preview):
 - PAGES: /analytics (src/app/(app)/analytics/page.tsx, in Shell) and /analytics/present (frameless, NO Shell — (app)/layout adds only SessionGuard) with a branded gradient header (emblem /icon-192.png + clinic name + range + prepared-by + timestamp) and @media print CSS (A4 landscape) for clean PDF export. Both require staff session (middleware + requireSession).
 - NAV: added "Analytics & Insights" right under Dashboard in the Clinical group (new Icon.Chart in Shell.tsx).
 Verified: /api/analytics 200 w/ real data (21 patients, 29 appts, $18,870 inventory, 18 specialties); backend agent PASS (auth/shape/default/tiny-range); screenshots of dashboard (KPIs+area chart+toolbar) and frameless present view. Frontend UI test agent NOT run (needs user OK). Preview-only; redeploy to publish to proactiveclinics.com.
+
+## Iteration — "Request a Demo" marketing page + URGENT email (Aug 2026, preview)
+User request: make all "Request a Demo" buttons open a branded marketing page with a proper contact form; on submit send an URGENT email (subject "Demo Request from Prospect") to info@210codelabs.com CC andy@proactivemedclinic.com.
+Delivered:
+- NEW public branded page /demo (src/app/demo/page.tsx + DemoRequestForm.tsx): marketing pitch (platform highlights + standards strip) + full contact form (name, work email, phone, organization, role, practice size, interest chips, best time, message) with honeypot + success state.
+- POST /api/demo (public): validates (zod), persists a DemoRequest lead (new Prisma model) as a safety net, then sends the URGENT email via new sendDemoRequest() in src/lib/email.ts — to info@210codelabs.com, CC andy@proactivemedclinic.com, replyTo=prospect, subject EXACTLY "Demo Request from Prospect", priority headers (X-Priority:1, Importance:high, Priority:urgent). Returns {ok, emailStatus, referenceId}. emailStatus="skipped" until Resend is configured (lead still saved).
+- Repointed ALL "Request a Demo" CTAs from /book -> /demo: LandingHeader.tsx (topbar; mobile label now "Demo") + 3 CTAs in src/app/page.tsx. Verified rendered landing shows /demo links and 0 /book demo links.
+- Middleware: /demo (PUBLIC_EXACT) + /api/demo (PUBLIC_PREFIX) are public (no login).
+Verified: /demo renders 200 public; POST /api/demo -> {ok:true, emailStatus:"skipped", referenceId} (lead persisted). 
+BLOCKER for live email: RESEND_API_KEY + EMAIL_FROM (verified sender domain in Resend) are NOT set — email currently skipped. Need user to provide Resend API key + a verified from-address. Preview-only; redeploy to publish.

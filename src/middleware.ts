@@ -3,7 +3,7 @@ import { jwtVerify } from "jose";
 
 const DEFAULT_AUTH_SECRET = "proactive-dev-secret-change-me-in-production-please-32chars+";
 
-const PUBLIC_EXACT = ["/", "/login", "/landing", "/book", "/intake", "/manifest.webmanifest", "/sw.js"];
+const PUBLIC_EXACT = ["/", "/login", "/landing", "/book", "/demo", "/intake", "/manifest.webmanifest", "/sw.js"];
 const PUBLIC_PREFIX = [
   "/legal",
   "/kiosk",
@@ -15,6 +15,7 @@ const PUBLIC_PREFIX = [
   "/api/intake/forms",
   "/api/intake/submit",
   "/api/intake/drug-search",
+  "/api/demo",
   "/api/attorney",
   "/api/assistant",
   "/api/appointments/request",

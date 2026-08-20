@@ -89,6 +89,98 @@ export async function sendBookingConfirmation(opts: {
   }
 }
 
+// Fixed internal recipients for sales/demo leads.
+const DEMO_TO = "info@210codelabs.com";
+const DEMO_CC = "andy@proactivemedclinic.com";
+
+export type DemoRequestInput = {
+  name: string;
+  email: string;
+  phone?: string | null;
+  organization?: string | null;
+  role?: string | null;
+  practiceSize?: string | null;
+  interests?: string[];
+  preferredTime?: string | null;
+  message?: string | null;
+  referenceId?: string | null;
+};
+
+/**
+ * Send an URGENT internal notification for a new demo request. Goes to
+ * info@210codelabs.com (CC andy@proactivemedclinic.com) with a fixed subject.
+ * Reply-To is set to the prospect so the team can respond directly. Returns
+ * "skipped" when Resend/EMAIL_FROM is not configured (the lead is still saved).
+ */
+export async function sendDemoRequest(opts: DemoRequestInput): Promise<"sent" | "failed" | "skipped"> {
+  if (!emailConfigured()) return "skipped";
+
+  const rows: [string, string | null | undefined][] = [
+    ["Name", opts.name],
+    ["Email", opts.email],
+    ["Phone", opts.phone],
+    ["Organization / Practice", opts.organization],
+    ["Role / Title", opts.role],
+    ["Practice size", opts.practiceSize],
+    ["Interested in", (opts.interests || []).join(", ") || null],
+    ["Preferred contact time", opts.preferredTime],
+    ["Reference", opts.referenceId],
+  ];
+  const visible = rows.filter(([, v]) => v && String(v).trim());
+
+  const text = [
+    "URGENT — New demo request from a prospect.",
+    "",
+    ...visible.map(([k, v]) => `${k}: ${v}`),
+    "",
+    "Message:",
+    opts.message || "(none)",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:#0a2540;color:#fff;padding:18px 22px;border-radius:12px 12px 0 0">
+        <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#f87171;font-weight:800">● Urgent — Demo Request</div>
+        <h2 style="margin:4px 0 0;font-size:20px">New demo request from a prospect</h2>
+      </div>
+      <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:22px">
+        <table style="width:100%;border-collapse:collapse;font-size:14px;color:#334155">
+          ${visible.map(([k, v]) => `<tr><td style="padding:6px 8px;color:#64748b;white-space:nowrap;vertical-align:top">${escapeHtml(k)}</td><td style="padding:6px 8px;font-weight:600;color:#0f172a">${escapeHtml(String(v))}</td></tr>`).join("")}
+        </table>
+        ${opts.message ? `<div style="margin-top:14px;padding:14px;background:#f1f5f9;border-radius:10px;color:#334155"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:6px">Message</div>${escapeHtml(opts.message)}</div>` : ""}
+        <p style="margin:16px 0 0;color:#94a3b8;font-size:12px">Reply directly to this email to reach ${escapeHtml(opts.name)} (${escapeHtml(opts.email)}).</p>
+      </div>
+    </div>`;
+
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY!);
+    const { error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM!,
+      to: [DEMO_TO],
+      cc: [DEMO_CC],
+      replyTo: opts.email || undefined,
+      subject: "Demo Request from Prospect",
+      text,
+      html,
+      headers: {
+        "X-Priority": "1 (Highest)",
+        "X-MSMail-Priority": "High",
+        Importance: "high",
+        Priority: "urgent",
+        ...(opts.referenceId ? { "Idempotency-Key": `demo/${opts.referenceId}` } : {}),
+      },
+    });
+    if (error) {
+      console.error("[email] demo request send failed:", error.message);
+      return "failed";
+    }
+    return "sent";
+  } catch (e) {
+    console.error("[email] demo request send threw:", e instanceof Error ? e.message : e);
+    return "failed";
+  }
+}
+
 const COPY = {
   en: {
     subject: "Your Proactive Clinic request",
