@@ -211,7 +211,7 @@ const en = {
     insuranceDesc:
       "See how ProactiveClinics replaces disconnected systems with one platform — EHR/EMR, RCM, credentialing, patient engagement, analytics, interoperability, and legal/PI.",
     footerDesc:
-      "ProactiveClinics — a unified healthcare operating platform: EHR/EMR, AI, RCM, credentialing, patient engagement, analytics, interoperability, and legal/PI in one connected system.",
+      "ProactiveClinics — one connected platform for EHR/EMR, RCM, patient engagement, analytics, and interoperability.",
     footerServices: "Platform",
     footerQuickLinks: "Quick Links",
     footerContact: "Contact",
@@ -474,7 +474,7 @@ const es = {
     insuranceDesc:
       "Descubre cómo ProactiveClinics reemplaza los sistemas desconectados con una sola plataforma: EHR/EMR, RCM, credencialización, participación del paciente, analítica, interoperabilidad y legal/PI.",
     footerDesc:
-      "ProactiveClinics — una plataforma operativa de salud unificada: EHR/EMR, IA, RCM, credencialización, participación del paciente, analítica, interoperabilidad y legal/PI en un solo sistema conectado.",
+      "ProactiveClinics — una plataforma conectada para EHR/EMR, RCM, participación del paciente, analítica e interoperabilidad.",
     footerServices: "Plataforma",
     footerQuickLinks: "Enlaces rápidos",
     footerContact: "Contacto",

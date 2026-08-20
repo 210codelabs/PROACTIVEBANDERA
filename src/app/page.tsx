@@ -543,14 +543,12 @@ export function Footer({ L }: { L: LandingDict }) {
     <footer className="bg-[#05080f] text-slate-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8">
-          <div className="space-y-3">
-            <div className="inline-flex">
-              <img src="/pclinic-footer.png?v=2" alt="Proactive Clinic" className="h-16 sm:h-20 w-auto object-contain" />
-            </div>
-            <p className="text-sm text-slate-400 leading-relaxed">{L.footerDesc}</p>
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-brand-100 uppercase tracking-wide">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              {L.ecosystem}
+          <div className="flex flex-col items-start gap-3">
+            <img src="/pclinic-footer.png?v=2" alt="Proactive Clinic" className="h-14 sm:h-16 w-auto object-contain -mt-1" />
+            <p className="text-[13px] text-slate-400 leading-relaxed">{L.footerDesc}</p>
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-brand-100 uppercase tracking-wide whitespace-nowrap">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+              Proactive UMS Ecosystem
             </div>
           </div>
           <div>
@@ -571,15 +569,6 @@ export function Footer({ L }: { L: LandingDict }) {
             </ul>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">{L.footerContact}</h4>
-            <ul className="space-y-2 text-sm">
-              <li>8103 Bandera Rd, Suite 102</li>
-              <li>San Antonio, TX 78250</li>
-              <li><a href="tel:+12105002914" className="hover:text-brand-300 transition">(210) 500-2914</a></li>
-              <li><a href="mailto:info@proactiveclinic.com" className="hover:text-brand-300 transition">info@proactiveclinic.com</a></li>
-            </ul>
-          </div>
-          <div>
             <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">Compliance</h4>
             <ul className="space-y-2 text-sm">
               <li><Link href="/legal/privacy" className="hover:text-brand-300 transition">Privacy Policy</Link></li>
@@ -587,6 +576,15 @@ export function Footer({ L }: { L: LandingDict }) {
               <li><Link href="/legal/hipaa" className="hover:text-brand-300 transition">HIPAA Notice</Link></li>
               <li><Link href="/legal/accessibility" className="hover:text-brand-300 transition">Accessibility</Link></li>
               <li><Link href="/legal/cookies" className="hover:text-brand-300 transition">Cookie Policy</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">{L.footerContact}</h4>
+            <ul className="space-y-2 text-sm">
+              <li>8103 Bandera Rd, Suite 102</li>
+              <li>San Antonio, TX 78250</li>
+              <li><a href="tel:+12105002914" className="hover:text-brand-300 transition">(210) 500-2914</a></li>
+              <li><a href="mailto:info@proactiveclinic.com" className="hover:text-brand-300 transition">info@proactiveclinic.com</a></li>
             </ul>
           </div>
         </div>
