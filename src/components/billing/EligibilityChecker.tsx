@@ -53,15 +53,17 @@ export default function EligibilityChecker({ patient, defaultPayerId = "" }: { p
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
 
-  async function run(e: React.FormEvent) {
-    e.preventDefault();
-    if (!payerId) { setError("Select a payer from the Stedi directory first."); return; }
+  async function runVerify(opts?: { payerId?: string; payerName?: string; memberId?: string }) {
+    const usePayerId = opts?.payerId ?? payerId;
+    const usePayerName = opts?.payerName ?? payerName;
+    const useMemberId = opts?.memberId ?? memberId;
+    if (!usePayerId) { setError("Select a payer from the Stedi directory first (or use the active coverage on file)."); return; }
     setLoading(true); setError(null); setResult(null); setCachedNote(null);
     try {
       const res = await fetch("/api/stedi/eligibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId: patient?.id, payerId, payerName, firstName, lastName, dateOfBirth: dob, memberId, force }),
+        body: JSON.stringify({ patientId: patient?.id, payerId: usePayerId, payerName: usePayerName, firstName, lastName, dateOfBirth: dob, memberId: useMemberId, force }),
       });
       const d = await res.json();
       if (!res.ok || d.error) { setError(d.error || "Eligibility check failed."); }
@@ -73,6 +75,11 @@ export default function EligibilityChecker({ patient, defaultPayerId = "" }: { p
     } finally {
       setLoading(false);
     }
+  }
+
+  async function run(e: React.FormEvent) {
+    e.preventDefault();
+    await runVerify();
   }
 
   const lastActive = history.find((h) => h.status === "active") || null;
@@ -87,7 +94,24 @@ export default function EligibilityChecker({ patient, defaultPayerId = "" }: { p
             {lastActive.planName && <span className="text-xs text-emerald-700">· {lastActive.planName}</span>}
             <span className="ml-auto text-[11px] text-emerald-700">Verified {new Date(lastActive.createdAt).toLocaleDateString()}</span>
           </div>
-          <p className="mt-1 text-[11px] text-emerald-700">This is the last valid, active coverage on record. Running a new verification will not change it unless a new active result is confirmed.</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => runVerify({ payerId: lastActive.payerId, payerName: lastActive.payerName || undefined, memberId: lastActive.memberId || undefined })}
+              className="btn-primary py-1.5 text-xs disabled:opacity-60"
+            >
+              {loading ? "Verifying…" : "Re-verify this coverage"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPayerId(lastActive.payerId); setPayerName(lastActive.payerName || ""); if (lastActive.memberId) setMemberId(lastActive.memberId); }}
+              className="btn-secondary py-1.5 text-xs"
+            >
+              Use it in the form
+            </button>
+            <span className="text-[11px] text-emerald-700">Re-verifies this exact payer &amp; member — no directory search needed. Verification never changes the coverage on file unless a new active result is confirmed.</span>
+          </div>
         </div>
       )}
       <form onSubmit={run} className="grid grid-cols-2 sm:grid-cols-3 gap-3">

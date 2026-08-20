@@ -26,10 +26,28 @@ export function daysSince(d: Date | string | null | undefined): number {
   return Math.floor((Date.now() - t) / 86_400_000);
 }
 
+/** First day (00:00) of the month AFTER the given date. */
+export function firstOfNextMonth(d: Date | string): Date {
+  const x = new Date(d);
+  return new Date(x.getFullYear(), x.getMonth() + 1, 1);
+}
+
+/**
+ * An ACTIVE eligibility check is still "current" (reusable, no re-verify needed)
+ * when it was verified less than 30 days ago AND we have not crossed into the
+ * next calendar month after the verification. Payers reset benefits monthly, so
+ * a check done on the 10th is good for that month but should be re-run once the
+ * 1st of the next month arrives.
+ */
+export function isCoverageCurrent(d: Date | string | null | undefined): boolean {
+  if (!d) return false;
+  return daysSince(d) < ELIGIBILITY_MIN_INTERVAL_DAYS && Date.now() < firstOfNextMonth(d).getTime();
+}
+
 /**
  * Return the most recent SUCCESSFUL (active) eligibility check for a patient
- * that is still inside the reuse window, or null. Used to decide whether an
- * on-demand verification can be skipped to save cost.
+ * that is still current (see isCoverageCurrent), or null. Used to decide whether
+ * an on-demand verification can be skipped to save cost.
  */
 export async function getReusableCheck(
   patientId: string,
@@ -42,7 +60,9 @@ export async function getReusableCheck(
       orderBy: { createdAt: "desc" },
     });
     if (!last) return null;
-    return daysSince(last.createdAt) < withinDays ? last : null;
+    // Reuse only when under the day window AND still within the same month.
+    const withinWindow = daysSince(last.createdAt) < withinDays;
+    return withinWindow && Date.now() < firstOfNextMonth(last.createdAt).getTime() ? last : null;
   } catch {
     return null;
   }

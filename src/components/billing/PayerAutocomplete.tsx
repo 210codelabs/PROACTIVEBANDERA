@@ -26,25 +26,30 @@ export default function PayerAutocomplete({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<Suggestion[]>([]);
+  const [note, setNote] = useState<string>("");
   const boxRef = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const search = useCallback(async (q: string) => {
-    if (!q || q.trim().length < 2) { setItems([]); return; }
+    if (!q || q.trim().length < 2) { setItems([]); setNote(""); return; }
     setLoading(true);
+    setNote("");
     const out: Suggestion[] = [];
+    let searchErr = "";
     try {
       // Live Stedi search
       const r = await fetch(`/api/stedi/payers?stedi=${encodeURIComponent(q)}`);
+      const d = await r.json().catch(() => ({}));
       if (r.ok) {
-        const d = await r.json();
         for (const x of d.results || []) {
           const name = x.displayName || x.name || x.payerName;
           const payerId = x.stediId || x.payerId || x.primaryPayerId || "";
           if (name && payerId) out.push({ name, payerId, source: "stedi" });
         }
+      } else if (d?.error) {
+        searchErr = String(d.error);
       }
-    } catch { /* ignore */ }
+    } catch { searchErr = "Could not reach the payer directory."; }
     if (out.length === 0) {
       try {
         // Local directory fallback
@@ -61,6 +66,7 @@ export default function PayerAutocomplete({
       } catch { /* ignore */ }
     }
     setItems(out.slice(0, 8));
+    setNote(out.length === 0 ? (searchErr ? `Payer search error: ${searchErr}` : `No payers matched “${q}”. Check spelling, or use the active coverage on file above.`) : "");
     setLoading(false);
   }, []);
 
@@ -95,7 +101,7 @@ export default function PayerAutocomplete({
         onFocus={() => { if (items.length) setOpen(true); }}
         autoComplete="off"
       />
-      {open && (loading || items.length > 0) && (
+      {open && (loading || items.length > 0 || note) && (
         <div className="absolute z-30 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-64 overflow-auto">
           {loading && <div className="px-3 py-2 text-xs text-slate-400">Searching payers…</div>}
           {!loading && items.map((s, i) => (
@@ -109,6 +115,9 @@ export default function PayerAutocomplete({
               <span className="shrink-0 font-mono text-[11px] text-slate-400">{s.payerId}{s.source === "local" ? " · dir" : ""}</span>
             </button>
           ))}
+          {!loading && items.length === 0 && note && (
+            <div className="px-3 py-2 text-xs text-amber-700">{note}</div>
+          )}
         </div>
       )}
     </div>

@@ -47,7 +47,12 @@ export default function PatientCoverage({ patientId }: { patientId: string }) {
       const r = await fetch(`/api/stedi/eligibility?patientId=${patientId}`);
       if (r.ok) {
         const d = await r.json();
-        setLatest((d.checks || [])[0] || null);
+        const checks: Check[] = d.checks || [];
+        // Prefer the most recent ACTIVE (valid) coverage so a later failed /
+        // misspelled attempt never hides the last known-good insurance. Fall
+        // back to the latest attempt only if there has never been an active one.
+        const active = checks.find((c) => c.status === "active") || null;
+        setLatest(active || checks[0] || null);
       }
     } catch {
       /* ignore */
@@ -62,10 +67,12 @@ export default function PatientCoverage({ patientId }: { patientId: string }) {
     setBusy(true);
     setErr(null);
     try {
+      // Re-verify the coverage currently shown (the active-on-file payer + member),
+      // never the errored attempt.
       const r = await fetch("/api/stedi/eligibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId, payerId: latest?.payerId }),
+        body: JSON.stringify({ patientId, payerId: latest?.payerId, payerName: latest?.payerName, memberId: latest?.memberId }),
       });
       const d = await r.json();
       if (d.error && !d.check) setErr(d.error);
@@ -81,12 +88,17 @@ export default function PatientCoverage({ patientId }: { patientId: string }) {
     return <div className="w-full max-w-[280px] rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-[11px] text-slate-400">Loading coverage…</div>;
   }
 
+  const isActive = latest?.status === "active";
   const stale = latest ? daysSince(latest.createdAt) > STALE_DAYS : false;
+  const firstNext = latest ? new Date(new Date(latest.createdAt).getFullYear(), new Date(latest.createdAt).getMonth() + 1, 1).getTime() : 0;
+  const crossedMonth = latest ? Date.now() >= firstNext : false;
+  const needsReverify = isActive && (stale || crossedMonth);
+  // Only truly "lapsed" when there is NO active coverage to show.
   const lapsed = latest ? latest.status === "inactive" || latest.status === "error" : false;
   const copay = latest?.summary?.find((s) => /co-?pay/i.test(s.label))?.value;
 
   return (
-    <div className={`w-full max-w-[280px] rounded-lg border px-3 py-2 text-left ${lapsed ? "border-rose-200 bg-rose-50/60" : stale ? "border-amber-200 bg-amber-50/60" : "border-slate-200 bg-white/80"}`}>
+    <div className={`w-full max-w-[280px] rounded-lg border px-3 py-2 text-left ${lapsed ? "border-rose-200 bg-rose-50/60" : needsReverify ? "border-amber-200 bg-amber-50/60" : "border-slate-200 bg-white/80"}`}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Coverage</span>
         <button
@@ -114,7 +126,7 @@ export default function PatientCoverage({ patientId }: { patientId: string }) {
           </div>
           <div className="text-[10px] text-slate-400">
             As of {new Date(latest.createdAt).toLocaleDateString()}
-            {stale && <span className="ml-1 font-semibold text-amber-700">· stale</span>}
+            {needsReverify && <span className="ml-1 font-semibold text-amber-700">· re-verify ({crossedMonth ? "new month" : "30d+"})</span>}
           </div>
           {lapsed && (
             <div className="text-[10px] font-semibold text-rose-700">Coverage not confirmed — verify before the visit.</div>
