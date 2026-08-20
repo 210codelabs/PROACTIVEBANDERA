@@ -97,6 +97,7 @@ export default function Shell({
 
   const NAV: NavItem[] = [
     { label: t("nav.dashboard"), href: "/dashboard", icon: <Icon.Home /> },
+    { label: "Analytics & Insights", href: "/analytics", icon: <Icon.Chart /> },
     { label: t("nav.schedule"), href: "/schedule", icon: <Icon.Calendar /> },
     { label: t("nav.appointmentRequests"), href: "/appointment-requests", icon: <Icon.Inbox /> },
     { label: t("nav.patients"), href: "/patients", icon: <Icon.Users /> },
@@ -152,7 +153,7 @@ export default function Shell({
   const groupedNav: NavSection[] = [
     {
       title: t("sections.clinical"),
-      items: NAV.filter((item) => ["/dashboard", "/schedule", "/appointment-requests", "/patients", "/encounters", "/specialties", "/orders", "/intake-forms", "/npi-lookup", "/settings/charting", "/modules"].includes(item.href)),
+      items: NAV.filter((item) => ["/dashboard", "/analytics", "/schedule", "/appointment-requests", "/patients", "/encounters", "/specialties", "/orders", "/intake-forms", "/npi-lookup", "/settings/charting", "/modules"].includes(item.href)),
     },
     {
       title: t("sections.pharmacyRetail"),
@@ -473,6 +474,7 @@ const Icon = {
   Bell: () => svgPath("M6 16V11a6 6 0 1112 0v5l1 2H5l1-2zM10 21a2 2 0 004 0"),
   Inbox: () => svgPath("M4 13l2.5-8h11L20 13M4 13v6h16v-6M4 13h5l1 2h4l1-2h5"),
   Menu: () => svgPath("M3 6h18M3 12h18M3 18h18"),
+  Chart: () => svgPath("M4 4v16h16M8 16v-4M12 16V8M16 16v-6"),
   X: () => svgPath("M18 6L6 18M6 6l12 12"),
 };
 
