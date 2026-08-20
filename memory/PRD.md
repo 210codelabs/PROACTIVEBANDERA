@@ -400,3 +400,13 @@ Connection Health config editor enhancements:
 2) Change audit: ProviderState gains lastEditedAt/lastEditedBy; saveIntegrations(incoming, editor) stamps them per-provider only when that provider's config actually changed; PUT passes the admin's name from the session. Each provider card shows "🕓 Last edited by <name> · <date>".
 3) Test Connection button: ALREADY existed (per-provider) — POST /api/admin/integrations/test validates stored config and does a REAL live Stedi payers ping for stedi; testConnection() auto-saves first if dirty. Verified live: status success "Live connection to Stedi verified".
 Backend agent-tested NON-DESTRUCTIVELY (only unused 'zoom' provider touched; live stedi untouched): 9/9 passed — masking, secret-preserve-on-blank, audit stamp (lastEditedBy captured), cleanup, and live stedi test success. Frontend UI (hint/audit display) not run through frontend agent. Preview-only; redeploy to publish.
+
+## Feature — Analytics dashboard builder: swap-drag, custom widgets, templates, saved layouts (2026, preview)
+Rewrote AnalyticsBoard into a light dashboard builder (frontend only; still GET /api/analytics). Additions:
+- Drag now SWAPS positions (drag any card onto another to exchange them) with a live ring highlight on the drop target; drag handle is the card header so inline inputs stay editable.
+- Resize any card via S/M/L button (span 1/2/4 override persisted per widget).
+- Add-widget toolbar (edit mode): Heading, Text note, Image (URL or uploaded data-URL ≤2MB) — custom widgets render read-only in the presentation/PDF view too.
+- Templates dropdown: Full, Executive overview, Revenue & RCM, Operations, Clinical & patients (keeps custom widgets appended).
+- Layouts dropdown: Save current as…, load/delete named layouts (localStorage), plus Copy/Import layout JSON for portability across browsers.
+- Existing Export PDF / Share / Presentation retained; toast feedback added.
+- Persistence: layout v2 key (order, hidden, custom[], spans{}) + saved-layouts key in localStorage. Compiles (307 auth redirect); no NEW TS errors (2 pre-existing baseline HBars errors unchanged). Frontend-only; not run through frontend agent. Preview-only; redeploy to publish.
