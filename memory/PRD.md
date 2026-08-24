@@ -446,3 +446,10 @@ New end-to-end module for corporate clients (drug tests, DOT/non-DOT physicals, 
 - Prisma additions: EnterpriseEmployee, EnterpriseConsent; EnterprisePortalUser.role.
 - New APIs: /api/enterprise/companies, /api/enterprise/employees(+[id], insurance, medications, referrals, eligibility), /api/enterprise/consents(+[id]/sign), /api/enterprise/forms; login route now falls back to EMR admin; /api/enterprise/me role-aware.
 - Backend agent-tested 13/13 (dual login roles, roster+auto-chart, chart writes+audit, eligibility, consent e-sign PDF, super-admin scoping, isolation, auth guards). Frontend verified by main agent via screenshots (company admin + super admin), NOT run through frontend agent. Preview-only; redeploy to publish.
+
+## Enterprise refinements + Employee self-service login (2026-08)
+- "Pay your bill online" button now shows ONLY for company_admin (hidden for platform/super_admin).
+- Super-admin badge renamed "ALL-MIGHTY ADMIN" -> "PLATFORM ADMIN".
+- EMPLOYEE SELF-SERVICE LOGIN (optional, per employee): company admin enables it from the employee detail panel -> generates an access code (EMP-XXXXXX) + one-time 6-digit PIN (bcrypt-hashed). Employees log in at /enterprise/employee/login (separate proactive_employee_session cookie, middleware-gated) to view their results (clinic result PDFs tied to their requests) and e-sign their own pending consent forms (generates signed PDF). Admin can Reset PIN / Disable. EnterpriseEmployee gained accessEnabled/accessCode/accessPinHash/lastPortalLoginAt (accessCode NOT @unique — MongoDB null-dup issue; uniqueness enforced in code via findFirst).
+- New APIs: /api/enterprise/employees/[id]/access (admin enable/reset/disable); /api/enterprise/employee-portal/{login,logout,me,consents/[id]/sign,documents/[id]}. Shared signConsentRecord() lib.
+- Backend agent-tested (A-F all passed: enable/reset, login+wrong pin, /me, self-sign + cross-employee 404, scoped doc download + 404, disable, cookie isolation). Frontend verified by main agent via screenshots (admin creds box + employee portal e-sign). Preview-only; redeploy to publish.

@@ -45,6 +45,12 @@ const ENTERPRISE_PUBLIC_PATHS = [
   "/api/enterprise/auth/logout",
 ];
 
+const EMPLOYEE_PUBLIC_PATHS = [
+  "/enterprise/employee/login",
+  "/api/enterprise/employee-portal/login",
+  "/api/enterprise/employee-portal/logout",
+];
+
 function getSecret(): Uint8Array {
   const secret = process.env.AUTH_SECRET ?? DEFAULT_AUTH_SECRET;
   return new TextEncoder().encode(secret);
@@ -61,7 +67,12 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const isEnterprisePath = pathname.startsWith("/enterprise") || pathname.startsWith("/api/enterprise");
+  const isEmployeePath = pathname.startsWith("/enterprise/employee") || pathname.startsWith("/api/enterprise/employee-portal");
+  if (isEmployeePath && EMPLOYEE_PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.next();
+  }
+
+  const isEnterprisePath = !isEmployeePath && (pathname.startsWith("/enterprise") || pathname.startsWith("/api/enterprise"));
   if (isEnterprisePath && ENTERPRISE_PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return NextResponse.next();
   }
@@ -70,7 +81,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = isEnterprisePath
+  const token = isEmployeePath
+    ? req.cookies.get("proactive_employee_session")?.value
+    : isEnterprisePath
     ? req.cookies.get("proactive_enterprise_session")?.value
     : isPortalPath
     ? req.cookies.get("proactive_portal_session")?.value
@@ -82,7 +95,7 @@ export async function middleware(req: NextRequest) {
     }
 
     const url = req.nextUrl.clone();
-    url.pathname = isEnterprisePath ? "/enterprise/login" : isPortalPath ? "/portal/login" : "/login";
+    url.pathname = isEmployeePath ? "/enterprise/employee/login" : isEnterprisePath ? "/enterprise/login" : isPortalPath ? "/portal/login" : "/login";
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
@@ -98,17 +111,19 @@ export async function middleware(req: NextRequest) {
   } catch {
     if (pathname.startsWith("/api/")) {
       const apiRes = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      if (isEnterprisePath) apiRes.cookies.delete("proactive_enterprise_session");
+      if (isEmployeePath) apiRes.cookies.delete("proactive_employee_session");
+      else if (isEnterprisePath) apiRes.cookies.delete("proactive_enterprise_session");
       else if (isPortalPath) apiRes.cookies.delete("proactive_portal_session");
       else apiRes.cookies.delete("proactive_session");
       return apiRes;
     }
 
     const url = req.nextUrl.clone();
-    url.pathname = isEnterprisePath ? "/enterprise/login" : isPortalPath ? "/portal/login" : "/login";
+    url.pathname = isEmployeePath ? "/enterprise/employee/login" : isEnterprisePath ? "/enterprise/login" : isPortalPath ? "/portal/login" : "/login";
     url.searchParams.set("next", pathname);
     const res = NextResponse.redirect(url);
-    if (isEnterprisePath) res.cookies.delete("proactive_enterprise_session");
+    if (isEmployeePath) res.cookies.delete("proactive_employee_session");
+    else if (isEnterprisePath) res.cookies.delete("proactive_enterprise_session");
     else if (isPortalPath) res.cookies.delete("proactive_portal_session");
     else res.cookies.delete("proactive_session");
     return res;

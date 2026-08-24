@@ -77,6 +77,7 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
   useEffect(() => { if (tab === "employees") loadEmployees(); }, [tab, loadEmployees]);
 
   async function openEmployee(id: string) {
+    setAccessCreds(null);
     const r = await fetch(`/api/enterprise/employees/${id}${entQS()}`);
     const d = await r.json();
     if (r.ok) setEmpDetail(d);
@@ -125,6 +126,16 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
     const d = await r.json();
     if (r.ok) { await refreshDetail(); flash("Form e-signed — signed PDF saved to Documents."); }
     else flash(d.error || "Could not sign");
+  }
+
+  const [accessCreds, setAccessCreds] = useState<{ accessCode: string; pin: string } | null>(null);
+  async function manageAccess(action: "enable" | "reset" | "disable") {
+    if (!empDetail?.employee?.id) return;
+    const r = await fetch(`/api/enterprise/employees/${empDetail.employee.id}/access`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+    const d = await r.json();
+    if (!r.ok) { flash(d.error || "Action failed"); return; }
+    if (action === "disable") { await refreshDetail(); setAccessCreds(null); flash("Employee login disabled."); }
+    else { await refreshDetail(); setAccessCreds({ accessCode: d.accessCode, pin: d.pin }); flash("Employee login enabled."); }
   }
 
   async function logout() { await fetch("/api/enterprise/auth/logout", { method: "POST" }); router.push("/enterprise/login"); }
@@ -200,7 +211,7 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
       <header className="bg-slate-900 text-white">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
           <div>
-            <div className="font-bold flex items-center gap-2">Enterprise Portal {isSuper && <span className="rounded bg-amber-400 text-slate-900 text-[10px] font-bold px-1.5 py-0.5">ALL-MIGHTY ADMIN</span>}</div>
+            <div className="font-bold flex items-center gap-2">Enterprise Portal {isSuper && <span className="rounded bg-amber-400 text-slate-900 text-[10px] font-bold px-1.5 py-0.5">PLATFORM ADMIN</span>}</div>
             <div className="text-xs text-white/60">{isSuper ? "Platform super-admin · all companies" : session.companyName}</div>
           </div>
           <div className="ml-auto flex items-center gap-3 text-sm">
@@ -240,7 +251,7 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
                   <div className="text-3xl font-bold text-slate-900 mt-1">{money(stats.balanceDueCents || 0)}</div>
                   <div className="text-xs text-slate-400 mt-1">{stats.openInvoices} open invoice(s)</div>
                 </div>
-                <button onClick={() => flash("Online payments are coming soon — you'll be able to pay securely here.")} className="btn-primary mt-3 w-full">Pay your bill online</button>
+                <button onClick={() => flash("Online payments are coming soon — you'll be able to pay securely here.")} className={`btn-primary mt-3 w-full ${isSuper ? "hidden" : ""}`}>Pay your bill online</button>
               </div>
               {/* Requests-by-status bar graph */}
               <div className="card card-pad md:col-span-2">
@@ -425,6 +436,27 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
                         ))}
                         {(!chart.consents || chart.consents.length === 0) && <li className="text-[11px] text-slate-400">No forms yet.</li>}
                       </ul>
+                    </div>
+
+                    {/* Employee self-service login */}
+                    <div className="rounded-lg border border-slate-200 p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-semibold text-slate-800">Employee login (self-service)</div>
+                        <span className={`chip text-[10px] ${emp.accessEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{emp.accessEnabled ? "enabled" : "off"}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">Give the employee an access code + PIN so they can view results and e-sign forms themselves at <span className="font-mono">/enterprise/employee</span>.</p>
+                      {accessCreds && (
+                        <div className="mt-2 rounded-lg bg-blue-50 ring-1 ring-blue-200 p-2 text-sm">
+                          <div>Access code: <span className="font-mono font-bold">{accessCreds.accessCode}</span></div>
+                          <div>PIN: <span className="font-mono font-bold">{accessCreds.pin}</span></div>
+                          <div className="text-[11px] text-blue-700 mt-1">Share these now — the PIN is shown only once.</div>
+                        </div>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {!emp.accessEnabled && <button onClick={() => manageAccess("enable")} className="chip bg-brand-100 text-brand-800 text-xs">Enable login</button>}
+                        {emp.accessEnabled && <button onClick={() => manageAccess("reset")} className="chip bg-white ring-1 ring-slate-200 text-xs">Reset PIN</button>}
+                        {emp.accessEnabled && <button onClick={() => manageAccess("disable")} className="chip bg-rose-100 text-rose-700 text-xs">Disable</button>}
+                      </div>
                     </div>
                   </div>
                 );

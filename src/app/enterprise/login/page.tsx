@@ -48,6 +48,7 @@ export default function EnterpriseLogin() {
           {err && <p className="text-sm text-rose-400">{err}</p>}
           <button type="submit" disabled={busy} className="w-full rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 transition-colors disabled:opacity-60">{busy ? "Signing in…" : "Sign in"}</button>
           <p className="text-[11px] text-slate-400 text-center">Access is provisioned by the clinic. Contact your account manager for credentials.</p>
+          <p className="text-center text-[11px] text-slate-400"><Link href="/enterprise/employee/login" className="underline hover:text-slate-200">Employee sign-in (view results & sign forms)</Link></p>
         </form>
       </div>
     </div>

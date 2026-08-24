@@ -1227,6 +1227,10 @@ model EnterpriseEmployee {
   department    String?
   jobTitle      String?
   status        String   @default("active") // active | inactive
+  accessEnabled Boolean  @default(false)
+  accessCode    String?
+  accessPinHash String?
+  lastPortalLoginAt DateTime?
   createdByName String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
