@@ -23,12 +23,21 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
   const [messages, setMessages] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [resultDocs, setResultDocs] = useState<Record<string, any>>({});
+  const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [toast, setToast] = useState<string | null>(null);
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
   const loadCore = useCallback(async () => {
-    const [me, rq] = await Promise.all([fetch("/api/enterprise/me").then((r) => r.json()), fetch("/api/enterprise/requests").then((r) => r.json())]);
+    const [me, rq, dc] = await Promise.all([
+      fetch("/api/enterprise/me").then((r) => r.json()),
+      fetch("/api/enterprise/requests").then((r) => r.json()),
+      fetch("/api/enterprise/documents").then((r) => r.json()).catch(() => ({ documents: [] })),
+    ]);
     setStats(me.stats); setRequests(rq.requests || []);
+    const map: Record<string, any> = {};
+    for (const d of dc.documents || []) if (d.requestId && d.uploadedType === "clinic" && !map[d.requestId]) map[d.requestId] = d;
+    setResultDocs(map);
   }, []);
   useEffect(() => { loadCore(); }, [loadCore]);
   useEffect(() => {
@@ -43,6 +52,24 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
   const [f, setF] = useState({ employeeFirstName: "", employeeLastName: "", employeeDob: "", employeeEmail: "", employeePhone: "", serviceKey: catalog[0]?.key || "", priority: "routine", dueDate: "", consentEmployee: "", notes: "" });
   const [savingReq, setSavingReq] = useState(false);
   const [reqErr, setReqErr] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  async function bulkImport(file: File) {
+    setBulkBusy(true);
+    const text = await file.text();
+    const rows = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const start = /first/i.test(rows[0] || "") ? 1 : 0;
+    const employees: any[] = [];
+    for (let i = start; i < rows.length; i++) {
+      const cols = rows[i].split(",").map((c) => c.trim());
+      if (!cols[0] || !cols[1]) continue;
+      employees.push({ firstName: cols[0], lastName: cols[1], dob: cols[2] || null, email: cols[3] || null, phone: cols[4] || null });
+    }
+    if (!employees.length) { setBulkBusy(false); flash("No valid rows. Use columns: First,Last,DOB,Email,Phone"); return; }
+    const r = await fetch("/api/enterprise/requests/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceKey: f.serviceKey, priority: f.priority, dueDate: f.dueDate || null, employees }) });
+    const d = await r.json(); setBulkBusy(false);
+    if (r.ok) { await loadCore(); flash(`Imported ${d.created} request(s) for ${catalog.find((c) => c.key === f.serviceKey)?.label || "service"}.`); setTab("requests"); }
+    else flash(d.error || "Import failed");
+  }
   async function submitRequest(e: React.FormEvent) {
     e.preventDefault(); setSavingReq(true); setReqErr(null);
     try {
@@ -109,17 +136,106 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
 
       <main className="max-w-6xl mx-auto px-4 py-6">
         {tab === "overview" && stats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {[["Total requests", stats.total], ["Open", stats.open], ["Pending consent", stats.pendingConsent], ["Completed", stats.completed], ["Open invoices", stats.openInvoices]].map(([l, v]) => (
-              <div key={l as string} className="card card-pad"><div className="text-2xl font-bold text-slate-900">{v as number}</div><div className="text-xs text-slate-500">{l as string}</div></div>
-            ))}
-            <div className="col-span-2 md:col-span-5"><button onClick={() => setTab("new")} className="btn-primary">+ New service request</button></div>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[["Total requests", stats.total], ["Open", stats.open], ["Pending consent", stats.pendingConsent], ["Completed", stats.completed]].map(([l, v]) => (
+                <div key={l as string} className="card card-pad"><div className="text-2xl font-bold text-slate-900">{v as number}</div><div className="text-xs text-slate-500">{l as string}</div></div>
+              ))}
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              {/* Balance due + pay */}
+              <div className="card card-pad flex flex-col justify-between">
+                <div>
+                  <div className="text-xs text-slate-500 uppercase tracking-wide">Balance due</div>
+                  <div className="text-3xl font-bold text-slate-900 mt-1">{money(stats.balanceDueCents || 0)}</div>
+                  <div className="text-xs text-slate-400 mt-1">{stats.openInvoices} open invoice(s)</div>
+                </div>
+                <button onClick={() => flash("Online payments are coming soon — you'll be able to pay securely here.")} className="btn-primary mt-3 w-full">Pay your bill online</button>
+              </div>
+              {/* Requests-by-status bar graph */}
+              <div className="card card-pad md:col-span-2">
+                <div className="text-xs text-slate-500 uppercase tracking-wide mb-2">Requests by status</div>
+                {(() => {
+                  const counts: Record<string, number> = {};
+                  for (const r of requests) counts[r.status] = (counts[r.status] || 0) + 1;
+                  const max = Math.max(1, ...Object.values(counts));
+                  const order = ["requested", "scheduled", "in_progress", "completed", "cancelled"];
+                  return (
+                    <div className="flex items-end gap-3 h-32">
+                      {order.map((k) => (
+                        <div key={k} className="flex-1 flex flex-col items-center justify-end">
+                          <div className="text-[11px] font-semibold text-slate-600">{counts[k] || 0}</div>
+                          <div className={`w-full rounded-t ${STATUS_COLORS[k]?.replace("text-", "bg-").split(" ")[0] || "bg-slate-300"}`} style={{ height: `${((counts[k] || 0) / max) * 100}%`, minHeight: counts[k] ? 6 : 0 }} />
+                          <div className="text-[9px] text-slate-400 mt-1 capitalize">{k.replace("_", " ")}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Monthly calendar of visits */}
+            <div className="card card-pad">
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-semibold text-slate-900">{calMonth.toLocaleString(undefined, { month: "long", year: "numeric" })} — employee visits</div>
+                <div className="flex gap-1">
+                  <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))} className="chip bg-white ring-1 ring-slate-200 text-xs">‹</button>
+                  <button onClick={() => setCalMonth(new Date())} className="chip bg-white ring-1 ring-slate-200 text-xs">Today</button>
+                  <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))} className="chip bg-white ring-1 ring-slate-200 text-xs">›</button>
+                </div>
+              </div>
+              {(() => {
+                const y = calMonth.getFullYear(), m = calMonth.getMonth();
+                const first = new Date(y, m, 1).getDay();
+                const days = new Date(y, m + 1, 0).getDate();
+                const byDay: Record<number, any[]> = {};
+                for (const r of requests) {
+                  const d = new Date(r.dueDate || r.createdAt);
+                  if (d.getFullYear() === y && d.getMonth() === m) (byDay[d.getDate()] = byDay[d.getDate()] || []).push(r);
+                }
+                const cells: React.ReactNode[] = [];
+                for (let i = 0; i < first; i++) cells.push(<div key={`e${i}`} />);
+                for (let day = 1; day <= days; day++) {
+                  const items = byDay[day] || [];
+                  cells.push(
+                    <div key={day} className="min-h-[64px] rounded border border-slate-100 p-1">
+                      <div className="text-[10px] text-slate-400">{day}</div>
+                      {items.slice(0, 3).map((r) => (
+                        <div key={r.id} className={`mt-0.5 truncate rounded px-1 text-[9px] ${STATUS_COLORS[r.status] || "bg-slate-100 text-slate-600"}`} title={`${r.employeeLastName}, ${r.employeeFirstName} — ${r.serviceLabel} (${r.status})`}>{r.employeeLastName} · {r.serviceLabel.split(" ")[0]}</div>
+                      ))}
+                      {items.length > 3 && <div className="text-[9px] text-slate-400">+{items.length - 3} more</div>}
+                    </div>
+                  );
+                }
+                return (
+                  <div>
+                    <div className="grid grid-cols-7 gap-1 text-[10px] text-slate-400 mb-1">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} className="text-center">{d}</div>)}</div>
+                    <div className="grid grid-cols-7 gap-1">{cells}</div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <button onClick={() => setTab("new")} className="btn-primary">+ New service request</button>
           </div>
         )}
 
         {tab === "new" && (
-          <form onSubmit={submitRequest} className="card card-pad max-w-2xl space-y-3">
-            <h2 className="font-semibold text-slate-900">New occupational-health request</h2>
+          <div className="max-w-2xl space-y-4">
+            <div className="card card-pad">
+              <h2 className="font-semibold text-slate-900">Bulk import (CSV)</h2>
+              <p className="text-[11px] text-slate-500 mb-2">Request the same service for many employees at once. CSV columns: <span className="font-mono">First,Last,DOB(YYYY-MM-DD),Email,Phone</span>. Each employee is added to the clinic charts and gets a request.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <select className="input w-auto" value={f.serviceKey} onChange={(e) => setF({ ...f, serviceKey: e.target.value })}>
+                  {catalog.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                </select>
+                <label className="btn-secondary cursor-pointer text-sm">{bulkBusy ? "Importing…" : "Upload CSV"}<input type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const x = e.target.files?.[0]; if (x) bulkImport(x); }} /></label>
+              </div>
+            </div>
+            <form onSubmit={submitRequest} className="card card-pad space-y-3">
+              <h2 className="font-semibold text-slate-900">New occupational-health request</h2>
             <div className="grid grid-cols-2 gap-3">
               <label className="text-sm"><span className="label">Employee first name *</span><input className="input" value={f.employeeFirstName} onChange={(e) => setF({ ...f, employeeFirstName: e.target.value })} required /></label>
               <label className="text-sm"><span className="label">Employee last name *</span><input className="input" value={f.employeeLastName} onChange={(e) => setF({ ...f, employeeLastName: e.target.value })} required /></label>
@@ -142,7 +258,8 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
             </div>
             {reqErr && <p className="text-sm text-rose-600">{reqErr}</p>}
             <button type="submit" disabled={savingReq} className="btn-primary disabled:opacity-60">{savingReq ? "Submitting…" : "Submit request"}</button>
-          </form>
+            </form>
+          </div>
         )}
 
         {tab === "requests" && (
@@ -158,7 +275,10 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
                     <td className="px-3 py-2"><span className={`chip ${STATUS_COLORS[r.status] || ""}`}>{r.status.replace("_", " ")}</span></td>
                     <td className="px-3 py-2">{r.consentStatus === "signed" ? <span className="chip bg-emerald-100 text-emerald-700">signed</span> : <span className="chip bg-amber-100 text-amber-700">pending</span>}</td>
                     <td className="px-3 py-2"><span className={`chip ${RESULT_COLORS[r.resultStatus] || ""}`}>{r.resultStatus}</span>{r.resultSummary && <div className="text-[11px] text-slate-500 mt-0.5">{r.resultSummary}</div>}</td>
-                    <td className="px-3 py-2 text-right">{r.consentStatus !== "signed" && <button onClick={() => signConsent(r.id)} className="chip bg-brand-100 text-brand-800 text-xs">Sign consent</button>}</td>
+                    <td className="px-3 py-2 text-right space-x-1">
+                      {resultDocs[r.id] && <a href={`/api/enterprise/documents/${resultDocs[r.id].id}`} target="_blank" rel="noopener" className="chip bg-emerald-100 text-emerald-700 text-xs">Result PDF</a>}
+                      {r.consentStatus !== "signed" && <button onClick={() => signConsent(r.id)} className="chip bg-brand-100 text-brand-800 text-xs">Sign consent</button>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -208,7 +328,7 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
               <tbody className="divide-y divide-slate-100">
                 {invoices.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">No invoices yet.</td></tr>}
                 {invoices.map((i) => (
-                  <tr key={i.id}><td className="px-3 py-2 font-mono text-slate-700">{i.number}</td><td className="px-3 py-2 text-slate-600">{new Date(i.issueDate).toLocaleDateString()}</td><td className="px-3 py-2 text-slate-600">{i.dueDate ? new Date(i.dueDate).toLocaleDateString() : "—"}</td><td className="px-3 py-2 text-right font-semibold">{money(i.totalCents)}</td><td className="px-3 py-2"><span className={`chip ${i.status === "paid" ? "bg-emerald-100 text-emerald-700" : i.status === "void" ? "bg-slate-100 text-slate-500" : "bg-amber-100 text-amber-700"}`}>{i.status}</span></td></tr>
+                  <tr key={i.id}><td className="px-3 py-2 font-mono text-slate-700">{i.number}</td><td className="px-3 py-2 text-slate-600">{new Date(i.issueDate).toLocaleDateString()}</td><td className="px-3 py-2 text-slate-600">{i.dueDate ? new Date(i.dueDate).toLocaleDateString() : "—"}</td><td className="px-3 py-2 text-right font-semibold">{money(i.totalCents)}</td><td className="px-3 py-2"><span className={`chip ${i.status === "paid" ? "bg-emerald-100 text-emerald-700" : i.status === "void" ? "bg-slate-100 text-slate-500" : "bg-amber-100 text-amber-700"}`}>{i.status}</span> <a href={`/api/enterprise/invoices/${i.id}/pdf`} target="_blank" rel="noopener" className="ml-1 text-xs text-brand-600 underline">PDF</a></td></tr>
                 ))}
               </tbody>
             </table>

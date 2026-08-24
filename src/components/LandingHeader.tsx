@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
-import InstallAppButton from "@/components/InstallAppButton";
+import InstallAppButton from "@/components/InstallAppButton"; // eslint-disable-line @typescript-eslint/no-unused-vars
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 type LandingDict = Dictionary["landing"];
@@ -72,7 +72,6 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
           <nav className="hidden md:flex flex-nowrap items-center gap-4 lg:gap-6 xl:gap-8 text-[13px] lg:text-sm font-semibold whitespace-nowrap">
             <a href="#services" className={navLink}>{L.navServices}</a>
             <a href="#why" className={navLink}>{L.navWhy}</a>
-            <a href="#testimonials" className={navLink}>{L.testKicker}</a>
             <a href="#contact" className={navLink}>{L.navContact}</a>
             <a href="/guide" className={navLink}>Guide</a>
             <a
@@ -92,10 +91,6 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <span className="hidden md:block">
               <LanguageSwitcher className={`mr-1 ${solid ? "" : "text-white"}`} />
-            </span>
-
-            <span className="hidden md:block">
-              <InstallAppButton variant="landing" scrolled={solid} />
             </span>
 
             {/* Kiosk mode — ALWAYS visible (kiosks are large tablets) */}
@@ -157,7 +152,6 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
             <nav className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex flex-col gap-1 text-[15px] font-semibold text-slate-700">
               <a href="#services" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navServices}</a>
               <a href="#why" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navWhy}</a>
-              <a href="#testimonials" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.testKicker}</a>
               <a href="#contact" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navContact}</a>
               <a href="/guide" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">Guide</a>
               <a href="/enterprise/login" onClick={() => setMenuOpen(false)} className="mt-1 inline-flex items-center gap-2 rounded-lg bg-brand-700 px-3 py-2.5 text-white font-bold hover:bg-brand-600">
@@ -170,7 +164,6 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
               </a>
               <div className="mt-3 flex items-center gap-3 border-t border-slate-100 pt-3">
                 <LanguageSwitcher />
-                <InstallAppButton variant="landing" scrolled={true} />
               </div>
             </nav>
           </div>

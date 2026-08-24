@@ -3276,3 +3276,22 @@ agent_communication:
     -agent: "testing"
     -message: "✅ Enterprise Portal backend testing COMPLETE. ALL 24 test cases passed with NO critical issues. Created /app/backend_test_enterprise.py with comprehensive test coverage. TASK 1 - ENTERPRISE AUTH (4 tests): Wrong password returns 401 ✅, Correct login returns 200 {ok:true} with session cookie ✅, No cookie returns 401 ✅, With cookie returns 200 with account.companyName='Lone Star Logistics' and stats.total>=3 ✅. TASK 2 - REQUESTS + AUTO PATIENT CHART + CONSENT (3 tests): GET requests returns non-empty list ✅, POST request creates with patientId (auto patient chart) ✅, POST consent signs with consentStatus='signed' ✅. TASK 3 - MESSAGES/DOCUMENTS/INVOICES (6 tests): POST message creates and GET lists it ✅, POST document creates ✅, GET documents lists without dataBase64 ✅, GET document/<id> downloads with content-type text/plain ✅, GET invoices returns array ✅. TASK 4 - ADMIN MANAGEMENT (11 tests): Admin login ✅, GET accounts returns 2 seeded companies with users[] and requestCount ✅, POST account creates ✅, Duplicate email returns 409 ✅, GET requests with companyName joined ✅, PATCH request updates ✅, POST invoice with totalCents=9000 ✅, PATCH invoice to paid ✅, Auth guards (401 without cookie and with enterprise cookie) ✅. DATA ISOLATION VERIFIED: Lone Star (4 requests) and Alamo (2 requests) each see only their own company's data ✅. All authentication (two separate session cookies), authorization (enterprise vs admin), auto patient chart creation (employee -> Patient with MRN), consent signing, document upload/download, sensitive data exclusion, invoice calculations, admin CRUD operations, and data isolation working correctly. Feature is PRODUCTION-READY. Main agent should summarize and finish."
 
+
+#====================================================================================================
+# Enterprise portal enhancements — bulk import, clinic result upload, invoice PDF, balance due
+#====================================================================================================
+backend:
+  - task: "Enterprise bulk request import, clinic result-doc upload, invoice PDF, balance due"
+    implemented: true
+    working: "NA"
+    file: "src/app/api/enterprise/requests/bulk/route.ts, src/app/api/admin/enterprise/requests/[id]/result-doc/route.ts, src/app/api/enterprise/invoices/[id]/pdf/route.ts, src/app/api/admin/enterprise/invoices/[id]/pdf/route.ts, src/app/api/enterprise/me/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Enterprise cookie = POST /api/enterprise/auth/login hr@lonestarlogistics.com/demo1234. Admin cookie = /api/auth/login admin@proactiveclinic.com/apex123. TESTS: (1) GET /api/enterprise/me (ent cookie) -> 200 and stats.balanceDueCents is a number. (2) POST /api/enterprise/requests/bulk (ent) {serviceKey:'tb_test',priority:'routine',employees:[{firstName:'Bulk',lastName:'One'},{firstName:'Bulk',lastName:'Two',dob:'1991-02-02'}]} -> 200 {ok:true, created:2}. (3) Pick a request id from GET /api/enterprise/requests; as ADMIN POST /api/admin/enterprise/requests/<id>/result-doc {name:'result.pdf',mimeType:'application/pdf',dataBase64:'JVBERi0xLjQK'} -> 200 {ok,id}; then GET /api/enterprise/documents?requestId=<id> (ent) lists a clinic doc. (4) Pick an invoice id from GET /api/enterprise/invoices (ent); GET /api/enterprise/invoices/<id>/pdf (ent) -> 200 application/pdf with %PDF- header; GET /api/admin/enterprise/invoices/<id>/pdf (admin) -> 200 application/pdf. (5) result-doc without admin cookie -> 403/401; bulk without ent cookie -> 401."
+agent_communication:
+    -agent: "main"
+    -message: "BACKEND-test the enterprise enhancements task above (bulk import, clinic result-doc upload cross-context download, invoice PDF for both portal+admin, balance due number). Two auth contexts as noted. Do NOT test frontend."
