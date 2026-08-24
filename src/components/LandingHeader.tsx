@@ -76,6 +76,12 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
             <a href="#contact" className={navLink}>{L.navContact}</a>
             <a href="/guide" className={navLink}>Guide</a>
             <a
+              href="/enterprise/login"
+              className="inline-flex items-center whitespace-nowrap rounded-lg bg-brand-700 px-3 lg:px-4 py-2 text-white font-bold transition-colors duration-200 hover:bg-brand-600 shadow-sm"
+            >
+              Enterprise Portal
+            </a>
+            <a
               href="/attorney"
               className="inline-flex items-center whitespace-nowrap rounded-lg bg-orange-700 px-3 lg:px-4 py-2 text-white font-bold transition-colors duration-200 hover:bg-red-600 shadow-sm"
             >
@@ -154,6 +160,10 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
               <a href="#testimonials" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.testKicker}</a>
               <a href="#contact" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">{L.navContact}</a>
               <a href="/guide" onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2.5 hover:bg-slate-50">Guide</a>
+              <a href="/enterprise/login" onClick={() => setMenuOpen(false)} className="mt-1 inline-flex items-center gap-2 rounded-lg bg-brand-700 px-3 py-2.5 text-white font-bold hover:bg-brand-600">
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01" /></svg>
+                Enterprise Portal
+              </a>
               <a href="/attorney" onClick={() => setMenuOpen(false)} className="mt-1 inline-flex items-center gap-2 rounded-lg bg-orange-700 px-3 py-2.5 text-white font-bold hover:bg-red-600">
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 21h18M6 18V9m12 9V9M4 9h16L12 3 4 9zm5 9v-4h6v4" /></svg>
                 Attorney Portal

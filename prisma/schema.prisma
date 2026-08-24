@@ -1164,3 +1164,126 @@ model Prescription {
   @@index([createdAt])
   @@index([patientId])
 }
+
+// ===================== Enterprise / Occupational Health =====================
+model EnterpriseAccount {
+  id            String   @id @default(cuid()) @map("_id")
+  companyName   String
+  industry      String?
+  contactName   String?
+  contactEmail  String?
+  contactPhone  String?
+  addressLine1  String?
+  city          String?
+  state         String?
+  postalCode    String?
+  billingEmail  String?
+  netTerms      Int      @default(30)
+  status        String   @default("active") // active | inactive
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  portalUsers   EnterprisePortalUser[]
+  requests      EnterpriseServiceRequest[]
+  messages      EnterpriseMessage[]
+  documents     EnterpriseDocument[]
+  invoices      EnterpriseInvoice[]
+}
+
+model EnterprisePortalUser {
+  id            String   @id @default(cuid()) @map("_id")
+  enterpriseId  String
+  email         String   @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  title         String?
+  active        Boolean  @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  enterprise    EnterpriseAccount @relation(fields: [enterpriseId], references: [id])
+  @@index([enterpriseId])
+}
+
+model EnterpriseServiceRequest {
+  id                 String   @id @default(cuid()) @map("_id")
+  enterpriseId       String
+  patientId          String?
+  employeeFirstName  String
+  employeeLastName   String
+  employeeDob        DateTime?
+  employeeEmail      String?
+  employeePhone      String?
+  serviceKey         String
+  serviceLabel       String
+  status             String   @default("requested") // requested | scheduled | in_progress | completed | cancelled
+  priority           String   @default("routine")   // routine | urgent
+  dueDate            DateTime?
+  consentStatus      String   @default("pending")    // pending | signed
+  consentEmployer    String?
+  consentEmployee    String?
+  consentSignedAt    DateTime?
+  resultStatus       String   @default("pending")    // pending | pass | fail | inconclusive | na
+  resultSummary      String?
+  clinicNotes        String?
+  createdByName       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  enterprise         EnterpriseAccount @relation(fields: [enterpriseId], references: [id])
+  @@index([enterpriseId])
+  @@index([patientId])
+  @@index([status])
+}
+
+model EnterpriseMessage {
+  id            String   @id @default(cuid()) @map("_id")
+  enterpriseId  String
+  requestId     String?
+  senderType    String   // employer | clinic
+  senderName    String
+  body          String
+  createdAt     DateTime @default(now())
+
+  enterprise    EnterpriseAccount @relation(fields: [enterpriseId], references: [id])
+  @@index([enterpriseId])
+}
+
+model EnterpriseDocument {
+  id            String   @id @default(cuid()) @map("_id")
+  enterpriseId  String
+  requestId     String?
+  name          String
+  mimeType      String
+  size          Int
+  dataBase64    String
+  uploadedType  String   // employer | clinic
+  uploadedName  String
+  createdAt     DateTime @default(now())
+
+  enterprise    EnterpriseAccount @relation(fields: [enterpriseId], references: [id])
+  @@index([enterpriseId])
+}
+
+model EnterpriseInvoice {
+  id            String   @id @default(cuid()) @map("_id")
+  enterpriseId  String
+  number        String
+  status        String   @default("draft") // draft | sent | paid | void
+  issueDate     DateTime @default(now())
+  dueDate       DateTime?
+  lineItems     Json     // [{ desc, qty, unitCents }]
+  subtotalCents Int      @default(0)
+  taxCents      Int      @default(0)
+  totalCents    Int      @default(0)
+  paidAt        DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  enterprise    EnterpriseAccount @relation(fields: [enterpriseId], references: [id])
+  @@index([enterpriseId])
+}
+

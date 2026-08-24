@@ -427,3 +427,14 @@ Root causes for the two remaining complaints:
 3) Reuse/validity rule per user: getReusableCheck now reuses an active check only when <30 days AND before the 1st of next month (added firstOfNextMonth + isCoverageCurrent). Chart box flags "· re-verify (new month / 30d+)" when the active check is no longer current.
 4) EligibilityChecker ACTIVE ON FILE card now has "Re-verify this coverage" (one click, uses active payer+member, no directory search needed) and "Use it in the form".
 Verification remains read-only: it never edits patient insurer/payer/member. Compiles; no new TS errors; payer search re-verified by backend agent. Preview-only; REDEPLOY required for production.
+
+## Feature — Enterprise / Corporate occupational-health portal (2026, preview)
+New end-to-end module for corporate clients (drug tests, DOT/non-DOT physicals, OSHA fit/audio, immunizations, compliance screens).
+- AUTH: EnterprisePortalUser (bcrypt) → separate cookie proactive_enterprise_session; login /enterprise/login; middleware protects /enterprise + /api/enterprise. Reuses staff JWT infra/secret.
+- PORTAL (/enterprise): dashboard tabs — Overview, New request (creates a Service Request AND auto-registers the employee as a real Patient chart, linked via request.patientId), Requests (status/consent/result), Secure messages, Document upload/download (base64 in Mongo, 5MB cap), Invoices (read). Employee/employer consent e-sign on the request.
+- EMR wiring: employees become normal Patients so eRx/openFDA, NPPES, Stedi eligibility etc. work as-is; clinic results/notes flow back to the employer view.
+- ADMIN (/admin/enterprise, platform admins): account CRUD, portal-user creation (bcrypt), request status/result editing (visible to employer), manual invoicing (line items → totals, status draft/sent/paid/void). Sidebar link added under Administration.
+- LANDING: "Enterprise Portal" tab added to hero header (desktop + mobile) → /enterprise/login.
+- DEMO DATA (scripts/seed-enterprise.mjs): Lone Star Logistics (hr@lonestarlogistics.com/demo1234) + Alamo Manufacturing (safety@alamomfg.com/demo1234), employees-as-patients, requests, consents, message, invoices.
+- Prisma: EnterpriseAccount, EnterprisePortalUser, EnterpriseServiceRequest, EnterpriseMessage, EnterpriseDocument, EnterpriseInvoice.
+- Billing = MANUAL invoicing (no Stripe, per user choice a). Backend agent-tested 24/24 (auth, auto-chart, consent, messages, docs, invoicing, admin CRUD, cross-company data isolation). Frontend UI not run through frontend agent. Preview-only; redeploy to publish.

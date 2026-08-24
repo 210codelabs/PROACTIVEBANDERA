@@ -39,6 +39,12 @@ const PORTAL_PUBLIC_PATHS = [
   "/api/portal/auth/logout",
 ];
 
+const ENTERPRISE_PUBLIC_PATHS = [
+  "/enterprise/login",
+  "/api/enterprise/auth/login",
+  "/api/enterprise/auth/logout",
+];
+
 function getSecret(): Uint8Array {
   const secret = process.env.AUTH_SECRET ?? DEFAULT_AUTH_SECRET;
   return new TextEncoder().encode(secret);
@@ -55,11 +61,18 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  const isEnterprisePath = pathname.startsWith("/enterprise") || pathname.startsWith("/api/enterprise");
+  if (isEnterprisePath && ENTERPRISE_PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.next();
+  }
+
   if (pathname.match(/\.(?:png|jpg|jpeg|svg|ico|gif|webp|woff2?|css|js|map)$/)) {
     return NextResponse.next();
   }
 
-  const token = isPortalPath
+  const token = isEnterprisePath
+    ? req.cookies.get("proactive_enterprise_session")?.value
+    : isPortalPath
     ? req.cookies.get("proactive_portal_session")?.value
     : req.cookies.get("proactive_session")?.value;
 
@@ -69,7 +82,7 @@ export async function middleware(req: NextRequest) {
     }
 
     const url = req.nextUrl.clone();
-    url.pathname = isPortalPath ? "/portal/login" : "/login";
+    url.pathname = isEnterprisePath ? "/enterprise/login" : isPortalPath ? "/portal/login" : "/login";
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
@@ -85,23 +98,19 @@ export async function middleware(req: NextRequest) {
   } catch {
     if (pathname.startsWith("/api/")) {
       const apiRes = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      if (isPortalPath) {
-        apiRes.cookies.delete("proactive_portal_session");
-      } else {
-        apiRes.cookies.delete("proactive_session");
-      }
+      if (isEnterprisePath) apiRes.cookies.delete("proactive_enterprise_session");
+      else if (isPortalPath) apiRes.cookies.delete("proactive_portal_session");
+      else apiRes.cookies.delete("proactive_session");
       return apiRes;
     }
 
     const url = req.nextUrl.clone();
-    url.pathname = isPortalPath ? "/portal/login" : "/login";
+    url.pathname = isEnterprisePath ? "/enterprise/login" : isPortalPath ? "/portal/login" : "/login";
     url.searchParams.set("next", pathname);
     const res = NextResponse.redirect(url);
-    if (isPortalPath) {
-      res.cookies.delete("proactive_portal_session");
-    } else {
-      res.cookies.delete("proactive_session");
-    }
+    if (isEnterprisePath) res.cookies.delete("proactive_enterprise_session");
+    else if (isPortalPath) res.cookies.delete("proactive_portal_session");
+    else res.cookies.delete("proactive_session");
     return res;
   }
 }

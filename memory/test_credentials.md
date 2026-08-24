@@ -20,3 +20,8 @@ Portal login also available from the landing hero "Patient Portal" tab and insid
 Attorneys submit record requests; staff approve them at /records-requests (EHR). Approved requests are downloadable from the attorney portal.
 
 
+
+## Enterprise / Corporate Portal (occupational health) — /enterprise/login
+- hr@lonestarlogistics.com / demo1234  (Lone Star Logistics — HR Director)
+- safety@alamomfg.com / demo1234  (Alamo Manufacturing Co. — Safety Manager)
+Admin management of these accounts: staff admin (admin@proactiveclinic.com) at /admin/enterprise
