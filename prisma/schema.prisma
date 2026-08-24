@@ -1189,6 +1189,8 @@ model EnterpriseAccount {
   messages      EnterpriseMessage[]
   documents     EnterpriseDocument[]
   invoices      EnterpriseInvoice[]
+  employees     EnterpriseEmployee[]
+  consents      EnterpriseConsent[]
 }
 
 model EnterprisePortalUser {
@@ -1199,12 +1201,61 @@ model EnterprisePortalUser {
   firstName     String
   lastName      String
   title         String?
+  role          String   @default("company_admin") // company_admin
   active        Boolean  @default(true)
   lastLoginAt   DateTime?
   createdAt     DateTime @default(now())
 
   enterprise    EnterpriseAccount @relation(fields: [enterpriseId], references: [id])
   @@index([enterpriseId])
+}
+
+// Persistent employee roster per company. Each employee is linked to a real
+// EMR Patient chart (patientId) once created, so eligibility/Rx/clinical data
+// flow through the same clinical records the clinic uses.
+model EnterpriseEmployee {
+  id            String   @id @default(cuid()) @map("_id")
+  enterpriseId  String
+  patientId     String?  // linked EMR Patient chart
+  firstName     String
+  lastName      String
+  dob           DateTime?
+  sex           String?  @default("X")
+  email         String?
+  phone         String?
+  employeeNo    String?
+  department    String?
+  jobTitle      String?
+  status        String   @default("active") // active | inactive
+  createdByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  enterprise    EnterpriseAccount @relation(fields: [enterpriseId], references: [id])
+  @@index([enterpriseId])
+  @@index([patientId])
+}
+
+// E-signed consent / authorization forms captured in the portal.
+model EnterpriseConsent {
+  id            String   @id @default(cuid()) @map("_id")
+  enterpriseId  String
+  employeeId    String?
+  patientId     String?
+  formKey       String
+  formTitle     String
+  status        String   @default("pending") // pending | signed
+  signerName    String?
+  signerRole    String?  // employee | employer
+  signatureText String?
+  signedAt      DateTime?
+  documentId    String?  // EnterpriseDocument id (generated signed PDF)
+  createdByName String?
+  createdAt     DateTime @default(now())
+
+  enterprise    EnterpriseAccount @relation(fields: [enterpriseId], references: [id])
+  @@index([enterpriseId])
+  @@index([employeeId])
 }
 
 model EnterpriseServiceRequest {

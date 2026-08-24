@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Svc = { key: string; label: string; category: string; priceCents: number };
-type Session = { companyName: string; name: string; email: string };
+type Session = { companyName: string; name: string; email: string; role?: "company_admin" | "super_admin"; enterpriseId?: string };
 
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 const STATUS_COLORS: Record<string, string> = {
@@ -17,7 +17,8 @@ const RESULT_COLORS: Record<string, string> = {
 
 export default function EnterpriseDashboard({ session, catalog }: { session: Session; catalog: Svc[] }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"overview" | "new" | "requests" | "messages" | "documents" | "invoices">("overview");
+  const isSuper = session.role === "super_admin";
+  const [tab, setTab] = useState<"overview" | "employees" | "new" | "requests" | "messages" | "documents" | "invoices">("overview");
   const [stats, setStats] = useState<any>(null);
   const [requests, setRequests] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
@@ -27,6 +28,20 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [toast, setToast] = useState<string | null>(null);
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2500); };
+
+  // Employees + super-admin company scope
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [companyId, setCompanyId] = useState<string>("");
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [empDetail, setEmpDetail] = useState<any>(null);
+  const [forms, setForms] = useState<any[]>([]);
+  const entQS = (extra = "") => {
+    const p = new URLSearchParams();
+    if (isSuper && companyId) p.set("enterpriseId", companyId);
+    const s = p.toString();
+    return (s ? `?${s}` : "") + (extra && s ? `&${extra}` : extra ? `?${extra}` : "");
+  };
+  const entBody = (o: any) => (isSuper && companyId ? { ...o, enterpriseId: companyId } : o);
 
   const loadCore = useCallback(async () => {
     const [me, rq, dc] = await Promise.all([
@@ -45,6 +60,72 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
     if (tab === "documents") fetch("/api/enterprise/documents").then((r) => r.json()).then((d) => setDocuments(d.documents || []));
     if (tab === "invoices") fetch("/api/enterprise/invoices").then((r) => r.json()).then((d) => setInvoices(d.invoices || []));
   }, [tab]);
+
+  // Load companies once (super admin: many; company admin: their one)
+  useEffect(() => {
+    fetch("/api/enterprise/companies").then((r) => r.json()).then((d) => {
+      setCompanies(d.companies || []);
+      if (isSuper && !companyId && d.companies?.[0]) setCompanyId(d.companies[0].id);
+    }).catch(() => {});
+    fetch("/api/enterprise/forms").then((r) => r.json()).then((d) => setForms(d.forms || [])).catch(() => {});
+  }, [isSuper]);
+
+  const loadEmployees = useCallback(() => {
+    if (isSuper && !companyId) { setEmployees([]); return; }
+    fetch(`/api/enterprise/employees${entQS()}`).then((r) => r.json()).then((d) => setEmployees(d.employees || [])).catch(() => {});
+  }, [isSuper, companyId]);
+  useEffect(() => { if (tab === "employees") loadEmployees(); }, [tab, loadEmployees]);
+
+  async function openEmployee(id: string) {
+    const r = await fetch(`/api/enterprise/employees/${id}${entQS()}`);
+    const d = await r.json();
+    if (r.ok) setEmpDetail(d);
+    else flash(d.error || "Could not open employee");
+  }
+  async function refreshDetail() { if (empDetail?.employee?.id) await openEmployee(empDetail.employee.id); }
+
+  // New employee
+  const [ef, setEf] = useState({ firstName: "", lastName: "", dob: "", sex: "X", email: "", phone: "", employeeNo: "", department: "", jobTitle: "" });
+  const [empBusy, setEmpBusy] = useState(false);
+  const [showAddEmp, setShowAddEmp] = useState(false);
+  async function createEmployee(e: React.FormEvent) {
+    e.preventDefault(); setEmpBusy(true);
+    const r = await fetch("/api/enterprise/employees", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entBody(ef)) });
+    const d = await r.json(); setEmpBusy(false);
+    if (r.ok) { setEf({ firstName: "", lastName: "", dob: "", sex: "X", email: "", phone: "", employeeNo: "", department: "", jobTitle: "" }); setShowAddEmp(false); loadEmployees(); flash("Employee added & clinical chart created."); openEmployee(d.employee.id); }
+    else flash(d.error || "Could not add employee");
+  }
+
+  async function postDetail(path: string, body: any, ok: string) {
+    if (!empDetail?.employee?.id) return;
+    const r = await fetch(`/api/enterprise/employees/${empDetail.employee.id}/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (r.ok && d.ok !== false && !d.error) { await refreshDetail(); flash(ok); return true; }
+    flash(d.error || "Action failed"); return false;
+  }
+  async function runEligibility() {
+    if (!empDetail?.employee?.id) return;
+    flash("Checking eligibility…");
+    const r = await fetch(`/api/enterprise/employees/${empDetail.employee.id}/eligibility`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const d = await r.json();
+    if (r.ok && !d.error) { await refreshDetail(); flash(`Eligibility: ${String(d.status || "checked").toUpperCase()}${d.planName ? " · " + d.planName : ""}`); }
+    else flash(d.error || "Eligibility check failed");
+  }
+  async function addConsent(formKey: string) {
+    if (!empDetail?.employee?.id) return;
+    const r = await fetch("/api/enterprise/consents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entBody({ employeeId: empDetail.employee.id, formKey })) });
+    const d = await r.json();
+    if (r.ok) { await refreshDetail(); flash("Form assigned — ready to e-sign."); }
+    else flash(d.error || "Could not assign form");
+  }
+  async function signEmpConsent(consentId: string, who: string) {
+    const sig = window.prompt(`Type the ${who}'s full legal name to e-sign this form:`);
+    if (!sig) return;
+    const r = await fetch(`/api/enterprise/consents/${consentId}/sign`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signatureText: sig }) });
+    const d = await r.json();
+    if (r.ok) { await refreshDetail(); flash("Form e-signed — signed PDF saved to Documents."); }
+    else flash(d.error || "Could not sign");
+  }
 
   async function logout() { await fetch("/api/enterprise/auth/logout", { method: "POST" }); router.push("/enterprise/login"); }
 
@@ -112,17 +193,22 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
     reader.readAsDataURL(file);
   }
 
-  const TABS = [["overview", "Overview"], ["new", "New request"], ["requests", "Requests"], ["messages", "Messages"], ["documents", "Documents"], ["invoices", "Invoices"]] as const;
+  const TABS = [["overview", "Overview"], ["employees", "Employees"], ["new", "New request"], ["requests", "Requests"], ["messages", "Messages"], ["documents", "Documents"], ["invoices", "Invoices"]] as const;
 
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-slate-900 text-white">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
           <div>
-            <div className="font-bold">Enterprise Portal</div>
-            <div className="text-xs text-white/60">{session.companyName}</div>
+            <div className="font-bold flex items-center gap-2">Enterprise Portal {isSuper && <span className="rounded bg-amber-400 text-slate-900 text-[10px] font-bold px-1.5 py-0.5">ALL-MIGHTY ADMIN</span>}</div>
+            <div className="text-xs text-white/60">{isSuper ? "Platform super-admin · all companies" : session.companyName}</div>
           </div>
           <div className="ml-auto flex items-center gap-3 text-sm">
+            {isSuper && companies.length > 0 && (
+              <select value={companyId} onChange={(e) => { setCompanyId(e.target.value); setEmpDetail(null); }} className="rounded-md bg-white/10 text-white px-2 py-1.5 text-xs border border-white/20">
+                {companies.map((c) => <option key={c.id} value={c.id} className="text-slate-900">{c.companyName} ({c.employeeCount ?? 0})</option>)}
+              </select>
+            )}
             <span className="text-white/70">{session.name}</span>
             <button onClick={logout} className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/20">Sign out</button>
           </div>
@@ -138,8 +224,11 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
         {tab === "overview" && stats && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[["Total requests", stats.total], ["Open", stats.open], ["Pending consent", stats.pendingConsent], ["Completed", stats.completed]].map(([l, v]) => (
-                <div key={l as string} className="card card-pad"><div className="text-2xl font-bold text-slate-900">{v as number}</div><div className="text-xs text-slate-500">{l as string}</div></div>
+              {(isSuper
+                ? [["Companies", stats.companies], ["Employees", stats.employees], ["Total requests", stats.total], ["Balance due", money(stats.balanceDueCents || 0)]]
+                : [["Total requests", stats.total], ["Open", stats.open], ["Pending consent", stats.pendingConsent], ["Completed", stats.completed]]
+              ).map(([l, v]) => (
+                <div key={l as string} className="card card-pad"><div className="text-2xl font-bold text-slate-900">{v as any}</div><div className="text-xs text-slate-500">{l as string}</div></div>
               ))}
             </div>
 
@@ -219,6 +308,129 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
             </div>
 
             <button onClick={() => setTab("new")} className="btn-primary">+ New service request</button>
+          </div>
+        )}
+
+        {tab === "employees" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">Employees {isSuper && companyId && <span className="text-sm text-slate-400">· {companies.find((c) => c.id === companyId)?.companyName}</span>}</h2>
+              <button onClick={() => setShowAddEmp((v) => !v)} className="btn-primary text-sm">{showAddEmp ? "Close" : "+ Add employee"}</button>
+            </div>
+
+            {showAddEmp && (
+              <form onSubmit={createEmployee} className="card card-pad grid grid-cols-2 md:grid-cols-3 gap-3">
+                <label className="text-sm"><span className="label">First name *</span><input className="input" value={ef.firstName} onChange={(e) => setEf({ ...ef, firstName: e.target.value })} required /></label>
+                <label className="text-sm"><span className="label">Last name *</span><input className="input" value={ef.lastName} onChange={(e) => setEf({ ...ef, lastName: e.target.value })} required /></label>
+                <label className="text-sm"><span className="label">Date of birth</span><input type="date" className="input" value={ef.dob} onChange={(e) => setEf({ ...ef, dob: e.target.value })} /></label>
+                <label className="text-sm"><span className="label">Sex</span><select className="input" value={ef.sex} onChange={(e) => setEf({ ...ef, sex: e.target.value })}><option value="X">Unspecified</option><option value="M">M</option><option value="F">F</option></select></label>
+                <label className="text-sm"><span className="label">Email</span><input className="input" value={ef.email} onChange={(e) => setEf({ ...ef, email: e.target.value })} /></label>
+                <label className="text-sm"><span className="label">Phone</span><input className="input" value={ef.phone} onChange={(e) => setEf({ ...ef, phone: e.target.value })} /></label>
+                <label className="text-sm"><span className="label">Employee #</span><input className="input" value={ef.employeeNo} onChange={(e) => setEf({ ...ef, employeeNo: e.target.value })} /></label>
+                <label className="text-sm"><span className="label">Department</span><input className="input" value={ef.department} onChange={(e) => setEf({ ...ef, department: e.target.value })} /></label>
+                <label className="text-sm"><span className="label">Job title</span><input className="input" value={ef.jobTitle} onChange={(e) => setEf({ ...ef, jobTitle: e.target.value })} /></label>
+                <div className="col-span-full"><button disabled={empBusy} className="btn-primary disabled:opacity-60">{empBusy ? "Creating…" : "Create employee + chart"}</button><span className="ml-2 text-[11px] text-slate-400">Creates a real EMR patient chart linked to this employee.</span></div>
+              </form>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="card overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase"><tr><th className="text-left px-3 py-2">Employee</th><th className="text-left px-3 py-2">Dept / Title</th><th className="text-left px-3 py-2">Chart</th></tr></thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {employees.length === 0 && <tr><td colSpan={3} className="px-3 py-6 text-center text-slate-400">No employees yet.</td></tr>}
+                    {employees.map((e) => (
+                      <tr key={e.id} onClick={() => openEmployee(e.id)} className={`cursor-pointer hover:bg-brand-50 ${empDetail?.employee?.id === e.id ? "bg-brand-50" : ""}`}>
+                        <td className="px-3 py-2 font-medium text-slate-800">{e.lastName}, {e.firstName}</td>
+                        <td className="px-3 py-2 text-slate-500 text-xs">{[e.department, e.jobTitle].filter(Boolean).join(" · ") || "—"}</td>
+                        <td className="px-3 py-2">{e.patientId ? <span className="chip bg-emerald-100 text-emerald-700 text-[10px]">linked</span> : <span className="chip bg-slate-100 text-slate-500 text-[10px]">none</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {empDetail && (() => {
+                const emp = empDetail.employee; const chart = empDetail.chart || {};
+                const ins = chart.insurance || {};
+                return (
+                  <div className="card card-pad space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-semibold text-slate-900">{emp.firstName} {emp.lastName}</div>
+                        <div className="text-xs text-slate-500">{chart.mrn ? `MRN ${chart.mrn}` : "No chart"} {emp.dob && `· DOB ${new Date(emp.dob).toLocaleDateString()}`}</div>
+                      </div>
+                      <button onClick={() => setEmpDetail(null)} className="text-slate-400 text-xs hover:text-slate-700">✕</button>
+                    </div>
+
+                    {/* Insurance */}
+                    <details className="rounded-lg border border-slate-200 p-3" open>
+                      <summary className="cursor-pointer text-sm font-semibold text-slate-800">Insurance {ins.insurerName && <span className="ml-1 font-normal text-slate-500">· {ins.insurerName} {ins.memberId ? `(${ins.memberId})` : ""}</span>}</summary>
+                      <InsuranceForm ins={ins} onSave={(b: any) => postDetail("insurance", b, "Insurance saved to chart.")} />
+                    </details>
+
+                    {/* Eligibility */}
+                    <div className="rounded-lg border border-slate-200 p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-semibold text-slate-800">Eligibility</div>
+                        <button onClick={runEligibility} className="chip bg-brand-100 text-brand-800 text-xs">Check now</button>
+                      </div>
+                      {(chart.eligibility || []).slice(0, 3).map((c: any) => (
+                        <div key={c.id} className="mt-1 text-xs text-slate-600 flex items-center gap-2">
+                          <span className={`chip ${c.status === "active" ? "bg-emerald-100 text-emerald-700" : c.status === "inactive" ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-600"}`}>{c.status}</span>
+                          <span>{c.planName || c.payerName || "—"}</span>
+                          <span className="text-slate-400 ml-auto">{new Date(c.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      ))}
+                      {(!chart.eligibility || chart.eligibility.length === 0) && <div className="text-[11px] text-slate-400 mt-1">No checks yet. Add insurance with a payer ID, then check.</div>}
+                    </div>
+
+                    {/* Medications */}
+                    <details className="rounded-lg border border-slate-200 p-3">
+                      <summary className="cursor-pointer text-sm font-semibold text-slate-800">Medications ({(chart.medications || []).length})</summary>
+                      <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                        {(chart.medications || []).map((m: any) => <li key={m.id}>• {m.name} {m.strength} {m.frequency ? `· ${m.frequency}` : ""}</li>)}
+                      </ul>
+                      <MedForm onSave={(b: any) => postDetail("medications", b, "Medication added to chart.")} />
+                    </details>
+
+                    {/* Referrals */}
+                    <details className="rounded-lg border border-slate-200 p-3">
+                      <summary className="cursor-pointer text-sm font-semibold text-slate-800">Referrals ({(chart.referrals || []).length})</summary>
+                      <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                        {(chart.referrals || []).map((m: any) => <li key={m.id}>• {m.name} {m.specialty ? `· ${m.specialty}` : ""}</li>)}
+                      </ul>
+                      <ReferralForm onSave={(b: any) => postDetail("referrals", b, "Referral added to chart.")} />
+                    </details>
+
+                    {/* Consent forms */}
+                    <div className="rounded-lg border border-slate-200 p-3">
+                      <div className="text-sm font-semibold text-slate-800 mb-1">Consent & forms (e-sign)</div>
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {forms.map((fm) => <button key={fm.key} onClick={() => addConsent(fm.key)} className="chip bg-white ring-1 ring-slate-200 text-[11px] hover:bg-slate-50" title={fm.summary}>+ {fm.title}</button>)}
+                      </div>
+                      <ul className="space-y-1">
+                        {(chart.consents || []).map((c: any) => (
+                          <li key={c.id} className="flex items-center gap-2 text-xs">
+                            <span className="flex-1 text-slate-700">{c.formTitle}</span>
+                            {c.status === "signed" ? (
+                              <>
+                                <span className="chip bg-emerald-100 text-emerald-700 text-[10px]">signed</span>
+                                {c.documentId && <a href={`/api/enterprise/documents/${c.documentId}`} target="_blank" rel="noopener" className="text-brand-600 underline">PDF</a>}
+                              </>
+                            ) : (
+                              <button onClick={() => signEmpConsent(c.id, c.signerRole || "employee")} className="chip bg-amber-100 text-amber-800 text-[10px]">e-sign</button>
+                            )}
+                          </li>
+                        ))}
+                        {(!chart.consents || chart.consents.length === 0) && <li className="text-[11px] text-slate-400">No forms yet.</li>}
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })()}
+              {!empDetail && <div className="card card-pad flex items-center justify-center text-sm text-slate-400 min-h-[200px]">Select an employee to manage insurance, medications, referrals, eligibility & consent.</div>}
+            </div>
           </div>
         )}
 
@@ -336,6 +548,44 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
         )}
       </main>
       {toast && <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-slate-900 text-white text-sm px-4 py-2 shadow-lg">{toast}</div>}
+    </div>
+  );
+}
+
+function InsuranceForm({ ins, onSave }: { ins: any; onSave: (b: any) => void }) {
+  const [v, setV] = useState({ insurerName: ins.insurerName || "", insurerPlan: ins.insurerPlan || "", memberId: ins.memberId || "", groupNumber: ins.groupNumber || "", payerId: ins.payerId || "" });
+  return (
+    <div className="mt-2 grid grid-cols-2 gap-2">
+      <input className="input text-sm" placeholder="Insurer name" value={v.insurerName} onChange={(e) => setV({ ...v, insurerName: e.target.value })} />
+      <input className="input text-sm" placeholder="Plan" value={v.insurerPlan} onChange={(e) => setV({ ...v, insurerPlan: e.target.value })} />
+      <input className="input text-sm" placeholder="Member ID" value={v.memberId} onChange={(e) => setV({ ...v, memberId: e.target.value })} />
+      <input className="input text-sm" placeholder="Group #" value={v.groupNumber} onChange={(e) => setV({ ...v, groupNumber: e.target.value })} />
+      <input className="input text-sm" placeholder="Payer ID (for eligibility, e.g. 60054)" value={v.payerId} onChange={(e) => setV({ ...v, payerId: e.target.value })} />
+      <button onClick={() => onSave(v)} className="btn-primary text-sm">Save insurance</button>
+    </div>
+  );
+}
+
+function MedForm({ onSave }: { onSave: (b: any) => void }) {
+  const [v, setV] = useState({ name: "", strength: "", frequency: "" });
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      <input className="input text-sm flex-1 min-w-[120px]" placeholder="Medication" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} />
+      <input className="input text-sm w-24" placeholder="Strength" value={v.strength} onChange={(e) => setV({ ...v, strength: e.target.value })} />
+      <input className="input text-sm w-28" placeholder="Frequency" value={v.frequency} onChange={(e) => setV({ ...v, frequency: e.target.value })} />
+      <button onClick={() => { if (v.name.trim()) { onSave(v); setV({ name: "", strength: "", frequency: "" }); } }} className="btn-secondary text-sm">Add</button>
+    </div>
+  );
+}
+
+function ReferralForm({ onSave }: { onSave: (b: any) => void }) {
+  const [v, setV] = useState({ name: "", specialty: "", phone: "" });
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      <input className="input text-sm flex-1 min-w-[120px]" placeholder="Referring provider" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} />
+      <input className="input text-sm w-32" placeholder="Specialty" value={v.specialty} onChange={(e) => setV({ ...v, specialty: e.target.value })} />
+      <input className="input text-sm w-28" placeholder="Phone" value={v.phone} onChange={(e) => setV({ ...v, phone: e.target.value })} />
+      <button onClick={() => { if (v.name.trim()) { onSave(v); setV({ name: "", specialty: "", phone: "" }); } }} className="btn-secondary text-sm">Add</button>
     </div>
   );
 }

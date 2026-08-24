@@ -20,10 +20,11 @@ function getSecret(): Uint8Array {
 
 export type EnterpriseSession = {
   portalUserId: string;
-  enterpriseId: string;
+  enterpriseId: string;   // "" when role === "super_admin" (spans all companies)
   companyName: string;
   name: string;
   email: string;
+  role: "company_admin" | "super_admin";
 };
 
 export async function signEnterpriseSession(s: EnterpriseSession): Promise<string> {
@@ -46,6 +47,7 @@ export async function getEnterpriseSession(): Promise<EnterpriseSession | null> 
       companyName: payload.companyName as string,
       name: payload.name as string,
       email: payload.email as string,
+      role: (payload.role as EnterpriseSession["role"]) || "company_admin",
     };
   } catch {
     return null;

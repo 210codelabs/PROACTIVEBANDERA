@@ -31,7 +31,12 @@ export default function EnterpriseLogin() {
           <img src="/enterprise-logo.png?v=3" alt="ProactiveClinic Enterprise Portal Access" className="mt-4 w-full max-w-md mx-auto drop-shadow-[0_2px_12px_rgba(0,0,0,0.15)]" />
           <p className="text-slate-500 text-sm mt-2">Corporate & occupational health client access</p>
         </div>
-        <form onSubmit={submit} className="bg-slate-900 rounded-2xl shadow-2xl p-6 space-y-4 ring-1 ring-white/10">
+        <form onSubmit={submit} className="relative bg-slate-900 rounded-2xl shadow-2xl p-6 space-y-4 ring-1 ring-white/10 border-t-4 border-blue-600 overflow-hidden">
+          <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/60 to-transparent" />
+          <div className="text-center pb-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Enterprise Portal</p>
+            <p className="text-[11px] text-slate-400 mt-1">Occupational Health · Compliance · Employee Care</p>
+          </div>
           <div>
             <label className="block text-sm font-medium text-slate-200 mb-1">Work email</label>
             <input type="email" className="w-full rounded-lg bg-slate-800 border border-slate-700 text-white placeholder-slate-400 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />

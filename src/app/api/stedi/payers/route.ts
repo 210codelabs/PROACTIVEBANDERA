@@ -12,12 +12,22 @@ export async function GET(req: Request) {
   const stediQuery = searchParams.get("stedi");
   if (stediQuery !== null) {
     const cfg = await getStediConfig();
-    if (!cfg.apiKey) return NextResponse.json({ error: "Configure your Stedi API key first." }, { status: 400 });
+    if (!cfg.apiKey) {
+      return NextResponse.json(
+        { error: "No Stedi API key is configured in THIS environment. Open Settings → External Integrations (or Admin → Connection Health) and save your Stedi API key here, then redeploy. Note: preview and production each have their own separate configuration." },
+        { status: 400 },
+      );
+    }
     try {
       const results = await searchStediPayers(stediQuery);
       return NextResponse.json({ results });
     } catch (e: any) {
-      return NextResponse.json({ error: String(e?.message || e).slice(0, 300) }, { status: 200 });
+      const status = e?.status;
+      let msg = String(e?.message || e).slice(0, 300);
+      if (status === 401 || status === 403) {
+        msg = `Stedi rejected the request (HTTP ${status}). The API key in this environment is invalid or lacks payer-directory access. Re-enter a valid production key in Settings → Integrations and use "Test Connection" to confirm.`;
+      }
+      return NextResponse.json({ error: msg }, { status: 200 });
     }
   }
   const payers = await db.payer.findMany({ orderBy: { name: "asc" } });

@@ -22,6 +22,7 @@ Attorneys submit record requests; staff approve them at /records-requests (EHR).
 
 
 ## Enterprise / Corporate Portal (occupational health) — /enterprise/login
-- hr@lonestarlogistics.com / demo1234  (Lone Star Logistics — HR Director)
-- safety@alamomfg.com / demo1234  (Alamo Manufacturing Co. — Safety Manager)
+- hr@lonestarlogistics.com / demo1234  (Lone Star Logistics — Company Admin)
+- safety@alamomfg.com / demo1234  (Alamo Manufacturing Co. — Company Admin)
+- SUPER ADMIN (All-Mighty): any EMR staff admin can also log into /enterprise/login with their EMR password → e.g. admin@proactiveclinic.com / apex123 → sees all companies.
 Admin management of these accounts: staff admin (admin@proactiveclinic.com) at /admin/enterprise
