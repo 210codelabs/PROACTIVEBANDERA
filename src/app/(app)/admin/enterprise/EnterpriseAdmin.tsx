@@ -62,6 +62,19 @@ export default function EnterpriseAdmin({ catalog }: { catalog: Svc[] }) {
   }
   async function markInvoice(id: string, status: string) { await fetch(`/api/admin/enterprise/invoices/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }); await loadInvoices(); }
 
+  const [seeding, setSeeding] = useState(false);
+  async function seedDemo() {
+    if (!window.confirm("Create/repair the two demo enterprise accounts (Lone Star Logistics & Alamo Manufacturing) in THIS environment? Passwords will be set to demo1234.")) return;
+    setSeeding(true);
+    try {
+      const r = await fetch("/api/admin/enterprise/seed-demo", { method: "POST" });
+      const d = await r.json();
+      if (!r.ok) { flash(d.error || "Seed failed"); return; }
+      await loadAccounts();
+      flash("Demo accounts ready — hr@lonestarlogistics.com / safety@alamomfg.com (password: demo1234)");
+    } finally { setSeeding(false); }
+  }
+
   return (
     <div className="space-y-4">
       <div className="inline-flex rounded-lg bg-slate-100 p-1 ring-1 ring-slate-200">
@@ -72,7 +85,10 @@ export default function EnterpriseAdmin({ catalog }: { catalog: Svc[] }) {
 
       {tab === "accounts" && (
         <div className="space-y-3">
-          <button onClick={() => setShowNew((v) => !v)} className="btn-primary">{showNew ? "Close" : "+ New enterprise account"}</button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => setShowNew((v) => !v)} className="btn-primary">{showNew ? "Close" : "+ New enterprise account"}</button>
+            <button onClick={seedDemo} disabled={seeding} className="btn-secondary disabled:opacity-60">{seeding ? "Seeding…" : "Seed demo companies"}</button>
+          </div>
           {showNew && (
             <form onSubmit={createAccount} className="card card-pad grid grid-cols-2 md:grid-cols-3 gap-3">
               <label className="text-sm"><span className="label">Company *</span><input className="input" value={na.companyName} onChange={(e) => setNa({ ...na, companyName: e.target.value })} required /></label>
