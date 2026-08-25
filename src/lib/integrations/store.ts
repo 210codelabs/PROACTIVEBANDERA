@@ -107,6 +107,33 @@ async function writeIntegrations(state: IntegrationsState): Promise<void> {
   });
 }
 
+// Merge non-empty credential values into a provider (preserving existing values
+// for any field not supplied). Used by the "Apply Weno Online config from
+// environment" admin action so production can be populated without hand-typing.
+export async function upsertProviderCredentials(
+  providerKey: string,
+  creds: Record<string, string>,
+  opts?: { enable?: boolean; editedBy?: string },
+): Promise<{ applied: string[] }> {
+  const state = await readIntegrations();
+  const prev = state.providers[providerKey] || emptyProviderState();
+  const merged: Record<string, string> = { ...(prev.credentials || {}) };
+  const applied: string[] = [];
+  for (const [k, v] of Object.entries(creds)) {
+    if (v != null && String(v).trim() !== "") { merged[k] = String(v); applied.push(k); }
+  }
+  state.providers[providerKey] = {
+    ...prev,
+    credentials: merged,
+    enabled: opts?.enable ?? prev.enabled,
+    lastEditedAt: new Date().toISOString(),
+    lastEditedBy: opts?.editedBy || "system",
+  };
+  state.updatedAt = new Date().toISOString();
+  await writeIntegrations(state);
+  return { applied };
+}
+
 // ---- Client-facing sanitization ------------------------------------------
 
 function sanitizeProvider(provider: ProviderDef, state: ProviderState): ClientProviderState {
