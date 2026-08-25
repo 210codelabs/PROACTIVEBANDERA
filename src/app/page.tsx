@@ -2,6 +2,7 @@ import Link from "next/link";
 import LandingLoginForm from "./LandingLoginForm";
 import HeroAuth from "@/components/HeroAuth";
 import LandingHeader from "@/components/LandingHeader";
+import MapNav from "@/components/MapNav";
 import { getT } from "@/lib/i18n/server";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -519,15 +520,7 @@ function ContactAndHours({ L }: { L: LandingDict }) {
         </div>
         <div className="mt-8 grid lg:grid-cols-5 gap-6 items-stretch">
           <div className="lg:col-span-3 rounded-2xl overflow-hidden border border-slate-200 shadow-sm min-h-[300px]">
-            <iframe
-              title="Proactive Clinic location map"
-              src="https://maps.google.com/maps?saddr=&daddr=8103%20Bandera%20Rd,%20Suite%20102,%20San%20Antonio,%20TX%2078250&t=h&output=embed"
-              className="w-full h-full min-h-[300px]"
-              style={{ border: 0 }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
+            <MapNav />
           </div>
           <div className="lg:col-span-2 rounded-2xl border border-brand-100 bg-brand-50 p-6 flex flex-col justify-center">
             <h3 className="font-bold text-brand-900 mb-2">{L.insuranceTitle}</h3>

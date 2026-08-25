@@ -504,3 +504,10 @@ New end-to-end module for corporate clients (drug tests, DOT/non-DOT physicals, 
 ## User guide refresh (Weno features) + landing map (2026-08)
 - USER GUIDE: added a new "E-Prescribing with Weno" section to src/lib/guide/content.ts (Weno pharmacy directory search, prescriber pre-fill + "Prescribe as" dropdown + NPPES NPI lookup + Test Weno connection, Weno Online/ComposeRx launch, Rx history delivery badges + auto-refresh, and Admin Connection Health config/sync-report/maintenance/prescriber-directory). Updated the Orders section's e-prescribe steps to reference the Weno directory. Captured 3 REAL screenshots into public/guide/shots (erx-weno.png, erx-history.png, weno-admin.png) using puppeteer-core + system Chrome; both the web guide (/guide/eprescribing-weno) and the Download PDF use the same content + shots. Verified section renders with all 3 images loading. (One demo WenoPrescriber "Ernesto Ramirez" was created in preview for the screenshots.)
 - LANDING MAP: replaced the Google Map iframe in src/app/page.tsx with the user-provided embed (satellite/hybrid + directions to 8103 Bandera Rd, Suite 102, San Antonio, TX 78250: maps.google.com/maps?saddr=&daddr=...&t=h&output=embed). Verified rendering. Preview-only; redeploy to publish.
+
+## Landing 3D Navigation (added)
+- Landing map card is clickable → opens a draggable/minimizable floating "3D Navigation" HUD.
+- Uses Google Maps JS API (v=alpha, maps3d) Photorealistic 3D Map3DElement with tilted car-nav camera fly-through along the route from the visitor location to the clinic (8103 Bandera Rd, Ste 102, San Antonio, TX 78250).
+- Directions API provides live ETA + turn-by-turn steps.
+- Graceful degradation: devices without hardware WebGL2 (or if maps fail to load) fall back to a 2D satellite directions embed, still showing ETA + turn-by-turn; "Open in Google Maps" button always available.
+- Env: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY. Component: src/components/MapNav.tsx. Wired in src/app/page.tsx.
