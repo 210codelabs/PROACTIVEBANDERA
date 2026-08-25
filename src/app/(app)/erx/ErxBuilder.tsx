@@ -38,7 +38,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
-  const [weno, setWeno] = useState<{ enabled: boolean; configured: boolean; environment: string; epcs: boolean } | null>(null);
+  const [weno, setWeno] = useState<{ enabled: boolean; configured: boolean; environment: string; epcs: boolean; online?: { enabled: boolean; configured: boolean; keySet: boolean; environment: string } } | null>(null);
   const [ncpdp, setNcpdp] = useState("");
   const [txBusy, setTxBusy] = useState(false);
   const [txResult, setTxResult] = useState<{ ok: boolean; state?: string; text: string } | null>(null);
@@ -61,6 +61,29 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   }
 
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  // Weno Online (ComposeRx) launcher: opens Weno's web prescribing app pre-filled.
+  const [olBusy, setOlBusy] = useState(false);
+  const [olErr, setOlErr] = useState<string | null>(null);
+  async function launchWenoOnline() {
+    setOlBusy(true); setOlErr(null);
+    try {
+      const r = await fetch("/api/erx/weno-online/launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId: patient?.id || null,
+          primaryPharmacyNcpdp: ncpdp || (pharmacy as any)?.ncpdpId || null,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.url) { setOlErr(d.error || "Could not open Weno Online."); return; }
+      window.open(d.url, "_blank", "noopener,noreferrer");
+    } catch {
+      setOlErr("Weno Online launch request failed.");
+    } finally { setOlBusy(false); }
+  }
+
   async function cancelRx(h: any) {
     if (!window.confirm(`Send a CancelRx to the pharmacy for ${h.medName}? This notifies the pharmacy to cancel the prescription.`)) return;
     setCancellingId(h.id);
@@ -357,6 +380,35 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
         </section>
       ) : (
       <>
+      {weno?.online?.enabled && weno.online.keySet && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex items-start gap-2">
+              <span className="text-lg leading-none">💊</span>
+              <div>
+                <div className="text-sm font-semibold text-indigo-900">
+                  Prescribe in Weno Online
+                  <span className="chip ml-2 text-[10px] bg-indigo-100 text-indigo-700">{weno.online.environment}</span>
+                </div>
+                <p className="text-[12px] text-indigo-700/90 mt-0.5">
+                  Opens Weno&apos;s ComposeRx web app pre-filled with {patient ? `${patient.firstName} ${patient.lastName}` : "the selected patient"}.
+                  {!weno.online.configured && " Add the provider email, password & Location ID in Admin → External Integrations → Weno Online to enable launch."}
+                </p>
+                {olErr && <p className="text-[12px] text-rose-700 mt-1">{olErr}</p>}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={launchWenoOnline}
+              disabled={olBusy || !patient || !weno.online.configured}
+              className="btn-primary shrink-0 disabled:opacity-60"
+              title={!weno.online.configured ? "Finish Weno Online setup in Admin → External Integrations" : !patient ? "Select a patient first" : "Open Weno Online"}
+            >
+              {olBusy ? "Opening…" : "Open in Weno Online ↗"}
+            </button>
+          </div>
+        </div>
+      )}
       {deaProfileGap && (
         <div className="rounded-lg bg-rose-50 ring-1 ring-rose-300 p-3">
           <div className="flex items-start gap-2">
@@ -485,7 +537,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
       </section>
 
       <section className="card card-pad space-y-3">
-        <h3 className="font-semibold text-slate-900">Pharmacy (NPPES / network)</h3>
+        <h3 className="font-semibold text-slate-900">Pharmacy (Weno directory)</h3>
         <PharmacyPicker selected={pharmacy} onSelect={setPharmacy} compact />
 
         <h3 className="font-semibold text-slate-900 pt-1">Prescriber</h3>

@@ -15,18 +15,50 @@ export async function GET(req: Request) {
 
   let results: any[] = [];
   if (q.length >= 1) {
-    results = await db.wenoPharmacy.findMany({
-      where: {
-        active: true,
-        OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { city: { contains: q, mode: "insensitive" } },
-          { ncpdpId: { contains: q } },
-        ],
-      },
-      take: 25,
-      orderBy: { name: "asc" },
-    }).catch(() => []);
+    const [wenoRows, localRows] = await Promise.all([
+      db.wenoPharmacy.findMany({
+        where: {
+          active: true,
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { city: { contains: q, mode: "insensitive" } },
+            { ncpdpId: { contains: q } },
+          ],
+        },
+        take: 25,
+        orderBy: { name: "asc" },
+      }).catch(() => []),
+      // Also include the local pharmacy directory (seeded + NPPES-imported), all
+      // treated as Weno-network destinations, so search stays populated even
+      // before a full Weno directory sync.
+      db.pharmacy.findMany({
+        where: {
+          active: true,
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { city: { contains: q, mode: "insensitive" } },
+            { state: { contains: q } },
+            { postalCode: { contains: q } },
+            { ncpdpId: { contains: q } },
+          ],
+        },
+        take: 25,
+        orderBy: [{ preferred: "desc" }, { name: "asc" }],
+      }).catch(() => []),
+    ]);
+    results = [...wenoRows];
+    for (const lp of localRows) {
+      if (lp.ncpdpId && results.some((r) => r.ncpdpId === lp.ncpdpId)) continue;
+      results.push({
+        ncpdpId: lp.ncpdpId || lp.id,
+        name: lp.name,
+        city: lp.city,
+        state: lp.state,
+        zip: lp.postalCode,
+        phone: lp.phone,
+        address: lp.addressLine1,
+      });
+    }
   }
 
   // Merge test pharmacies (test env) matching the query.

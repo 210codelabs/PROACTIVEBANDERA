@@ -62,7 +62,7 @@ export default function InteropAccessCenter({ sources }: { sources: InteropSourc
     <div className="space-y-6">
       <div className="card card-pad bg-brand-50 ring-1 ring-brand-100 text-sm text-brand-900">
         This center shows every external clinical data source and its real connection status. Public references are active now.
-        PDMP (Texas), Surescripts and the HIEs are <span className="font-semibold">gated networks</span>: they can be wired here, but only
+        PDMP (Texas), Weno RxHistory and the HIEs are <span className="font-semibold">gated networks</span>: they can be wired here, but only
         return real patient data after your organization completes the listed onboarding and provides credentials. No portal logins are ever used.
       </div>
       {groups.map((g) => (

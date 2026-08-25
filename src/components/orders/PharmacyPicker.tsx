@@ -17,8 +17,8 @@ export type Pharmacy = {
 
 export function networkBadge(network: string): string {
   switch (network) {
-    case "surescripts":
-      return "bg-brand-100 text-brand-800 ring-brand-200";
+    case "weno":
+      return "bg-teal-100 text-teal-800 ring-teal-200";
     case "availity":
       return "bg-violet-100 text-violet-800 ring-violet-200";
     case "internal":
@@ -73,7 +73,7 @@ export default function PharmacyPicker({
       const r = await fetch("/api/pharmacies/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(ph) });
       const j = await r.json();
       if (r.ok && j.pharmacy) {
-        onSelect({ id: j.pharmacy.id, name: j.pharmacy.name, network: j.pharmacy.network || "surescripts", city: j.pharmacy.city, state: j.pharmacy.state, phone: j.pharmacy.phone });
+        onSelect({ id: j.pharmacy.id, name: j.pharmacy.name, network: j.pharmacy.network || "weno", ncpdpId: j.pharmacy.ncpdpId, city: j.pharmacy.city, state: j.pharmacy.state, phone: j.pharmacy.phone });
         setOpen(false); setNppesOpen(false); setQuery("");
       }
     } finally { setImportingNpi(null); }
@@ -84,9 +84,22 @@ export default function PharmacyPicker({
     debounce.current = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/pharmacies/search?q=${encodeURIComponent(query)}`);
+        const res = await fetch(`/api/weno/pharmacies?q=${encodeURIComponent(query)}`);
         const data = await res.json().catch(() => ({}));
-        setResults(Array.isArray(data.pharmacies) ? data.pharmacies : []);
+        const list = Array.isArray(data.pharmacies) ? data.pharmacies : [];
+        setResults(
+          list.map((p: any) => ({
+            id: p.ncpdpId || p.id || p.name,
+            ncpdpId: p.ncpdpId || null,
+            name: p.name,
+            network: "weno",
+            city: p.city || null,
+            state: p.state || null,
+            phone: p.phone || null,
+            preferred: false,
+            services: p.isTest ? "test pharmacy" : null,
+          })),
+        );
       } catch {
         setResults([]);
       } finally {
@@ -124,12 +137,12 @@ export default function PharmacyPicker({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setOpen(true)}
-            placeholder="Search pharmacy by name, city, ZIP, or service…"
+            placeholder="Search Weno pharmacy directory by name, city, or NCPDP…"
             className="input"
           />
           {(open || query) && (
             <div className={`mt-1.5 rounded-lg ring-1 ring-slate-200 bg-white shadow-lg overflow-hidden ${compact ? "max-h-56" : "max-h-72"} overflow-y-auto divide-y divide-slate-100`}>
-              {loading && <div className="px-3 py-2 text-xs text-slate-500">Searching the pharmacy network…</div>}
+              {loading && <div className="px-3 py-2 text-xs text-slate-500">Searching the Weno directory…</div>}
               {!loading && results.length === 0 && (
                 <div className="px-3 py-3 text-xs text-slate-500">No pharmacies match that search.</div>
               )}

@@ -107,7 +107,7 @@ export const OPERATIONAL_MODULES: OperationalModuleDef[] = [
     sidebarLabel: "Pharmacy",
     tagline: "Dispensing, e-prescribe routing & medication management",
     description:
-      "Work the prescription queue, route e-prescriptions across the Surescripts network, and dispense from the in-house formulary.",
+      "Work the prescription queue, route e-prescriptions across the Weno network, and dispense from the in-house formulary.",
     accent: "bg-teal-100 text-teal-800 ring-teal-200",
     integrationFlag: "pharmacyDispensing",
     highlights: ["Rx queue & routing", "In-house dispensary", "Pharmacy directory", "Refills & MTM"],

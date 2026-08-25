@@ -3,9 +3,9 @@ import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canRoleAccess, readAdminConfig } from "@/lib/admin/store";
 
-// Route Rx orders to a pharmacy over the e-prescribe network (Surescripts /
-// Availity directory). Mirrors the Labcorp outbound routing pattern: marks the
-// matching orders as "sent" and stamps the destination pharmacy + network.
+// Route Rx orders to a pharmacy over the Weno e-prescribe network. Mirrors the
+// Labcorp outbound routing pattern: marks the matching orders as "sent" and
+// stamps the destination pharmacy + network.
 export async function POST(req: Request) {
   const user = await requireSession();
   const adminConfig = await readAdminConfig();

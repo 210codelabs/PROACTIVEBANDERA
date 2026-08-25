@@ -79,9 +79,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             <div>
               <div className="text-xs uppercase tracking-wider font-semibold text-slate-500">Pharmacy module</div>
               <div className="font-semibold text-slate-900">{pharmacyEnabled ? "E-prescribe routing is enabled. Search the pharmacy network and send prescriptions." : "Pharmacy e-prescribe routing is currently disabled by admin controls."}</div>
-              <div className="mt-1 text-xs text-slate-600">{pharmacyEnabled ? "Connected to the Surescripts / Availity pharmacy directory for outbound prescriptions." : "Enable Pharmacy e-prescribe routing in Admin Operational Settings to activate this flow."}</div>
+              <div className="mt-1 text-xs text-slate-600">{pharmacyEnabled ? "Connected to the Weno pharmacy directory for outbound prescriptions." : "Enable Pharmacy e-prescribe routing in Admin Operational Settings to activate this flow."}</div>
             </div>
-            <span className={`chip ${pharmacyEnabled ? "bg-brand-100 text-brand-800 ring-brand-200" : "bg-slate-100 text-slate-700 ring-slate-200"}`}>Surescripts</span>
+            <span className={`chip ${pharmacyEnabled ? "bg-teal-100 text-teal-800 ring-teal-200" : "bg-slate-100 text-slate-700 ring-slate-200"}`}>Weno</span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="chip bg-amber-100 text-amber-800 ring-amber-200">Pending: {pendingRxCount}</span>

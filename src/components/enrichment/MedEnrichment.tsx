@@ -14,7 +14,7 @@ type Enrich = {
 // Public reference enrichment panel for a patient's medication list.
 // Uses only public/verified sources (openFDA, RxNorm/RxNav, MedlinePlus). It does
 // NOT return the patient's real fill/allergy history — that requires PDMP / HIE /
-// Surescripts onboarding (see the Interoperability Access Center).
+// Weno RxHistory onboarding (see the Interoperability Access Center).
 export default function MedEnrichment({ meds }: { meds: Med[] }) {
   const active = meds.filter((m) => (m.status || "active") === "active");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export default function MedEnrichment({ meds }: { meds: Med[] }) {
       <div className="p-4 space-y-2 text-sm">
         <p className="text-[11px] text-slate-500">
           Normalizes each medication against official public references (RxNorm code &amp; class, FDA labeling / recalls, MedlinePlus patient education).
-          This is reference data only — a patient&apos;s real fill history &amp; allergies require PDMP, HIE or Surescripts onboarding.
+          This is reference data only — a patient&apos;s real fill history &amp; allergies require PDMP, HIE or Weno RxHistory onboarding.
         </p>
         {active.length === 0 && <div className="text-slate-500 italic">No active medications to enrich.</div>}
         {active.map((m) => {

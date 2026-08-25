@@ -174,7 +174,7 @@ export default function BlueButtonConnect({
           </p>
           <ul className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {[
-              { name: "Medication history", net: "Surescripts", desc: "Cross-provider fill history" },
+              { name: "Medication history", net: "Weno", desc: "Cross-provider fill history" },
               { name: "Immunizations", net: "State IIS (e.g. ImmTrac2)", desc: "Registry immunization records" },
               { name: "Allergies & summaries", net: "Carequality / CommonWell", desc: "HIE clinical summary (C-CDA)" },
             ].map((s) => (

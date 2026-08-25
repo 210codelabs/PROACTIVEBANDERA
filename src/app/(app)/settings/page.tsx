@@ -91,7 +91,7 @@ export default async function Settings() {
             <div className="font-semibold text-slate-900">Interoperability &amp; Data Sources</div>
             <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200">openFDA · RxNorm · MedlinePlus · NPPES active</span>
           </div>
-          <div className="text-sm text-slate-500">See the clinic&apos;s capacity to connect to state / federal / verified clinical data sources (PDMP, Surescripts, HIE, CMS Blue Button) for new-patient enrichment — with live status and the exact onboarding steps for each.</div>
+          <div className="text-sm text-slate-500">See the clinic&apos;s capacity to connect to state / federal / verified clinical data sources (PDMP, Weno, HIE, CMS Blue Button) for new-patient enrichment — with live status and the exact onboarding steps for each.</div>
         </div>
         <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Open →</span>
       </Link>

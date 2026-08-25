@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   const data = {
     name,
     npi: npi || null,
-    network: "surescripts",
+    network: "weno",
     addressLine1: String(b.address1 || "") || null,
     city: String(b.city || "") || null,
     state: String(b.state || "") || null,

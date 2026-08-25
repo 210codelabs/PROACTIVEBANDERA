@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const body = Body.safeParse(await req.json().catch(() => ({})));
   const ncpdp = (body.success ? body.data.pharmacyNcpdp : "") || rx.pharmacyNcpdp || rx.pharmacyNpi || "";
-  if (!ncpdp) return NextResponse.json({ error: "A pharmacy NCPDP ID is required to transmit. Select a Weno/Surescripts pharmacy or enter its NCPDP ID." }, { status: 400 });
+  if (!ncpdp) return NextResponse.json({ error: "A pharmacy NCPDP ID is required to transmit. Select a Weno pharmacy or enter its NCPDP ID." }, { status: 400 });
 
   // Controlled-substance guard: block EPCS unless explicitly enabled (and even
   // then it is NOT certified until Weno approves the DEA audit).

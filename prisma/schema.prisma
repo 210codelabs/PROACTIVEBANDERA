@@ -325,7 +325,7 @@ model Medication {
   endDate      DateTime?
   prescriberId String?
   status       String   @default("active") // active | discontinued | completed
-  source       String?  // manual | intake | cms-bluebutton | fhir-import | surescripts
+  source       String?  // manual | intake | cms-bluebutton | fhir-import | weno
   notes        String?
   createdAt    DateTime @default(now())
 }
@@ -536,7 +536,7 @@ model Pharmacy {
   ncpdpId      String?  @unique // NCPDP / NABP pharmacy identifier
   npi          String?
   name         String
-  network      String   @default("surescripts") // surescripts | availity | internal
+  network      String   @default("weno") // weno | availity | internal
   addressLine1 String?
   city         String?
   state        String?
@@ -585,7 +585,7 @@ model Order {
   pharmacyId     String?
   pharmacy       Pharmacy?  @relation(fields: [pharmacyId], references: [id])
   pharmacyName   String?    // denormalized for quick display
-  routingNetwork String?    // surescripts | availity | internal
+  routingNetwork String?    // weno | availity | internal
   routedAt       DateTime?
 
   // lab/imaging

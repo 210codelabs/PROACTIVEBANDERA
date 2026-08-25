@@ -1,7 +1,7 @@
 // In-app "capacity" registry for external clinical data sources. Status is derived
 // from server-side env presence so the UI truthfully reflects what is actually
 // wired vs. what still requires vendor onboarding. Public sources are active now;
-// PDMP / Surescripts / HIE are gated and cannot be used without onboarding.
+// PDMP / Weno / HIE are gated and cannot be used without onboarding.
 
 export type InteropTier = "public" | "patient-authorized" | "gated";
 
@@ -124,25 +124,24 @@ export function getInteropSources(): InteropSource[] {
       note: "No public developer sandbox. The AWARxE portal is for authorized human use — never scraped.",
     },
     {
-      key: "surescripts",
-      name: "Surescripts — Medication History / RLE",
+      key: "weno-rxhistory",
+      name: "Weno — Medication History (RxHistory)",
       category: "Medication fill history",
       tier: "gated",
-      provides: "Network medication fill history & record-locator across retail pharmacies and PBMs.",
+      provides: "Network medication fill history across pharmacies via Weno RxHistory (if enabled on your Weno account).",
       patientLevel: true,
-      active: has("SURESCRIPTS_BASE_URL"),
-      statusLabel: has("SURESCRIPTS_BASE_URL") ? "Configured" : "Requires onboarding",
-      authModel: "Customer/technology-vendor agreement + NCPDP SCRIPT + certification",
-      docsUrl: "https://surescripts.com/",
+      active: has("WENO_BASE_URL"),
+      statusLabel: has("WENO_BASE_URL") ? "Configured" : "Requires Weno onboarding",
+      authModel: "Weno partner credentials + NCPDP SCRIPT + certification",
+      docsUrl: "https://wenoexchange.com/",
       onboarding: [
-        "Engage Surescripts for the Medication History for Reconciliation + RLE use case",
-        "Sign the customer agreement and complete use-case approval",
-        "Implement per the NCPDP companion / implementation guides",
-        "Pass certification in the staging environment",
-        "Receive production credentials + IP allow-list",
+        "Enable the Medication History (RxHistory) service on your Weno account",
+        "Complete Weno certification for the RxHistory use case",
+        "Allowlist this server's outbound IP in the Weno dashboard",
+        "Configure Weno partner credentials under Admin → External Integrations → Weno Exchange",
       ],
-      credentials: ["SURESCRIPTS_BASE_URL", "SURESCRIPTS_CLIENT_ID", "SURESCRIPTS_CLIENT_SECRET"],
-      note: "Display as unverified history and reconcile with the patient. There is no open REST endpoint.",
+      credentials: ["WENO_BASE_URL", "WENO_PARTNER_ID", "WENO_PARTNER_PASSWORD"],
+      note: "Display as unverified history and reconcile with the patient. Requires Weno RxHistory to be enabled on your account.",
     },
     {
       key: "carequality",
