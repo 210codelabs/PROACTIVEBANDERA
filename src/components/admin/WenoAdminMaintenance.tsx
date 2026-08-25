@@ -9,6 +9,24 @@ export default function WenoAdminMaintenance() {
   const [applyRes, setApplyRes] = useState<Result | null>(null);
   const [relabelBusy, setRelabelBusy] = useState(false);
   const [relabelRes, setRelabelRes] = useState<Result | null>(null);
+  const [popBusy, setPopBusy] = useState(false);
+  const [popRes, setPopRes] = useState<Result | null>(null);
+
+  async function populateTest() {
+    setPopBusy(true); setPopRes(null);
+    try {
+      const r = await fetch("/api/admin/weno/populate-test", { method: "POST" });
+      const d = await r.json();
+      if (!r.ok) { setPopRes({ ok: false, text: d.error || "Failed to populate." }); return; }
+      const on = d.online || {}; const ex = d.exchange || {};
+      const onTxt = `Weno Online: ${on.applied?.length || 0} field(s) saved${on.enabled ? " and enabled" : ""}`;
+      const exTxt = ex.enabled
+        ? `; Weno Exchange enabled (${ex.applied?.length || 0} field(s))`
+        : `; Weno Exchange partials saved (add API Partner ID + Password to enable SOAP)`;
+      setPopRes({ ok: true, text: `${onTxt}${exTxt}. Reloading…` });
+      setTimeout(() => window.location.reload(), 1200);
+    } catch { setPopRes({ ok: false, text: "Request failed." }); } finally { setPopBusy(false); }
+  }
 
   async function applyEnv() {
     setApplyBusy(true); setApplyRes(null);
@@ -34,6 +52,13 @@ export default function WenoAdminMaintenance() {
     <div className="rounded-xl bg-white ring-1 ring-slate-200 p-4">
       <h3 className="text-sm font-semibold text-slate-900">Weno maintenance</h3>
       <p className="mt-0.5 text-xs text-slate-500">One-click helpers for production. Admin only.</p>
+
+      <div className="mt-3 rounded-lg ring-1 ring-brand-200 bg-brand-50/60 p-3">
+        <div className="text-sm font-medium text-slate-800">Populate preconfigured test values</div>
+        <p className="mt-0.5 text-[11px] text-slate-500">One click loads the preconfigured Weno <strong>TEST</strong> credentials (Weno Online: encryption key, environment=test, provider email/password, Location ID) straight into the settings — no environment variables or hand-typing needed. Use this to test e-prescribing in production, then replace with real production credentials before live use.</p>
+        <button type="button" onClick={populateTest} disabled={popBusy} className="mt-2 btn-primary py-1.5 px-3 text-xs disabled:opacity-60">{popBusy ? "Populating…" : "Populate test values"}</button>
+        {popRes && <div className={`mt-2 text-[11px] ${popRes.ok ? "text-emerald-700" : "text-rose-600"}`}>{popRes.text}</div>}
+      </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg ring-1 ring-slate-200 p-3">
