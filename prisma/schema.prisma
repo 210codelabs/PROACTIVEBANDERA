@@ -1173,6 +1173,28 @@ model Prescription {
   @@index([patientId])
 }
 
+// Local cache of the Weno pharmacy directory so clinicians can search by name
+// instead of typing an NCPDP ID. Populated by the admin directory sync.
+model WenoPharmacy {
+  id        String   @id @default(cuid()) @map("_id")
+  ncpdpId   String   @unique
+  name      String
+  address   String?
+  city      String?
+  state     String?
+  zip       String?
+  phone     String?
+  fax       String?
+  npi       String?
+  services  String?  // raw capability flags (e.g. NewRx, EPCS, Controlled)
+  active    Boolean  @default(true)
+  raw       String?  // original row preserved (Weno may append columns)
+  source    String   @default("weno")
+  updatedAt DateTime @updatedAt
+  @@index([state])
+  @@index([name])
+}
+
 // ===================== Enterprise / Occupational Health =====================
 model EnterpriseAccount {
   id            String   @id @default(cuid()) @map("_id")

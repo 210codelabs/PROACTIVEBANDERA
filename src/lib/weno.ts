@@ -36,6 +36,18 @@ export class WenoError extends Error {
 
 function md5(s: string) { return crypto.createHash("md5").update(s, "utf8").digest("hex"); }
 
+// Fetch with a hard timeout so a hung Weno host fails cleanly instead of
+// bubbling up as a proxy 502 after the platform's request ceiling.
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 export async function getWenoConfig(): Promise<WenoConfig> {
   const state = await readIntegrations();
   const p = state.providers["weno"];
@@ -129,9 +141,10 @@ export async function sendSwitch(message: string): Promise<SwitchResult> {
 </soap12:Body></soap12:Envelope>`;
   let r: Response;
   try {
-    r = await fetch(cfg.switchEndpoint, { method: "POST", headers: { "Content-Type": "application/soap+xml; charset=utf-8" }, body: soap, cache: "no-store" });
+    r = await fetchWithTimeout(cfg.switchEndpoint, { method: "POST", headers: { "Content-Type": "application/soap+xml; charset=utf-8" }, body: soap, cache: "no-store" }, 25000);
   } catch (e: any) {
-    throw new WenoError(`Could not reach Weno endpoint: ${String(e?.message || e).slice(0, 160)}`);
+    const aborted = e?.name === "AbortError";
+    throw new WenoError(aborted ? "Weno endpoint timed out (25s). Confirm the endpoint + IP allowlist." : `Could not reach Weno endpoint: ${String(e?.message || e).slice(0, 160)}`);
   }
   const raw = await r.text();
   if (!r.ok) throw new WenoError(`Weno HTTP ${r.status}: ${raw.slice(0, 160)}`, r.status);
@@ -142,18 +155,116 @@ export async function sendSwitch(message: string): Promise<SwitchResult> {
 // Directory download doubles as the real "Test Connection": it validates the
 // partner credentials + IP allowlist via HTTP Basic auth (partnerId:md5).
 export async function wenoDirectoryPing(kind: "PharmacyDirectory" | "DrugDBDirectory" | "PrescriberDirectory" = "PharmacyDirectory"): Promise<{ ok: true; bytes: number }> {
+  const buf = await fetchDirectoryBuffer(kind);
+  return { ok: true, bytes: buf.byteLength };
+}
+
+async function fetchDirectoryBuffer(kind: "PharmacyDirectory" | "DrugDBDirectory" | "PrescriberDirectory"): Promise<Buffer> {
   const cfg = await getWenoConfig();
   if (!cfg.partnerId || !cfg.md5Password) throw new WenoError("Weno Partner ID / password are required.", 400);
   const token = Buffer.from(`${cfg.partnerId}:${cfg.md5Password}`).toString("base64");
   const url = `${cfg.directoryBase}/wenox/GetListResponse.aspx?${kind}=yes`;
   let r: Response;
   try {
-    r = await fetch(url, { headers: { Authorization: `Basic ${token}` }, cache: "no-store" });
+    r = await fetchWithTimeout(url, { headers: { Authorization: `Basic ${token}` }, cache: "no-store" }, 40000);
   } catch (e: any) {
-    throw new WenoError(`Could not reach Weno (${cfg.directoryBase}). Confirm your outbound IP is allowlisted in the Weno dashboard. ${String(e?.message || e).slice(0, 120)}`);
+    const aborted = e?.name === "AbortError";
+    throw new WenoError(aborted ? `Weno directory request timed out (40s) at ${cfg.directoryBase}. Confirm your outbound IP is allowlisted in the Weno dashboard.` : `Could not reach Weno (${cfg.directoryBase}). Confirm your outbound IP is allowlisted in the Weno dashboard. ${String(e?.message || e).slice(0, 120)}`);
   }
   if (r.status === 401 || r.status === 403) throw new WenoError(`Weno rejected the credentials (HTTP ${r.status}). Verify Partner ID + password/MD5 and that this server's IP is allowlisted.`, r.status);
   if (!r.ok) throw new WenoError(`Weno directory request failed (HTTP ${r.status}).`, r.status);
-  const buf = Buffer.from(await r.arrayBuffer());
-  return { ok: true, bytes: buf.byteLength };
+  return Buffer.from(await r.arrayBuffer());
+}
+
+export type ParsedPharmacy = {
+  ncpdpId: string; name: string; address?: string; city?: string; state?: string;
+  zip?: string; phone?: string; fax?: string; npi?: string; services?: string; raw: string;
+};
+
+// Defensive parser for Weno's pharmacy directory. The exact columns come from
+// the Weno dashboard and can change, so we auto-detect the delimiter and map
+// header names heuristically, preserving the original row.
+export function parseDirectory(text: string): ParsedPharmacy[] {
+  const clean = String(text || "").replace(/\r/g, "");
+  const lines = clean.split("\n").filter((l) => l.trim().length > 0);
+  if (lines.length === 0) return [];
+  const delim = [",", "\t", "|"].map((d) => ({ d, n: (lines[0].match(new RegExp(`\\${d}`, "g")) || []).length })).sort((a, b) => b.n - a.n)[0].d;
+  const split = (l: string) => l.split(delim).map((c) => c.trim().replace(/^"|"$/g, ""));
+  const header = split(lines[0]).map((h) => h.toLowerCase());
+  const looksLikeHeader = header.some((h) => /ncpdp|pharmacy|name|city|state/.test(h));
+  const idx = (names: string[]) => header.findIndex((h) => names.some((n) => h.includes(n)));
+  const col = {
+    ncpdp: idx(["ncpdp", "pharmacyid", "storeid"]),
+    name: idx(["name", "pharmacy"]),
+    address: idx(["address", "street", "addr"]),
+    city: idx(["city"]),
+    state: idx(["state", "province"]),
+    zip: idx(["zip", "postal"]),
+    phone: idx(["phone", "tele"]),
+    fax: idx(["fax"]),
+    npi: idx(["npi"]),
+    services: idx(["service", "capab", "epcs"]),
+  };
+  const rows = looksLikeHeader ? lines.slice(1) : lines;
+  const out: ParsedPharmacy[] = [];
+  for (const line of rows) {
+    const c = split(line);
+    const ncpdpId = (col.ncpdp >= 0 ? c[col.ncpdp] : c[0]) || "";
+    const name = (col.name >= 0 ? c[col.name] : c[1]) || "";
+    if (!ncpdpId || !/^\w[\w-]*$/.test(ncpdpId)) continue;
+    out.push({
+      ncpdpId, name: name || ncpdpId,
+      address: col.address >= 0 ? c[col.address] : undefined,
+      city: col.city >= 0 ? c[col.city] : undefined,
+      state: col.state >= 0 ? c[col.state] : undefined,
+      zip: col.zip >= 0 ? c[col.zip] : undefined,
+      phone: col.phone >= 0 ? c[col.phone] : undefined,
+      fax: col.fax >= 0 ? c[col.fax] : undefined,
+      npi: col.npi >= 0 ? c[col.npi] : undefined,
+      services: col.services >= 0 ? c[col.services] : undefined,
+      raw: line.slice(0, 500),
+    });
+  }
+  return out;
+}
+
+export async function downloadPharmacyDirectory(): Promise<ParsedPharmacy[]> {
+  const buf = await fetchDirectoryBuffer("PharmacyDirectory");
+  // Best-effort: treat as UTF-8 text (Weno may zip large files; if so the admin
+  // should confirm format — we surface a clear error rather than guessing).
+  const text = buf.toString("utf8");
+  if (/^PK\x03\x04/.test(text) || text.includes("\x00")) {
+    throw new WenoError("The Weno directory came back as a binary/zip file. Ask Weno for the delimited (CSV) directory format for API partners.");
+  }
+  return parseDirectory(text);
+}
+
+// Documented Weno TEST pharmacy so clinicians can pick a destination while in
+// the test/cert environment before a real directory sync.
+export const WENO_TEST_PHARMACIES: ParsedPharmacy[] = [
+  { ncpdpId: "1234567", name: "Weno Test Pharmacy", city: "Test City", state: "TX", zip: "78201", phone: "(210) 555-0100", services: "NewRx", raw: "built-in test pharmacy" },
+];
+
+// Build a CancelRx SCRIPT message that references the original NewRx MessageID.
+export function buildCancelRxXml(cfg: WenoConfig, x: {
+  relatesToMessageId: string; pharmacyNcpdp: string; messageId?: string;
+  patient: { first: string; last: string; dob?: string; gender?: string };
+  prescriberNpi?: string; prescriberLast?: string; prescriberFirst?: string;
+  drugDescription: string;
+}): { xml: string; messageId: string } {
+  const id = x.messageId || newMessageId();
+  const now = new Date().toISOString();
+  const xml = `<?xml version="1.0" encoding="utf-8"?>
+<Message DatatypesVersion="20170715" TransportVersion="20170715" TransactionDomain="SCRIPT" TransactionVersion="20170715" StructuresVersion="20170715" ECLVersion="20170715">
+ <Header><To Qualifier="P">${esc(x.pharmacyNcpdp)}</To><From Qualifier="D">${esc(cfg.prescriberRoutingId)}</From><MessageID>${id}</MessageID><RelatesToMessageID>${esc(x.relatesToMessageId)}</RelatesToMessageID><SentTime>${now}</SentTime>
+  <Security><UsernameToken><Username>${esc(cfg.partnerId)}</Username><Password Type="PasswordDigest">${esc(cfg.md5Password)}</Password></UsernameToken></Security>
+  <SenderSoftware><SenderSoftwareDeveloper>ProactiveClinics</SenderSoftwareDeveloper><SenderSoftwareProduct>${esc(cfg.senderName)}</SenderSoftwareProduct><SenderSoftwareVersionRelease>${esc(cfg.senderVersion)}</SenderSoftwareVersionRelease></SenderSoftware>
+ </Header>
+ <Body><CancelRx>
+  <Patient><HumanPatient><Name><LastName>${esc(x.patient.last)}</LastName><FirstName>${esc(x.patient.first)}</FirstName></Name><Gender>${esc(x.patient.gender || "U")}</Gender><DateOfBirth><Date>${esc(x.patient.dob || "")}</Date></DateOfBirth></HumanPatient></Patient>
+  <Pharmacy><Identification><NCPDPID>${esc(x.pharmacyNcpdp)}</NCPDPID></Identification></Pharmacy>
+  <Prescriber><NonVeterinarian><Identification><NPI>${esc(x.prescriberNpi || "")}</NPI></Identification><Name><LastName>${esc(x.prescriberLast || "")}</LastName><FirstName>${esc(x.prescriberFirst || "")}</FirstName></Name></NonVeterinarian></Prescriber>
+  <MedicationPrescribed><DrugDescription>${esc(x.drugDescription)}</DrugDescription></MedicationPrescribed>
+ </CancelRx></Body></Message>`;
+  return { xml, messageId: id };
 }
