@@ -38,13 +38,26 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
-  const [weno, setWeno] = useState<{ enabled: boolean; configured: boolean; environment: string; epcs: boolean; online?: { enabled: boolean; configured: boolean; keySet: boolean; environment: string } } | null>(null);
+  const [weno, setWeno] = useState<{ enabled: boolean; configured: boolean; environment: string; epcs: boolean; online?: { enabled: boolean; configured: boolean; keySet: boolean; environment: string; prescriber?: { npi: string; dea: string; firstName: string; lastName: string; name: string } } } | null>(null);
   const [ncpdp, setNcpdp] = useState("");
   const [txBusy, setTxBusy] = useState(false);
   const [txResult, setTxResult] = useState<{ ok: boolean; state?: string; text: string } | null>(null);
 
   useEffect(() => {
-    fetch("/api/erx/weno-status").then((r) => r.json()).then((d) => setWeno(d)).catch(() => setWeno(null));
+    fetch("/api/erx/weno-status")
+      .then((r) => r.json())
+      .then((d) => {
+        setWeno(d);
+        // Pre-fill the prescriber NPI/DEA registered with Weno when the logged-in
+        // provider has none on their own profile (functional updates so we never
+        // overwrite a value the provider already has).
+        const pres = d?.online?.prescriber;
+        if (pres) {
+          if (pres.npi) setProviderNpi((cur) => cur || pres.npi);
+          if (pres.dea) { setProviderDea((cur) => cur || pres.dea); }
+        }
+      })
+      .catch(() => setWeno(null));
   }, []);
 
   async function transmitWeno() {
@@ -82,6 +95,39 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
     } catch {
       setOlErr("Weno Online launch request failed.");
     } finally { setOlBusy(false); }
+  }
+
+  // Prescriber NPI lookup (NPPES) + clinician-facing Weno connection test.
+  const [npiQ, setNpiQ] = useState({ first: "", last: "" });
+  const [npiResults, setNpiResults] = useState<any[]>([]);
+  const [npiBusy, setNpiBusy] = useState(false);
+  const [npiOpen, setNpiOpen] = useState(false);
+  const [wenoTest, setWenoTest] = useState<{ ok: boolean; text: string } | null>(null);
+  const [wenoTestBusy, setWenoTestBusy] = useState(false);
+
+  async function searchNpi() {
+    if (!npiQ.first.trim() && !npiQ.last.trim()) return;
+    setNpiBusy(true); setNpiResults([]); setNpiOpen(true);
+    try {
+      const p = new URLSearchParams({ type: "NPI-1" });
+      if (npiQ.first.trim()) p.set("first_name", npiQ.first.trim());
+      if (npiQ.last.trim()) p.set("last_name", npiQ.last.trim());
+      const r = await fetch(`/api/nppes/search?${p.toString()}`);
+      const d = await r.json();
+      setNpiResults(Array.isArray(d.results) ? d.results : []);
+    } catch { setNpiResults([]); } finally { setNpiBusy(false); }
+  }
+
+  async function testWeno() {
+    setWenoTestBusy(true); setWenoTest(null);
+    try {
+      const r = await fetch("/api/erx/weno-test");
+      const d = await r.json();
+      const parts: string[] = [];
+      if (d.online) parts.push(`Weno Online — ${d.online.message}`);
+      if (d.switch) parts.push(`Switch — ${d.switch.message}`);
+      setWenoTest({ ok: Boolean(d.ok), text: parts.join("  ·  ") || "No response." });
+    } catch { setWenoTest({ ok: false, text: "Test request failed." }); } finally { setWenoTestBusy(false); }
   }
 
   async function cancelRx(h: any) {
@@ -551,6 +597,39 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
             </button>
           </div>
         </div>
+
+        {/* Find & fill the prescriber NPI from the national registry (NPPES) */}
+        <div className="rounded-lg ring-1 ring-slate-200 bg-slate-50 p-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Find prescriber NPI (NPPES)</span>
+            {weno?.online?.prescriber?.npi && <span className="text-[10px] text-slate-400">Weno-registered NPI: <span className="font-mono">{weno.online.prescriber.npi}</span></span>}
+          </div>
+          <div className="mt-1.5 flex gap-2">
+            <input className="input flex-1" placeholder="First name" value={npiQ.first} onChange={(e) => setNpiQ((s) => ({ ...s, first: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchNpi(); } }} />
+            <input className="input flex-1" placeholder="Last name" value={npiQ.last} onChange={(e) => setNpiQ((s) => ({ ...s, last: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchNpi(); } }} />
+            <button type="button" onClick={searchNpi} disabled={npiBusy} className="chip bg-brand-600 text-white text-xs shrink-0 disabled:opacity-60">{npiBusy ? "…" : "Find NPI"}</button>
+          </div>
+          {npiOpen && npiResults.length > 0 && (
+            <ul className="mt-1.5 max-h-40 overflow-auto divide-y divide-slate-100 rounded-md bg-white ring-1 ring-slate-200">
+              {npiResults.map((n) => (
+                <li key={n.npi}>
+                  <button type="button" onClick={() => { setProviderNpi(n.npi); setNpiOpen(false); }} className="w-full text-left px-2.5 py-1.5 hover:bg-brand-50 text-xs">
+                    <span className="font-medium text-slate-900">{n.name}</span>{n.credential ? `, ${n.credential}` : ""} <span className="font-mono text-slate-500">{n.npi}</span>
+                    <span className="text-slate-400">{n.primaryTaxonomy?.desc ? ` · ${n.primaryTaxonomy.desc}` : ""}{n.practice?.state ? ` · ${n.practice.state}` : ""}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {npiOpen && !npiBusy && npiResults.length === 0 && <div className="mt-1 text-[11px] text-slate-400">No NPI matches — try a different name.</div>}
+        </div>
+
+        {/* Clinician-facing Weno connection test */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button type="button" onClick={testWeno} disabled={wenoTestBusy} className="btn-secondary py-1.5 px-3 text-xs disabled:opacity-60">{wenoTestBusy ? "Testing…" : "Test Weno connection"}</button>
+          {wenoTest && <span className={`text-[11px] ${wenoTest.ok ? "text-emerald-700" : "text-rose-600"}`}>{wenoTest.text}</span>}
+        </div>
+
         <SignaturePad onChange={setSig} />
 
         {err && <div className="rounded-md bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-3 py-2 text-sm">{err}</div>}

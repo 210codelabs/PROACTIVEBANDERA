@@ -29,6 +29,10 @@ export type WenoOnlineConfig = {
   providerPassword: string;
   wenoUserId: string;
   composeBase: string;
+  prescriberNpi: string;
+  prescriberDea: string;
+  prescriberFirst: string;
+  prescriberLast: string;
 };
 
 export class WenoOnlineError extends Error {
@@ -60,6 +64,10 @@ export async function getWenoOnlineConfig(): Promise<WenoOnlineConfig> {
     providerPassword: c.PROVIDER_PASSWORD || "",
     wenoUserId: c.WENO_USER_ID || "",
     composeBase,
+    prescriberNpi: c.PRESCRIBER_NPI || "",
+    prescriberDea: c.PRESCRIBER_DEA || "",
+    prescriberFirst: c.PRESCRIBER_FIRST_NAME || "",
+    prescriberLast: c.PRESCRIBER_LAST_NAME || "",
   };
 }
 

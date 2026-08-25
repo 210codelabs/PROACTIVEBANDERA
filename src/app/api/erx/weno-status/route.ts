@@ -21,6 +21,13 @@ export async function GET() {
       configured: isWenoOnlineConfigured(online),
       keySet: Boolean(online.ehrEncryptionKey),
       environment: online.environment,
+      prescriber: {
+        npi: online.prescriberNpi || "",
+        dea: online.prescriberDea || "",
+        firstName: online.prescriberFirst || "",
+        lastName: online.prescriberLast || "",
+        name: [online.prescriberFirst, online.prescriberLast].filter(Boolean).join(" ").trim(),
+      },
     },
   });
 }
