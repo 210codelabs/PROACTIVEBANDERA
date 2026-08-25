@@ -102,86 +102,76 @@ export default function MapNav() {
   };
 
   // Animate camera flying along the route for a car-navigation feel.
-  // Advances only after each camera move finishes (event-driven) so moves
-  // never interrupt each other — no jumpy re-zooming. Zoom stays constant.
+  // Uses requestAnimationFrame to move the camera CONTINUOUSLY along the route
+  // by setting camera properties directly each frame. This avoids repeatedly
+  // calling the animated flyCameraTo (which caused the jumpy re-zooming), so the
+  // motion is a single smooth glide with a constant zoom level, like real GPS.
   const flyAlong = useCallback((google: any, map3d: any, path: any[]) => {
     const spherical = google.maps.geometry.spherical;
     const total = path.length;
     if (total < 2) return;
 
-    // Sample the route down to a handful of smooth waypoints.
-    const MAX_WAYPOINTS = 12;
-    const stepN = Math.max(1, Math.floor(total / MAX_WAYPOINTS));
-    const points: any[] = [];
-    for (let k = 0; k < total; k += stepN) points.push(path[k]);
-    if (points[points.length - 1] !== path[total - 1]) points.push(path[total - 1]);
+    // Cumulative distances so the camera travels at a constant ground speed.
+    const segDist: number[] = [];
+    let totalDist = 0;
+    for (let i = 0; i < total - 1; i++) {
+      const d = spherical.computeDistanceBetween(path[i], path[i + 1]);
+      segDist.push(d);
+      totalDist += d;
+    }
+    if (totalDist <= 0) return;
 
-    const RANGE = 500; // constant zoom the whole way
+    const RANGE = 500; // constant zoom the entire way
     const TILT = 66;
-    const DUR = 2600;
+    const ALT = 12;
+    // 10–40s total depending on route length.
+    const durationMs = Math.min(Math.max((totalDist / 300) * 1000, 10000), 40000);
 
-    let idx = 0;
-    let handler: ((e: any) => void) | null = null;
-    let backup: any = null;
+    let startTs: number | null = null;
+    let raf = 0;
+    let cancelled = false;
 
-    const clearWait = () => {
-      if (handler) map3d.removeEventListener("gmp-animationend", handler);
-      handler = null;
-      if (backup) clearTimeout(backup);
-      backup = null;
+    const setCam = (from: any, to: any, frac: number) => {
+      const p = spherical.interpolate(from, to, Math.max(0, Math.min(1, frac)));
+      const heading = spherical.computeHeading(from, to);
+      map3d.center = { lat: p.lat(), lng: p.lng(), altitude: ALT };
+      map3d.heading = heading;
+      map3d.tilt = TILT;
+      map3d.range = RANGE;
     };
 
-    const flyNext = () => {
-      if (!map3dRef.current) {
-        clearWait();
-        return;
-      }
-      if (idx >= points.length) {
-        clearWait();
-        // Gentle final overview of the clinic.
-        map3d.flyCameraTo({
-          endCamera: {
-            center: { lat: CLINIC.lat, lng: CLINIC.lng, altitude: 30 },
-            tilt: 60,
-            range: 900,
-            heading: 0,
-          },
-          durationMillis: 2800,
-        });
-        return;
-      }
-      const cur = points[idx];
-      const look = points[Math.min(idx + 1, points.length - 1)];
-      const heading = spherical.computeHeading(cur, look);
+    const frame = (ts: number) => {
+      if (cancelled || !map3dRef.current) return;
+      if (startTs == null) startTs = ts;
+      const t = Math.min((ts - startTs) / durationMs, 1);
+      const target = t * totalDist;
 
-      // Advance when the fly finishes; backup timer in case the event is missed.
-      clearWait();
-      handler = () => {
-        clearWait();
-        idx += 1;
-        flyNext();
-      };
-      map3d.addEventListener("gmp-animationend", handler, { once: true });
-      backup = setTimeout(() => {
-        clearWait();
-        idx += 1;
-        flyNext();
-      }, DUR + 400);
+      // Locate the current segment for the travelled distance.
+      let acc = 0;
+      let i = 0;
+      while (i < segDist.length - 1 && acc + segDist[i] < target) {
+        acc += segDist[i];
+        i++;
+      }
+      const segLen = segDist[i] || 1;
+      const segFrac = (target - acc) / segLen;
+      setCam(path[i], path[i + 1] || path[i], segFrac);
 
-      map3d.flyCameraTo({
-        endCamera: {
-          center: { lat: cur.lat(), lng: cur.lng(), altitude: 20 },
-          tilt: TILT,
-          range: RANGE,
-          heading,
-        },
-        durationMillis: DUR,
-      });
+      if (t < 1) {
+        raf = requestAnimationFrame(frame);
+      }
     };
 
-    // Register cleanup so stopFly()/cleanup() cancels pending waits.
-    flyTimerRef.current = { cancel: clearWait } as any;
-    flyNext();
+    // Start the glide from the beginning of the route.
+    setCam(path[0], path[1], 0);
+    raf = requestAnimationFrame(frame);
+
+    flyTimerRef.current = {
+      cancel: () => {
+        cancelled = true;
+        if (raf) cancelAnimationFrame(raf);
+      },
+    } as any;
   }, []);
 
   const initNav = useCallback(async () => {
