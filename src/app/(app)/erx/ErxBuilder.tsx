@@ -87,6 +87,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
         body: JSON.stringify({
           patientId: patient?.id || null,
           primaryPharmacyNcpdp: ncpdp || (pharmacy as any)?.ncpdpId || null,
+          providerEmail: selectedPrescriberEmail || undefined,
         }),
       });
       const d = await r.json();
@@ -104,6 +105,33 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   const [npiOpen, setNpiOpen] = useState(false);
   const [wenoTest, setWenoTest] = useState<{ ok: boolean; text: string } | null>(null);
   const [wenoTestBusy, setWenoTestBusy] = useState(false);
+
+  // Weno-registered prescriber directory: pick the right prescriber per login.
+  const [wenoPrescribers, setWenoPrescribers] = useState<any[]>([]);
+  const [selectedPrescriberId, setSelectedPrescriberId] = useState<string>("");
+  const selectedPrescriberEmail = wenoPrescribers.find((p) => p.id === selectedPrescriberId)?.wenoEmail || "";
+  useEffect(() => {
+    fetch("/api/erx/prescribers")
+      .then((r) => r.json())
+      .then((d) => {
+        const list = Array.isArray(d.prescribers) ? d.prescribers : [];
+        setWenoPrescribers(list);
+        if (d.suggestedId) {
+          const sel = list.find((p: any) => p.id === d.suggestedId);
+          if (sel) {
+            setSelectedPrescriberId(sel.id);
+            if (sel.npi) setProviderNpi((cur) => cur || sel.npi);
+            if (sel.dea) setProviderDea((cur) => cur || sel.dea);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+  function selectPrescriber(id: string) {
+    setSelectedPrescriberId(id);
+    const p = wenoPrescribers.find((x) => x.id === id);
+    if (p) { setProviderNpi(p.npi || ""); setProviderDea(p.dea || ""); }
+  }
 
   async function searchNpi() {
     if (!npiQ.first.trim() && !npiQ.last.trim()) return;
@@ -600,6 +628,17 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
 
         {/* Find & fill the prescriber NPI from the national registry (NPPES) */}
         <div className="rounded-lg ring-1 ring-slate-200 bg-slate-50 p-2.5">
+          {wenoPrescribers.length > 0 && (
+            <div className="mb-2.5">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Prescribe as (Weno-registered)</label>
+              <select className="input mt-1 w-full" value={selectedPrescriberId} onChange={(e) => selectPrescriber(e.target.value)}>
+                <option value="">— Select prescriber —</option>
+                {wenoPrescribers.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} · NPI {p.npi}{p.isDefault ? " (default)" : ""}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Find prescriber NPI (NPPES)</span>
             {weno?.online?.prescriber?.npi && <span className="text-[10px] text-slate-400">Weno-registered NPI: <span className="font-mono">{weno.online.prescriber.npi}</span></span>}

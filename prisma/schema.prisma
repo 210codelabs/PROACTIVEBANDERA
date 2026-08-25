@@ -1195,6 +1195,24 @@ model WenoPharmacy {
   @@index([name])
 }
 
+// Weno-registered prescribers an admin can save, so the eRx module can pre-fill
+// NPI/DEA and the clinician can pick the right one per login.
+model WenoPrescriber {
+  id         String   @id @default(cuid()) @map("_id")
+  firstName  String
+  lastName   String
+  npi        String
+  dea        String?
+  wenoEmail  String?  // overrides the Weno Online launch "useremail" when selected
+  userId     String?  // optional link to an EMR user login for auto-selection
+  isDefault  Boolean  @default(false)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([userId])
+  @@index([active])
+}
+
 // A clinician's starred pharmacies for one-tap selection in the eRx builder.
 model FavoritePharmacy {
   id        String   @id @default(cuid()) @map("_id")

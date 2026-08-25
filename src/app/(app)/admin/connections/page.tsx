@@ -5,6 +5,7 @@ import JellyBeans from "@/components/JellyBeans";
 import ProviderIntegrations from "@/components/admin/ProviderIntegrations";
 import WenoDirectorySync from "@/components/admin/WenoDirectorySync";
 import WenoAdminMaintenance from "@/components/admin/WenoAdminMaintenance";
+import WenoPrescriberDirectory from "@/components/admin/WenoPrescriberDirectory";
 import { readIntegrationsForClient } from "@/lib/integrations/store";
 import ConnectionsClient from "./ConnectionsClient";
 
@@ -34,6 +35,9 @@ export default async function ConnectionsPage() {
             <WenoDirectorySync />
             <div className="mt-4">
               <WenoAdminMaintenance />
+            </div>
+            <div className="mt-4">
+              <WenoPrescriberDirectory />
             </div>
           </div>
         </section>

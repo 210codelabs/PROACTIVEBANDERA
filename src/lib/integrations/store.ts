@@ -113,14 +113,19 @@ async function writeIntegrations(state: IntegrationsState): Promise<void> {
 export async function upsertProviderCredentials(
   providerKey: string,
   creds: Record<string, string>,
-  opts?: { enable?: boolean; editedBy?: string },
+  opts?: { enable?: boolean; editedBy?: string; onlyIfEmpty?: boolean },
 ): Promise<{ applied: string[] }> {
   const state = await readIntegrations();
   const prev = state.providers[providerKey] || emptyProviderState();
   const merged: Record<string, string> = { ...(prev.credentials || {}) };
   const applied: string[] = [];
   for (const [k, v] of Object.entries(creds)) {
-    if (v != null && String(v).trim() !== "") { merged[k] = String(v); applied.push(k); }
+    if (v == null || String(v).trim() === "") continue;
+    // Non-destructive mode (boot auto-apply): never overwrite a value an admin
+    // may have already saved — only fill gaps.
+    if (opts?.onlyIfEmpty && merged[k] && String(merged[k]).trim() !== "") continue;
+    merged[k] = String(v);
+    applied.push(k);
   }
   state.providers[providerKey] = {
     ...prev,

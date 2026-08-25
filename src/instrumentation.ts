@@ -10,6 +10,23 @@ export async function register() {
 
   const port = process.env.PORT || "3000";
   const secret = process.env.AUTH_SECRET || "";
+
+  // Boot-time: auto-apply Weno Online config from WENO_ONLINE_* env (zero clicks
+  // after deploy). Non-destructive; retries once if the server is still warming.
+  const applyEnv = async (retry = true) => {
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/api/internal/weno-apply-env`, {
+        method: "POST",
+        headers: { "x-weno-cron": secret },
+      });
+      const d = await r.json().catch(() => ({}));
+      if (d?.applied?.length) console.log(`[weno-boot] applied Weno Online config from env: ${d.applied.join(", ")}`);
+    } catch {
+      if (retry) setTimeout(() => applyEnv(false), 30 * 1000);
+    }
+  };
+  setTimeout(() => applyEnv(), 8 * 1000);
+
   const runCheck = async () => {
     try {
       const r = await fetch(`http://127.0.0.1:${port}/api/internal/weno-autosync`, {

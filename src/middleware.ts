@@ -24,6 +24,7 @@ const PUBLIC_PREFIX = [
   "/api/weno/callback",
   "/api/weno/online-callback",
   "/api/internal/weno-autosync",
+  "/api/internal/weno-apply-env",
   "/api/compare",
   "/fhir",
   "/api/auth/login",

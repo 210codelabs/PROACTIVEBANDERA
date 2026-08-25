@@ -521,8 +521,10 @@ function ContactAndHours({ L }: { L: LandingDict }) {
           <div className="lg:col-span-3 rounded-2xl overflow-hidden border border-slate-200 shadow-sm min-h-[300px]">
             <iframe
               title="Proactive Clinic location map"
-              src="https://www.google.com/maps?q=8103%20Bandera%20Rd%2C%20San%20Antonio%2C%20TX%2078250&output=embed"
+              src="https://maps.google.com/maps?saddr=&daddr=8103%20Bandera%20Rd,%20Suite%20102,%20San%20Antonio,%20TX%2078250&t=h&output=embed"
               className="w-full h-full min-h-[300px]"
+              style={{ border: 0 }}
+              allowFullScreen
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
