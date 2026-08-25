@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import crypto from "node:crypto";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getWenoOnlineConfig, buildComposeRxUrl, WenoOnlineError } from "@/lib/wenoOnline";
@@ -71,10 +72,47 @@ export async function POST(req: Request) {
     );
 
   try {
+    // Correlation id so Weno's async result callback can report the outcome
+    // back into Rx history for this specific launch.
+    const orgTxId = crypto.randomUUID().replace(/-/g, "");
     const { url } = buildComposeRxUrl(cfg, patient, {
       primaryPharmacyNcpdp: b.primaryPharmacyNcpdp || undefined,
       providerEmail: b.providerEmail || undefined,
+      orgTransactionId: orgTxId,
     });
+
+    // Create a Prescription STUB so the launch shows up in Rx history right
+    // away as "Composing" — the /api/weno/online-callback fills in the drug +
+    // final delivery status when Weno reports back.
+    const providerName =
+      [(user as any).firstName, (user as any).lastName].filter(Boolean).join(" ").trim() ||
+      (user as any).name ||
+      (user as any).email ||
+      "Provider";
+    let prescriptionId: string | null = null;
+    try {
+      const stub = await db.prescription.create({
+        data: {
+          patientId: patient.id || null,
+          patientName: `${patient.lastName}, ${patient.firstName}`.trim(),
+          patientDob: patient.dob || null,
+          medName: "Weno Online prescription (composing)",
+          providerName,
+          providerNpi: (user as any).npi || null,
+          providerId: user.id || null,
+          transmissionMethod: "weno-online",
+          pharmacyNcpdp: b.primaryPharmacyNcpdp || null,
+          wenoMessageId: orgTxId,
+          wenoState: "launched",
+          wenoStatusText: "Opened in Weno Online — awaiting completion.",
+          status: "launched",
+        },
+      });
+      prescriptionId = stub.id;
+    } catch {
+      /* stub is best-effort; the launch still works without it */
+    }
+
     // Audit the launch WITHOUT the URL (it embeds PHI + credential material).
     await db.auditLog
       .create({
@@ -83,11 +121,11 @@ export async function POST(req: Request) {
           action: "erx.wenoOnline.launch",
           resource: "Patient",
           resourceId: patient.id || null,
-          meta: JSON.stringify({ environment: cfg.environment }),
+          meta: JSON.stringify({ environment: cfg.environment, orgTxId, prescriptionId }),
         },
       })
       .catch(() => {});
-    return NextResponse.json({ ok: true, url, environment: cfg.environment });
+    return NextResponse.json({ ok: true, url, environment: cfg.environment, prescriptionId });
   } catch (e: any) {
     const status = e instanceof WenoOnlineError ? e.status : undefined;
     return NextResponse.json(

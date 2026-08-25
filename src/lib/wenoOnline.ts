@@ -103,7 +103,7 @@ export type WenoOnlinePatient = {
 export function buildComposeRxUrl(
   cfg: WenoOnlineConfig,
   patient: WenoOnlinePatient,
-  opts?: { primaryPharmacyNcpdp?: string; providerEmail?: string },
+  opts?: { primaryPharmacyNcpdp?: string; providerEmail?: string; orgTransactionId?: string },
 ): { url: string } {
   const email = (opts?.providerEmail || cfg.providerEmail || "").trim();
   if (!email)
@@ -144,6 +144,7 @@ export function buildComposeRxUrl(
     ResponsiblePartySameAsPatient: "Y",
   };
   if (opts?.primaryPharmacyNcpdp) payload.PrimaryPharmacyNCPCP = opts.primaryPharmacyNcpdp;
+  if (opts?.orgTransactionId) payload.OrgTransactionID = opts.orgTransactionId;
 
   const data = encryptWenoData(JSON.stringify(payload), cfg.ehrEncryptionKey);
   const u = new URL(cfg.composeBase);

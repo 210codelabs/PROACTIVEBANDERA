@@ -241,13 +241,14 @@ export async function downloadPharmacyDirectory(): Promise<ParsedPharmacy[]> {
 }
 
 // ---- Directory sync (shared by the admin route + the nightly scheduler) ----
-export type WenoDirState = { autoSync: boolean; lastSyncAt: string | null; lastResult: string | null; lastError: string | null };
+export type WenoDirReport = { at: string; total: number; added: number; updated: number; errors: number; imported: number };
+export type WenoDirState = { autoSync: boolean; lastSyncAt: string | null; lastResult: string | null; lastError: string | null; lastReport: WenoDirReport | null };
 const DIR_STATE_KEY = "weno_directory";
 
 export async function getWenoDirState(): Promise<WenoDirState> {
   const s = await db.appSetting.findUnique({ where: { key: DIR_STATE_KEY } }).catch(() => null);
   const v: any = (s?.value as any) || {};
-  return { autoSync: Boolean(v.autoSync), lastSyncAt: v.lastSyncAt || null, lastResult: v.lastResult || null, lastError: v.lastError || null };
+  return { autoSync: Boolean(v.autoSync), lastSyncAt: v.lastSyncAt || null, lastResult: v.lastResult || null, lastError: v.lastError || null, lastReport: v.lastReport || null };
 }
 
 export async function setWenoDirState(patch: Partial<WenoDirState>): Promise<WenoDirState> {
@@ -257,22 +258,39 @@ export async function setWenoDirState(patch: Partial<WenoDirState>): Promise<Wen
   return next;
 }
 
-export async function runDirectorySync(): Promise<{ imported: number; total: number }> {
+export async function runDirectorySync(): Promise<{ imported: number; total: number; added: number; updated: number; errors: number }> {
   const rows = await downloadPharmacyDirectory();
   const capped = rows.slice(0, 20000);
-  let imported = 0;
+  // Pre-fetch existing ncpdpIds once so we can classify add vs update without a
+  // per-row query.
+  const existingIds = new Set(
+    (await db.wenoPharmacy.findMany({ select: { ncpdpId: true } }).catch(() => [])).map((r) => r.ncpdpId),
+  );
+  let added = 0, updated = 0, errors = 0;
+  const errorSamples: string[] = [];
   for (const p of capped) {
+    const isNew = !existingIds.has(p.ncpdpId);
     try {
       await db.wenoPharmacy.upsert({
         where: { ncpdpId: p.ncpdpId },
         create: { ncpdpId: p.ncpdpId, name: p.name, address: p.address || null, city: p.city || null, state: p.state || null, zip: p.zip || null, phone: p.phone || null, fax: p.fax || null, npi: p.npi || null, services: p.services || null, raw: p.raw || null },
         update: { name: p.name, address: p.address || null, city: p.city || null, state: p.state || null, zip: p.zip || null, phone: p.phone || null, fax: p.fax || null, npi: p.npi || null, services: p.services || null, raw: p.raw || null, active: true },
       });
-      imported++;
-    } catch { /* skip bad row */ }
+      if (isNew) { added++; existingIds.add(p.ncpdpId); } else { updated++; }
+    } catch (e: any) {
+      errors++;
+      if (errorSamples.length < 5) errorSamples.push(`${p.ncpdpId}: ${String(e?.message || e).slice(0, 80)}`);
+    }
   }
-  await setWenoDirState({ lastSyncAt: new Date().toISOString(), lastResult: `Imported ${imported} of ${rows.length}`, lastError: null });
-  return { imported, total: rows.length };
+  const imported = added + updated;
+  const at = new Date().toISOString();
+  await setWenoDirState({
+    lastSyncAt: at,
+    lastResult: `Imported ${imported} of ${rows.length} (${added} new, ${updated} updated${errors ? `, ${errors} errors` : ""})`,
+    lastError: errors && errorSamples.length ? errorSamples.join("; ").slice(0, 300) : null,
+    lastReport: { at, total: rows.length, added, updated, errors, imported },
+  });
+  return { imported, total: rows.length, added, updated, errors };
 }
 
 // Called by the scheduler: only sync when auto-sync is on, creds exist, and the

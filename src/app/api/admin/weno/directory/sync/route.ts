@@ -15,7 +15,7 @@ export async function POST() {
   }
   try {
     const res = await runDirectorySync();
-    return NextResponse.json({ ok: true, imported: res.imported, total: res.total });
+    return NextResponse.json({ ok: true, imported: res.imported, total: res.total, added: res.added, updated: res.updated, errors: res.errors });
   } catch (e: any) {
     const status = e instanceof WenoError ? e.status : undefined;
     await setWenoDirState({ lastError: String(e?.message || e).slice(0, 300) });

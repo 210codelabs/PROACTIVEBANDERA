@@ -22,6 +22,7 @@ const PUBLIC_PREFIX = [
   "/api/fhir/jwks",
   "/api/stedi/webhook",
   "/api/weno/callback",
+  "/api/weno/online-callback",
   "/api/internal/weno-autosync",
   "/api/compare",
   "/fhir",

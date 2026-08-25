@@ -359,9 +359,9 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
                     </div>
                     <div className="text-xs text-slate-500 truncate">{[h.patientName, h.sig].filter(Boolean).join(" · ")}</div>
                     <div className="text-[11px] text-slate-400">{new Date(h.createdAt).toLocaleString()} · Qty {h.quantity || "—"} · Refills {h.refills ?? 0}{h.pharmacyName ? ` · ${h.pharmacyName}` : ""}</div>
-                    {h.transmissionMethod === "weno" && (
+                    {(h.transmissionMethod === "weno" || h.transmissionMethod === "weno-online") && (
                       <div className="mt-1 flex items-center gap-1.5">
-                        <WenoStateBadge state={h.wenoState} />
+                        <WenoStateBadge state={h.wenoState} method={h.transmissionMethod} />
                         {h.pharmacyNcpdp && <span className="text-[10px] text-slate-400">NCPDP {h.pharmacyNcpdp}</span>}
                       </div>
                     )}
@@ -565,6 +565,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
 }
 
 const WENO_STATE_STYLES: Record<string, { cls: string; label: string }> = {
+  launched: { cls: "bg-violet-100 text-violet-700", label: "Composing" },
   submitted: { cls: "bg-sky-100 text-sky-700", label: "Submitted" },
   accepted: { cls: "bg-indigo-100 text-indigo-700", label: "Accepted" },
   delivered: { cls: "bg-emerald-100 text-emerald-700", label: "Delivered" },
@@ -573,11 +574,12 @@ const WENO_STATE_STYLES: Record<string, { cls: string; label: string }> = {
   error: { cls: "bg-amber-100 text-amber-800", label: "Send error" },
 };
 
-function WenoStateBadge({ state }: { state?: string | null }) {
+function WenoStateBadge({ state, method }: { state?: string | null; method?: string | null }) {
   const s = WENO_STATE_STYLES[String(state || "")] || { cls: "bg-slate-100 text-slate-500", label: state || "Sent" };
+  const label = method === "weno-online" ? "Weno Online" : "Weno";
   return (
     <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${s.cls}`}>
-      <span className="text-[8px]">Weno</span>{s.label}
+      <span className="text-[8px]">{label}</span>{s.label}
     </span>
   );
 }

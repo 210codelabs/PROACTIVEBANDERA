@@ -41,10 +41,11 @@ state.providers["weno-online"] = {
   credentials: {
     EHR_ENCRYPTION_KEY: key,
     ENVIRONMENT: env,
-    // Preserve any provider mapping already entered by an admin.
-    PROVIDER_EMAIL: prevCreds.PROVIDER_EMAIL || "",
-    PROVIDER_PASSWORD: prevCreds.PROVIDER_PASSWORD || "",
-    LOCATION_ID: prevCreds.LOCATION_ID || "",
+    // Preserve any provider mapping already entered by an admin, unless
+    // overridden via env (WENO_ONLINE_EMAIL / _PASSWORD / _LOCATION).
+    PROVIDER_EMAIL: process.env.WENO_ONLINE_EMAIL || prevCreds.PROVIDER_EMAIL || "",
+    PROVIDER_PASSWORD: process.env.WENO_ONLINE_PASSWORD || prevCreds.PROVIDER_PASSWORD || "",
+    LOCATION_ID: process.env.WENO_ONLINE_LOCATION || prevCreds.LOCATION_ID || "",
     WENO_USER_ID: prevCreds.WENO_USER_ID || "",
     COMPOSE_URL_OVERRIDE: prevCreds.COMPOSE_URL_OVERRIDE || "",
   },
@@ -64,5 +65,6 @@ await db.appSetting.upsert({
 });
 
 const masked = key.length <= 4 ? "••••" : "••••" + key.slice(-4);
-console.log(`Weno Online seeded: enabled=true env=${env} keyEndsWith=${masked} (email/password/location still need to be entered in Admin).`);
+const mapped = Boolean((process.env.WENO_ONLINE_EMAIL || prevCreds.PROVIDER_EMAIL) && (process.env.WENO_ONLINE_LOCATION || prevCreds.LOCATION_ID));
+console.log(`Weno Online seeded: enabled=true env=${env} keyEndsWith=${masked} providerMapping=${mapped ? "set" : "MISSING (add email/password/location in Admin)"}.`);
 await db.$disconnect();
