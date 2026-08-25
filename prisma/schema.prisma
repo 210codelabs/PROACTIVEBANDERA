@@ -1160,6 +1160,14 @@ model Prescription {
   signatureType  String?  // typed | drawn
   signatureData  String?  // typed name or PNG data URL
   status         String   @default("signed")
+  // ---- Weno Exchange e-prescribing transmission tracking ----
+  transmissionMethod String?  // print | weno
+  pharmacyNcpdp   String?
+  wenoMessageId   String?
+  wenoState       String?  // created | submitted | accepted | rejected | delivered | error
+  wenoStatusText  String?
+  wenoResponse    String?
+  transmittedAt   DateTime?
   createdAt      DateTime @default(now())
   @@index([createdAt])
   @@index([patientId])

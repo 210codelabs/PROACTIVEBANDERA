@@ -35,6 +35,27 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [weno, setWeno] = useState<{ enabled: boolean; configured: boolean; environment: string; epcs: boolean } | null>(null);
+  const [ncpdp, setNcpdp] = useState("");
+  const [txBusy, setTxBusy] = useState(false);
+  const [txResult, setTxResult] = useState<{ ok: boolean; state?: string; text: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/erx/weno-status").then((r) => r.json()).then((d) => setWeno(d)).catch(() => setWeno(null));
+  }, []);
+
+  async function transmitWeno() {
+    if (!savedId) return;
+    setTxBusy(true); setTxResult(null);
+    try {
+      const r = await fetch(`/api/erx/${savedId}/transmit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pharmacyNcpdp: ncpdp || null }) });
+      const d = await r.json();
+      if (!r.ok && d.error) { setTxResult({ ok: false, text: d.error }); return; }
+      setTxResult({ ok: d.ok !== false, state: d.state, text: d.statusText || d.error || (d.ok ? "Transmitted to Weno." : "Transmission failed.") });
+    } catch (e: any) {
+      setTxResult({ ok: false, text: "Transmission request failed." });
+    } finally { setTxBusy(false); }
+  }
 
   useEffect(() => {
     if (patQ.trim().length < 2 || patient) { setPatResults([]); return; }
@@ -186,18 +207,60 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
       const d = await r.json();
       if (!r.ok) { setErr(d.error || "Could not save prescription."); return; }
       setSavedId(d.id);
+      setNcpdp((pharmacy as any)?.ncpdpId || "");
+      setTxResult(null);
     } catch { setErr("Could not save prescription."); } finally { setBusy(false); }
   }
 
   if (savedId) {
+    const stateChip = txResult?.state === "accepted" || txResult?.state === "delivered" || txResult?.state === "submitted"
+      ? "bg-emerald-100 text-emerald-700" : txResult?.ok === false ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-600";
     return (
-      <div className="card card-pad text-center max-w-lg mx-auto">
-        <div className="text-3xl">✅</div>
-        <h2 className="mt-2 text-lg font-bold text-slate-900">Prescription signed</h2>
-        <p className="text-sm text-slate-500 mt-1">The eRx has been recorded and e-signed.</p>
+      <div className="card card-pad max-w-lg mx-auto">
+        <div className="text-center">
+          <div className="text-3xl">✅</div>
+          <h2 className="mt-2 text-lg font-bold text-slate-900">Prescription signed</h2>
+          <p className="text-sm text-slate-500 mt-1">The eRx has been recorded and e-signed.</p>
+        </div>
+
+        {/* Electronic transmission via Weno Exchange */}
+        <div className="mt-4 rounded-xl border border-slate-200 p-4 text-left">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-sm">Send electronically (Weno Exchange)</h3>
+            {weno && (
+              <span className={`chip text-[10px] ${weno.enabled && weno.configured ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
+                {weno.enabled && weno.configured ? `Weno ${weno.environment}` : "Not configured"}
+              </span>
+            )}
+          </div>
+
+          {weno && weno.enabled && weno.configured ? (
+            <>
+              <label className="text-sm block mt-2">
+                <span className="label">Pharmacy NCPDP ID</span>
+                <input className="input w-full" value={ncpdp} onChange={(e) => setNcpdp(e.target.value)} placeholder="e.g. 1234567 (Weno test pharmacy)" />
+              </label>
+              <button onClick={transmitWeno} disabled={txBusy || !ncpdp.trim()} className="btn-primary w-full mt-2 disabled:opacity-60">
+                {txBusy ? "Transmitting…" : "Transmit to pharmacy via Weno"}
+              </button>
+              {txResult && (
+                <div className={`mt-2 rounded-lg px-3 py-2 text-sm ${txResult.ok ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-rose-50 text-rose-700 ring-1 ring-rose-200"}`}>
+                  {txResult.state && <span className={`chip mr-2 text-[10px] ${stateChip}`}>{txResult.state}</span>}
+                  {txResult.text}
+                </div>
+              )}
+              {weno.environment === "test" && <p className="mt-1 text-[10px] text-slate-400">TEST/cert environment — use Weno test pharmacies only. Delivery is confirmed asynchronously.</p>}
+            </>
+          ) : (
+            <p className="mt-2 text-[12px] text-slate-500">
+              Weno e-prescribing isn&apos;t set up yet. An administrator can enable it under <span className="font-medium">Admin → External Integrations → Weno Exchange</span>. You can still print the prescription below.
+            </p>
+          )}
+        </div>
+
         <div className="mt-4 flex justify-center gap-2">
-          <a href={`/api/erx/${savedId}/pdf`} target="_blank" rel="noopener" className="btn-primary">Print / Download PDF</a>
-          <button onClick={() => { setSavedId(null); setMed({ medName: "", strength: "", form: "", ndc: "", deaSchedule: "" }); setRx({ sig: "", quantity: "", refills: "0", daw: false, notes: "" }); setSig(null); setPatient(null); setPatQ(""); setPharmacy(null); }} className="btn-secondary">New prescription</button>
+          <a href={`/api/erx/${savedId}/pdf`} target="_blank" rel="noopener" className="btn-secondary">Print / Download PDF</a>
+          <button onClick={() => { setSavedId(null); setMed({ medName: "", strength: "", form: "", ndc: "", deaSchedule: "" }); setRx({ sig: "", quantity: "", refills: "0", daw: false, notes: "" }); setSig(null); setPatient(null); setPatQ(""); setPharmacy(null); setNcpdp(""); setTxResult(null); }} className="btn-primary">New prescription</button>
         </div>
       </div>
     );

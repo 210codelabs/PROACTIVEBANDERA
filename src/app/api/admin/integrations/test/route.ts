@@ -8,6 +8,7 @@ import {
   validateProviderConfig,
 } from "@/lib/integrations/store";
 import { stediPing } from "@/lib/stedi";
+import { wenoDirectoryPing } from "@/lib/weno";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,24 @@ export async function POST(req: Request) {
         status === 401 || status === 403
           ? "Stedi rejected the API key (unauthorized). Double-check the key and its environment."
           : `Could not reach Stedi: ${String(e?.message || e).slice(0, 200)}`;
+    }
+    validation.checkedAt = new Date().toISOString();
+  }
+
+  // For Weno, perform a REAL connectivity/credential test via the directory
+  // download endpoint (HTTP Basic auth = partnerId:md5). This also surfaces
+  // IP-allowlist problems clearly.
+  if (providerKey === "weno" && validation.status === "success") {
+    try {
+      const res = await wenoDirectoryPing("PharmacyDirectory");
+      validation.message = `Live connection to Weno verified (pharmacy directory reachable, ${res.bytes} bytes). Note: NewRx transmission still requires Weno certification.`;
+    } catch (e: any) {
+      const status = e?.status;
+      validation.status = "error";
+      validation.message =
+        status === 401 || status === 403
+          ? "Weno rejected the credentials (unauthorized). Verify Partner ID + password/MD5 and that this server's outbound IP is allowlisted in the Weno dashboard."
+          : `Could not reach Weno: ${String(e?.message || e).slice(0, 200)}`;
     }
     validation.checkedAt = new Date().toISOString();
   }
