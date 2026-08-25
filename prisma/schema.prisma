@@ -1195,6 +1195,20 @@ model WenoPharmacy {
   @@index([name])
 }
 
+// A clinician's starred pharmacies for one-tap selection in the eRx builder.
+model FavoritePharmacy {
+  id        String   @id @default(cuid()) @map("_id")
+  userId    String
+  ncpdpId   String
+  name      String
+  city      String?
+  state     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  @@unique([userId, ncpdpId])
+  @@index([userId])
+}
+
 // ===================== Enterprise / Occupational Health =====================
 model EnterpriseAccount {
   id            String   @id @default(cuid()) @map("_id")

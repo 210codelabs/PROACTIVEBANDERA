@@ -2,13 +2,15 @@
 
 import React, { useEffect, useState } from "react";
 
+type DirState = { count: number; autoSync: boolean; lastSyncAt: string | null; lastResult: string | null; lastError: string | null };
+
 export default function WenoDirectorySync() {
-  const [count, setCount] = useState<number | null>(null);
+  const [state, setState] = useState<DirState | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function refresh() {
-    try { const d = await fetch("/api/admin/weno/directory/sync").then((r) => r.json()); setCount(d.count ?? 0); } catch { /* ignore */ }
+    try { const d = await fetch("/api/admin/weno/directory/sync").then((r) => r.json()); setState(d); } catch { /* ignore */ }
   }
   useEffect(() => { refresh(); }, []);
 
@@ -23,6 +25,14 @@ export default function WenoDirectorySync() {
     } catch { setMsg({ ok: false, text: "Sync request failed." }); } finally { setBusy(false); }
   }
 
+  async function toggleAuto(autoSync: boolean) {
+    setState((s) => (s ? { ...s, autoSync } : s));
+    try { await fetch("/api/admin/weno/directory/sync", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ autoSync }) }); await refresh(); } catch { /* ignore */ }
+  }
+
+  const count = state?.count ?? null;
+  const lastSync = state?.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : null;
+
   return (
     <div className="rounded-xl border border-slate-200 p-4">
       <div className="flex items-center justify-between gap-3">
@@ -35,10 +45,20 @@ export default function WenoDirectorySync() {
         </div>
         <button onClick={sync} disabled={busy} className="btn-secondary text-sm disabled:opacity-60 shrink-0">{busy ? "Syncing…" : "Sync from Weno"}</button>
       </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-4">
+        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+          <input type="checkbox" checked={!!state?.autoSync} onChange={(e) => toggleAuto(e.target.checked)} className="accent-brand-600" />
+          Auto-sync nightly
+        </label>
+        {lastSync && <span className="text-[11px] text-slate-400">Last sync: {lastSync}{state?.lastResult ? ` · ${state.lastResult}` : ""}</span>}
+        {state?.lastError && <span className="text-[11px] text-rose-500">Last error: {state.lastError}</span>}
+      </div>
+
       {msg && (
         <div className={`mt-2 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-rose-50 text-rose-700 ring-1 ring-rose-200"}`}>{msg.text}</div>
       )}
-      <p className="mt-1 text-[10px] text-slate-400">Requires saved Weno credentials + your server IP allowlisted with Weno. In the test environment, built-in Weno test pharmacies are always searchable.</p>
+      <p className="mt-1 text-[10px] text-slate-400">Requires saved Weno credentials + your server IP allowlisted with Weno. Nightly auto-sync runs automatically (about once every 24h) when enabled. In the test environment, built-in Weno test pharmacies are always searchable.</p>
     </div>
   );
 }

@@ -14,6 +14,8 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   const [tab, setTab] = useState<"new" | "history">("new");
   const [history, setHistory] = useState<any[]>([]);
   const [histReload, setHistReload] = useState(0);
+  const [histAuto, setHistAuto] = useState(true);
+  const [histUpdated, setHistUpdated] = useState<Date | null>(null);
   const [histLoading, setHistLoading] = useState(false);
   const [currentMeds, setCurrentMeds] = useState<any[]>([]);
   const [med, setMed] = useState({ medName: "", strength: "", form: "", ndc: "", deaSchedule: "" });
@@ -144,15 +146,22 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   useEffect(() => {
     if (tab !== "history") return;
     let live = true;
-    setHistLoading(true);
+    setHistory((cur) => { if (cur.length === 0) setHistLoading(true); return cur; });
     const url = patient?.id ? `/api/erx?patientId=${encodeURIComponent(patient.id)}` : "/api/erx";
     fetch(url)
       .then((r) => r.json())
-      .then((d) => { if (live) setHistory(d.prescriptions || []); })
+      .then((d) => { if (live) { setHistory(d.prescriptions || []); setHistUpdated(new Date()); } })
       .catch(() => { if (live) setHistory([]); })
       .finally(() => { if (live) setHistLoading(false); });
     return () => { live = false; };
   }, [tab, patient?.id, histReload]);
+
+  // Auto-refresh Rx history so Weno delivery-status badges update on their own.
+  useEffect(() => {
+    if (tab !== "history" || !histAuto) return;
+    const iv = setInterval(() => setHistReload((n) => n + 1), 20000);
+    return () => clearInterval(iv);
+  }, [tab, histAuto]);
 
   function rePrescribe(h: any) {
     setMed({ medName: h.medName || "", strength: h.strength || "", form: h.form || "", ndc: h.ndc || "", deaSchedule: h.deaSchedule || "" });
@@ -285,9 +294,16 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
 
       {tab === "history" ? (
         <section className="card card-pad space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <h3 className="font-semibold text-slate-900">Signed prescriptions {patient ? <span className="text-slate-400 font-normal">· {patient.lastName}, {patient.firstName}</span> : <span className="text-slate-400 font-normal">· all recent</span>}</h3>
-            <span className="text-xs text-slate-400">{filteredHistory.length} of {history.length}</span>
+            <div className="flex items-center gap-2">
+              {histUpdated && <span className="text-[11px] text-slate-400">Updated {histUpdated.toLocaleTimeString()}</span>}
+              <label className="flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer select-none">
+                <input type="checkbox" checked={histAuto} onChange={(e) => setHistAuto(e.target.checked)} className="accent-brand-600" /> Auto
+              </label>
+              <button type="button" onClick={() => setHistReload((n) => n + 1)} className="chip bg-white ring-1 ring-slate-200 text-xs hover:bg-slate-50">↻ Check status</button>
+              <span className="text-xs text-slate-400">{filteredHistory.length} of {history.length}</span>
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
             <label className="text-sm"><span className="label">Search</span>
@@ -523,6 +539,21 @@ function WenoPharmacyField({ ncpdp, setNcpdp }: { ncpdp: string; setNcpdp: (v: s
   const [loading, setLoading] = useState(false);
   const [chosen, setChosen] = useState<PharmHit | null>(null);
   const [manual, setManual] = useState(false);
+  const [favs, setFavs] = useState<PharmHit[]>([]);
+
+  useEffect(() => {
+    fetch("/api/weno/favorites").then((r) => r.json()).then((d) => setFavs((d.favorites || []).map((f: any) => ({ ncpdpId: f.ncpdpId, name: f.name, city: f.city, state: f.state, phone: f.phone })))).catch(() => {});
+  }, []);
+  const isFav = (id: string) => favs.some((f) => f.ncpdpId === id);
+  async function toggleFav(p: PharmHit) {
+    if (isFav(p.ncpdpId)) {
+      setFavs((cur) => cur.filter((f) => f.ncpdpId !== p.ncpdpId));
+      await fetch(`/api/weno/favorites?ncpdpId=${encodeURIComponent(p.ncpdpId)}`, { method: "DELETE" }).catch(() => {});
+    } else {
+      setFavs((cur) => [{ ncpdpId: p.ncpdpId, name: p.name, city: p.city, state: p.state, phone: p.phone }, ...cur]);
+      await fetch("/api/weno/favorites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ncpdpId: p.ncpdpId, name: p.name, city: p.city, state: p.state, phone: p.phone }) }).catch(() => {});
+    }
+  }
 
   useEffect(() => {
     if (manual || q.trim().length < 1) { setResults([]); return; }
@@ -558,8 +589,17 @@ function WenoPharmacyField({ ncpdp, setNcpdp }: { ncpdp: string; setNcpdp: (v: s
       <span className="label flex items-center justify-between">Pharmacy
         <button type="button" onClick={() => setManual(true)} className="text-[11px] text-brand-600 underline">Enter NCPDP manually</button>
       </span>
+      {!chosen && favs.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          <span className="text-[11px] text-slate-400 self-center mr-1">★ Favorites:</span>
+          {favs.slice(0, 8).map((f) => (
+            <button key={f.ncpdpId} type="button" onClick={() => pick(f)} className="chip bg-amber-50 ring-1 ring-amber-200 text-amber-800 text-[11px] hover:bg-amber-100" title={`NCPDP ${f.ncpdpId}${f.city ? ` · ${f.city}, ${f.state || ""}` : ""}`}>{f.name}</button>
+          ))}
+        </div>
+      )}
       {chosen ? (
         <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <button type="button" onClick={() => toggleFav(chosen)} className={`text-lg leading-none ${isFav(chosen.ncpdpId) ? "text-amber-400" : "text-slate-300 hover:text-amber-400"}`} title={isFav(chosen.ncpdpId) ? "Remove favorite" : "Add to favorites"}>★</button>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-slate-800 truncate">{chosen.name} {chosen.isTest && <span className="chip bg-amber-100 text-amber-800 text-[9px] ml-1">TEST</span>}</div>
             <div className="text-[11px] text-slate-500 truncate">NCPDP {chosen.ncpdpId}{chosen.city ? ` · ${chosen.city}, ${chosen.state || ""}` : ""}</div>
@@ -573,10 +613,13 @@ function WenoPharmacyField({ ncpdp, setNcpdp }: { ncpdp: string; setNcpdp: (v: s
             <div className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
               {loading && <div className="px-3 py-2 text-xs text-slate-400">Searching…</div>}
               {results.map((p) => (
-                <button type="button" key={p.ncpdpId} onClick={() => pick(p)} className="w-full text-left px-3 py-2 hover:bg-brand-50 border-b border-slate-50 last:border-0">
-                  <div className="text-sm text-slate-800">{p.name} {p.isTest && <span className="chip bg-amber-100 text-amber-800 text-[9px] ml-1">TEST</span>}</div>
-                  <div className="text-[11px] text-slate-500">NCPDP {p.ncpdpId}{p.city ? ` · ${p.city}, ${p.state || ""}` : ""}{p.phone ? ` · ${p.phone}` : ""}</div>
-                </button>
+                <div key={p.ncpdpId} className="flex items-center gap-1 border-b border-slate-50 last:border-0 hover:bg-brand-50">
+                  <button type="button" onClick={() => pick(p)} className="flex-1 text-left px-3 py-2">
+                    <div className="text-sm text-slate-800">{p.name} {p.isTest && <span className="chip bg-amber-100 text-amber-800 text-[9px] ml-1">TEST</span>}</div>
+                    <div className="text-[11px] text-slate-500">NCPDP {p.ncpdpId}{p.city ? ` · ${p.city}, ${p.state || ""}` : ""}{p.phone ? ` · ${p.phone}` : ""}</div>
+                  </button>
+                  <button type="button" onClick={() => toggleFav(p)} className={`px-2 text-lg leading-none ${isFav(p.ncpdpId) ? "text-amber-400" : "text-slate-300 hover:text-amber-400"}`} title={isFav(p.ncpdpId) ? "Remove favorite" : "Add to favorites"}>★</button>
+                </div>
               ))}
               {!loading && results.length === 0 && q.trim().length >= 1 && (
                 <div className="px-3 py-2 text-xs text-slate-400">No pharmacies found. An admin can sync the Weno directory, or enter an NCPDP ID manually.</div>

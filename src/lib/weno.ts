@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { readIntegrations } from "@/lib/integrations/store";
+import { db } from "@/lib/db";
 
 // -----------------------------------------------------------------------------
 // Weno Exchange e-prescribing client (NCPDP SCRIPT 20170715 over SOAP).
@@ -237,6 +238,59 @@ export async function downloadPharmacyDirectory(): Promise<ParsedPharmacy[]> {
     throw new WenoError("The Weno directory came back as a binary/zip file. Ask Weno for the delimited (CSV) directory format for API partners.");
   }
   return parseDirectory(text);
+}
+
+// ---- Directory sync (shared by the admin route + the nightly scheduler) ----
+export type WenoDirState = { autoSync: boolean; lastSyncAt: string | null; lastResult: string | null; lastError: string | null };
+const DIR_STATE_KEY = "weno_directory";
+
+export async function getWenoDirState(): Promise<WenoDirState> {
+  const s = await db.appSetting.findUnique({ where: { key: DIR_STATE_KEY } }).catch(() => null);
+  const v: any = (s?.value as any) || {};
+  return { autoSync: Boolean(v.autoSync), lastSyncAt: v.lastSyncAt || null, lastResult: v.lastResult || null, lastError: v.lastError || null };
+}
+
+export async function setWenoDirState(patch: Partial<WenoDirState>): Promise<WenoDirState> {
+  const cur = await getWenoDirState();
+  const next = { ...cur, ...patch };
+  await db.appSetting.upsert({ where: { key: DIR_STATE_KEY }, create: { key: DIR_STATE_KEY, value: next as any }, update: { value: next as any } });
+  return next;
+}
+
+export async function runDirectorySync(): Promise<{ imported: number; total: number }> {
+  const rows = await downloadPharmacyDirectory();
+  const capped = rows.slice(0, 20000);
+  let imported = 0;
+  for (const p of capped) {
+    try {
+      await db.wenoPharmacy.upsert({
+        where: { ncpdpId: p.ncpdpId },
+        create: { ncpdpId: p.ncpdpId, name: p.name, address: p.address || null, city: p.city || null, state: p.state || null, zip: p.zip || null, phone: p.phone || null, fax: p.fax || null, npi: p.npi || null, services: p.services || null, raw: p.raw || null },
+        update: { name: p.name, address: p.address || null, city: p.city || null, state: p.state || null, zip: p.zip || null, phone: p.phone || null, fax: p.fax || null, npi: p.npi || null, services: p.services || null, raw: p.raw || null, active: true },
+      });
+      imported++;
+    } catch { /* skip bad row */ }
+  }
+  await setWenoDirState({ lastSyncAt: new Date().toISOString(), lastResult: `Imported ${imported} of ${rows.length}`, lastError: null });
+  return { imported, total: rows.length };
+}
+
+// Called by the scheduler: only sync when auto-sync is on, creds exist, and the
+// last successful sync is older than ~24h.
+export async function maybeAutoSyncDirectory(): Promise<{ ran: boolean; reason?: string }> {
+  const cfg = await getWenoConfig();
+  if (!cfg.enabled || !cfg.partnerId || !cfg.md5Password) return { ran: false, reason: "not configured" };
+  const st = await getWenoDirState();
+  if (!st.autoSync) return { ran: false, reason: "auto-sync off" };
+  const last = st.lastSyncAt ? new Date(st.lastSyncAt).getTime() : 0;
+  if (Date.now() - last < 23 * 60 * 60 * 1000) return { ran: false, reason: "synced recently" };
+  try {
+    const res = await runDirectorySync();
+    return { ran: true, reason: `imported ${res.imported}` };
+  } catch (e: any) {
+    await setWenoDirState({ lastError: String(e?.message || e).slice(0, 300) });
+    return { ran: false, reason: "sync failed" };
+  }
 }
 
 // Documented Weno TEST pharmacy so clinicians can pick a destination while in
