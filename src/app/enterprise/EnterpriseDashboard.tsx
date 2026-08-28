@@ -242,9 +242,17 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4 flex gap-1 overflow-x-auto">
-          {TABS.map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k as any)} className={`px-3 py-2 text-sm border-b-2 whitespace-nowrap ${tab === k ? "border-brand-400 text-white" : "border-transparent text-white/60 hover:text-white"}`}>{l}</button>
-          ))}
+          {TABS.map(([k, l]) => {
+            const dotCount = k === "dot" ? dotWarn.expiring + dotWarn.expired : 0;
+            return (
+              <button key={k} onClick={() => setTab(k as any)} className={`relative px-3 py-2 text-sm border-b-2 whitespace-nowrap ${tab === k ? "border-brand-400 text-white" : "border-transparent text-white/60 hover:text-white"}`}>
+                {l}
+                {dotCount > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 px-1 text-[10px] font-bold text-white align-middle">{dotCount}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </header>
 

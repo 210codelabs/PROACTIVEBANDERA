@@ -200,27 +200,40 @@ function Emblem({ d, d2, size = "md" }: { d: string; d2?: string; size?: "sm" | 
 }
 
 function StandardsStrip() {
-  const standards = [
-    { k: "FHIR", sub: "R4" },
-    { k: "HL7", sub: "v2.x" },
-    { k: "C-CDA", sub: "CCD" },
-    { k: "X12 EDI", sub: "837 · 835 · 270" },
-    { k: "SMART", sub: "on FHIR" },
-    { k: "ICD-10", sub: "CM · PCS" },
-    { k: "CPT", sub: "HCPCS" },
-    { k: "NPI", sub: "NPPES" },
+  const providers = [
+    { name: "Weno", cat: "e‑Prescribing network", url: "https://wenoexchange.com", mark: "W", color: "#0E9F94" },
+    { name: "Stedi", cat: "Eligibility & claims", url: "https://www.stedi.com", mark: "S", color: "#111827" },
+    { name: "FMCSA", cat: "DOT driver physicals", url: "https://www.fmcsa.dot.gov", mark: "F", color: "#1D4ED8" },
+    { name: "CMS", cat: "Medicare · Blue Button", url: "https://www.cms.gov", mark: "C", color: "#1E3A8A" },
+    { name: "openFDA", cat: "Drug label data", url: "https://open.fda.gov", mark: "F", color: "#0B5FFF" },
+    { name: "NLM", cat: "RxNorm terminology", url: "https://www.nlm.nih.gov", mark: "N", color: "#7C3AED" },
+    { name: "NPPES", cat: "NPI Registry", url: "https://npiregistry.cms.hhs.gov", mark: "N", color: "#059669" },
   ];
   return (
     <section className="border-y border-slate-100 bg-gradient-to-b from-white to-brand-50/40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400 mb-6">Built on open healthcare standards &amp; interoperability</p>
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          {standards.map((s) => (
-            <div key={s.k} className="group inline-flex items-center gap-2 rounded-full bg-white/80 backdrop-blur px-4 py-2 ring-1 ring-slate-200 shadow-sm hover:ring-brand-300 hover:shadow-md hover:-translate-y-0.5 transition">
-              <span className="h-2 w-2 rounded-full bg-gradient-to-br from-brand-500 to-red-500 shadow-[0_0_0_3px_rgba(24,114,240,0.10)]" />
-              <span className="text-sm font-extrabold tracking-tight text-brand-900">{s.k}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{s.sub}</span>
-            </div>
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400 mb-6">Integrated with trusted healthcare providers &amp; networks</p>
+        <div className="flex flex-wrap items-stretch justify-center gap-3">
+          {providers.map((p) => (
+            <a
+              key={p.name}
+              href={p.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`${p.name} — ${p.cat}`}
+              className="group inline-flex h-14 items-center gap-3 rounded-xl bg-white/90 backdrop-blur pl-2.5 pr-4 ring-1 ring-slate-200 shadow-sm hover:ring-brand-300 hover:shadow-md hover:-translate-y-0.5 transition"
+            >
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-black text-white grayscale group-hover:grayscale-0 transition"
+                style={{ backgroundColor: p.color }}
+              >
+                {p.mark}
+              </span>
+              <span className="flex flex-col leading-tight">
+                <span className="text-sm font-extrabold tracking-tight text-brand-900">{p.name}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{p.cat}</span>
+              </span>
+            </a>
           ))}
         </div>
       </div>
