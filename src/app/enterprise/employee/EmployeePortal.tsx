@@ -55,6 +55,28 @@ export default function EmployeePortal({ name, companyName }: { name: string; co
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+        {(() => {
+          const now = Date.now();
+          let msg: { kind: "expired" | "expiring"; days: number } | null = null;
+          for (const e of dotExams) {
+            if (e.status !== "completed" || !e.expiresOn) continue;
+            const days = Math.ceil((new Date(e.expiresOn).getTime() - now) / 86400000);
+            if (days < 0) { msg = { kind: "expired", days }; break; }
+            if (days <= 30 && (!msg || days < msg.days)) msg = { kind: "expiring", days };
+          }
+          if (!msg) return null;
+          const expired = msg.kind === "expired";
+          return (
+            <div className={`flex items-center gap-3 rounded-xl px-4 py-3 ring-1 ${expired ? "bg-rose-50 ring-rose-300" : "bg-amber-50 ring-amber-300"}`}>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg font-bold ${expired ? "bg-rose-500 text-white" : "bg-amber-400 text-slate-900"}`}>!</span>
+              <div className={`text-sm ${expired ? "text-rose-800" : "text-amber-900"}`}>
+                {expired
+                  ? <><strong>Your DOT medical certificate has expired.</strong> Please schedule a re-certification DOT physical with the clinic as soon as possible.</>
+                  : <><strong>Your DOT medical certificate expires in {msg.days} day{msg.days === 1 ? "" : "s"}.</strong> Schedule your re-certification DOT physical soon to stay compliant.</>}
+              </div>
+            </div>
+          );
+        })()}
         {pendingConsents.length > 0 && (
           <div className="card card-pad">
             <h2 className="font-semibold text-slate-900 mb-2">Forms to sign</h2>

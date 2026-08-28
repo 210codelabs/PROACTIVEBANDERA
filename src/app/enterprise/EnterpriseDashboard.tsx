@@ -36,6 +36,7 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
   const [employees, setEmployees] = useState<any[]>([]);
   const [empDetail, setEmpDetail] = useState<any>(null);
   const [forms, setForms] = useState<any[]>([]);
+  const [dotWarn, setDotWarn] = useState<{ expiring: number; expired: number }>({ expiring: 0, expired: 0 });
   const entQS = (extra = "") => {
     const p = new URLSearchParams();
     if (isSuper && companyId) p.set("enterpriseId", companyId);
@@ -56,6 +57,21 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
     setResultDocs(map);
   }, []);
   useEffect(() => { loadCore(); }, [loadCore]);
+
+  // DOT MEC compliance banner — count expiring/expired for the current company.
+  useEffect(() => {
+    if (isSuper && !companyId) { setDotWarn({ expiring: 0, expired: 0 }); return; }
+    fetch(`/api/enterprise/dot/exams${entQS()}`).then((r) => r.json()).then((d) => {
+      const now = Date.now();
+      let expiring = 0, expired = 0;
+      for (const e of d.exams || []) {
+        if (e.status !== "completed" || !["qualified", "qualified_with_restrictions"].includes(e.outcome) || !e.expiresOn) continue;
+        const days = Math.ceil((new Date(e.expiresOn).getTime() - now) / 86400000);
+        if (days < 0) expired++; else if (days <= 30) expiring++;
+      }
+      setDotWarn({ expiring, expired });
+    }).catch(() => {});
+  }, [isSuper, companyId]);
   useEffect(() => {
     if (tab === "messages") fetch("/api/enterprise/messages").then((r) => r.json()).then((d) => setMessages(d.messages || []));
     if (tab === "documents") fetch("/api/enterprise/documents").then((r) => r.json()).then((d) => setDocuments(d.documents || []));
@@ -233,6 +249,18 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6">
+        {(dotWarn.expiring > 0 || dotWarn.expired > 0) && (
+          <button onClick={() => setTab("dot")} className="w-full text-left mb-4 flex items-center gap-3 rounded-xl px-4 py-3 ring-1 bg-amber-50 ring-amber-300 hover:bg-amber-100 transition-colors">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-slate-900 text-lg font-bold">!</span>
+            <span className="text-sm text-amber-900">
+              <strong>DOT medical certificates need attention.</strong>{" "}
+              {dotWarn.expired > 0 && <span className="font-semibold text-rose-700">{dotWarn.expired} expired</span>}
+              {dotWarn.expired > 0 && dotWarn.expiring > 0 && " · "}
+              {dotWarn.expiring > 0 && <span>{dotWarn.expiring} expiring within 30 days</span>}
+              . <span className="underline">Review in DOT / FMCSA →</span>
+            </span>
+          </button>
+        )}
         {tab === "overview" && stats && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
