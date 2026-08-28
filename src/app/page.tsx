@@ -206,8 +206,9 @@ function StandardsStrip() {
     { name: "FMCSA", cat: "DOT driver physicals", url: "https://www.fmcsa.dot.gov", logo: "/providers/fmcsa.png" },
     { name: "CMS", cat: "Medicare · Blue Button", url: "https://www.cms.gov", logo: "/providers/cms.png" },
     { name: "openFDA", cat: "Drug label data", url: "https://open.fda.gov", logo: "/providers/openfda.png" },
-    { name: "NLM", cat: "RxNorm terminology", url: "https://www.nlm.nih.gov", mark: "N", color: "#7C3AED" },
-    { name: "NPPES", cat: "NPI Registry", url: "https://npiregistry.cms.hhs.gov", mark: "N", color: "#059669" },
+    { name: "NLM", cat: "RxNorm terminology", url: "https://www.nlm.nih.gov", logo: "/providers/nlm.png" },
+    { name: "NPPES", cat: "NPI Registry", url: "https://npiregistry.cms.hhs.gov", logo: "/providers/nppes.png" },
+    { name: "HL7 FHIR", cat: "Interoperability standard", url: "https://www.hl7.org/fhir/", logo: "/providers/fhir.webp" },
   ];
   return (
     <section className="border-y border-slate-100 bg-gradient-to-b from-white to-brand-50/40">
