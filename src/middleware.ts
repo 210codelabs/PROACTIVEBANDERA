@@ -26,6 +26,7 @@ const PUBLIC_PREFIX = [
   "/enterprise/dot/kiosk",
   "/api/enterprise/dot/kiosk",
   "/api/internal/weno-autosync",
+  "/api/internal/dot-reminders",
   "/api/internal/weno-apply-env",
   "/api/compare",
   "/fhir",

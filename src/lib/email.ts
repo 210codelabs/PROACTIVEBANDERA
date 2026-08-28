@@ -6,6 +6,32 @@ export function emailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
 }
 
+// Generic transactional send. Skips silently if Resend isn't configured so
+// scheduled jobs never crash. Returns the delivery outcome.
+export async function sendEmail(opts: {
+  to: string | string[];
+  subject: string;
+  html: string;
+  text?: string;
+}): Promise<"sent" | "failed" | "skipped"> {
+  if (!emailConfigured()) return "skipped";
+  const recipients = (Array.isArray(opts.to) ? opts.to : [opts.to]).filter(Boolean);
+  if (recipients.length === 0) return "skipped";
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY!);
+    const res = await resend.emails.send({
+      from: process.env.EMAIL_FROM!,
+      to: recipients,
+      subject: opts.subject,
+      html: opts.html,
+      text: opts.text || opts.subject,
+    });
+    return res.error ? "failed" : "sent";
+  } catch {
+    return "failed";
+  }
+}
+
 function escapeHtml(v: string) {
   return v.replace(/[&<>'"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c]!));
 }

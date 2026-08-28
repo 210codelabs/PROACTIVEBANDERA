@@ -43,4 +43,20 @@ export async function register() {
   // First check ~90s after boot, then hourly.
   setTimeout(runCheck, 90 * 1000);
   setInterval(runCheck, 60 * 60 * 1000);
+
+  // DOT MEC expiration reminders — check daily (and once ~2min after boot).
+  const runDotReminders = async () => {
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/api/internal/dot-reminders`, {
+        method: "POST",
+        headers: { "x-weno-cron": secret },
+      });
+      const d = await r.json().catch(() => ({}));
+      if (d?.sent) console.log(`[dot-reminders] sent ${d.sent} MEC expiration reminder(s)`);
+    } catch {
+      /* retry on next daily tick */
+    }
+  };
+  setTimeout(runDotReminders, 120 * 1000);
+  setInterval(runDotReminders, 24 * 60 * 60 * 1000);
 }

@@ -102,6 +102,34 @@ export default function DotPanel({ isSuper, companyId }: { isSuper: boolean; com
 
       {isSuper && !companyId && <div className="rounded-lg bg-amber-50 text-amber-800 text-sm p-3">Select a company above to manage DOT exams.</div>}
 
+      {/* Compliance summary */}
+      {!(isSuper && !companyId) && (() => {
+        const now = Date.now();
+        let valid = 0, expiring = 0, expired = 0, pending = 0;
+        for (const e of exams) {
+          if (e.status !== "completed" || !["qualified", "qualified_with_restrictions"].includes(e.outcome)) { pending++; continue; }
+          if (!e.expiresOn) { pending++; continue; }
+          const days = Math.ceil((new Date(e.expiresOn).getTime() - now) / 86400000);
+          if (days < 0) expired++; else if (days <= 30) expiring++; else valid++;
+        }
+        const cards = [
+          { label: "Compliant", value: valid, cls: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
+          { label: "Expiring \u226430d", value: expiring, cls: "bg-amber-50 text-amber-700 ring-amber-200" },
+          { label: "Expired", value: expired, cls: "bg-rose-50 text-rose-700 ring-rose-200" },
+          { label: "In progress", value: pending, cls: "bg-slate-50 text-slate-700 ring-slate-200" },
+        ];
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            {cards.map((c) => (
+              <div key={c.label} className={`rounded-xl ring-1 p-3 ${c.cls}`}>
+                <div className="text-2xl font-bold">{c.value}</div>
+                <div className="text-xs font-medium">{c.label}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {loading ? <div className="text-sm text-slate-500">Loading…</div> : (
         <div className="overflow-x-auto rounded-xl ring-1 ring-slate-200 bg-white">
           <table className="w-full text-sm">

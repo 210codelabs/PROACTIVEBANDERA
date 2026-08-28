@@ -1447,6 +1447,8 @@ model DotExam {
   transmittedAt      DateTime?
   transmitPayload    Json?
 
+  remindersSent Json?    // { d30: iso, d7: iso, expired: iso }
+
   kioskToken    String?
 
   form5875DocId String?
