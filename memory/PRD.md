@@ -511,3 +511,10 @@ New end-to-end module for corporate clients (drug tests, DOT/non-DOT physicals, 
 - Directions API provides live ETA + turn-by-turn steps.
 - Graceful degradation: devices without hardware WebGL2 (or if maps fail to load) fall back to a 2D satellite directions embed, still showing ETA + turn-by-turn; "Open in Google Maps" button always available.
 - Env: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY. Component: src/components/MapNav.tsx. Wired in src/app/page.tsx.
+
+## DOT reminders + compliance (added)
+- Compliance dashboard cards in Enterprise DOT tab (Compliant / Expiring <=30d / Expired / In progress), per company.
+- MEC expiration email reminders: daily job via instrumentation -> guarded /api/internal/dot-reminders; emails company + driver at <=30d, <=7d, expired; once per window (remindersSent field).
+- Resend configured (RESEND_API_KEY + EMAIL_FROM no-reply@proactiveclinics.com), domain verified, test send confirmed delivered.
+- FMCSA_QCMOBILE_KEY configured (carrier lookup live).
+- Pending: SMS via Twilio (needs creds + approach confirm).
