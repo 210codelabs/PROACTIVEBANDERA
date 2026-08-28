@@ -201,11 +201,11 @@ function Emblem({ d, d2, size = "md" }: { d: string; d2?: string; size?: "sm" | 
 
 function StandardsStrip() {
   const providers = [
-    { name: "Weno", cat: "e‑Prescribing network", url: "https://wenoexchange.com", mark: "W", color: "#0E9F94" },
-    { name: "Stedi", cat: "Eligibility & claims", url: "https://www.stedi.com", mark: "S", color: "#111827" },
-    { name: "FMCSA", cat: "DOT driver physicals", url: "https://www.fmcsa.dot.gov", mark: "F", color: "#1D4ED8" },
-    { name: "CMS", cat: "Medicare · Blue Button", url: "https://www.cms.gov", mark: "C", color: "#1E3A8A" },
-    { name: "openFDA", cat: "Drug label data", url: "https://open.fda.gov", mark: "F", color: "#0B5FFF" },
+    { name: "Weno", cat: "e‑Prescribing network", url: "https://wenoexchange.com", logo: "/providers/weno.png" },
+    { name: "Stedi", cat: "Eligibility & claims", url: "https://www.stedi.com", logo: "/providers/stedi.png" },
+    { name: "FMCSA", cat: "DOT driver physicals", url: "https://www.fmcsa.dot.gov", logo: "/providers/fmcsa.png" },
+    { name: "CMS", cat: "Medicare · Blue Button", url: "https://www.cms.gov", logo: "/providers/cms.png" },
+    { name: "openFDA", cat: "Drug label data", url: "https://open.fda.gov", logo: "/providers/openfda.png" },
     { name: "NLM", cat: "RxNorm terminology", url: "https://www.nlm.nih.gov", mark: "N", color: "#7C3AED" },
     { name: "NPPES", cat: "NPI Registry", url: "https://npiregistry.cms.hhs.gov", mark: "N", color: "#059669" },
   ];
@@ -221,18 +221,25 @@ function StandardsStrip() {
               target="_blank"
               rel="noopener noreferrer"
               title={`${p.name} — ${p.cat}`}
-              className="group inline-flex h-14 items-center gap-3 rounded-xl bg-white/90 backdrop-blur pl-2.5 pr-4 ring-1 ring-slate-200 shadow-sm hover:ring-brand-300 hover:shadow-md hover:-translate-y-0.5 transition"
+              className="group inline-flex h-16 items-center justify-center gap-3 rounded-xl bg-white px-4 ring-1 ring-slate-200 shadow-sm hover:ring-brand-300 hover:shadow-md hover:-translate-y-0.5 transition"
             >
-              <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-black text-white grayscale group-hover:grayscale-0 transition"
-                style={{ backgroundColor: p.color }}
-              >
-                {p.mark}
-              </span>
-              <span className="flex flex-col leading-tight">
-                <span className="text-sm font-extrabold tracking-tight text-brand-900">{p.name}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{p.cat}</span>
-              </span>
+              {p.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.logo} alt={`${p.name} logo`} className="h-8 w-auto object-contain" />
+              ) : (
+                <>
+                  <span
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-black text-white grayscale group-hover:grayscale-0 transition"
+                    style={{ backgroundColor: p.color }}
+                  >
+                    {p.mark}
+                  </span>
+                  <span className="flex flex-col leading-tight">
+                    <span className="text-sm font-extrabold tracking-tight text-brand-900">{p.name}</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{p.cat}</span>
+                  </span>
+                </>
+              )}
             </a>
           ))}
         </div>
