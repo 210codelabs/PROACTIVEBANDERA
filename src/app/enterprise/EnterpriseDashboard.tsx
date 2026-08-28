@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import DotPanel from "@/components/enterprise/DotPanel";
 
 type Svc = { key: string; label: string; category: string; priceCents: number };
 type Session = { companyName: string; name: string; email: string; role?: "company_admin" | "super_admin"; enterpriseId?: string };
@@ -18,7 +19,7 @@ const RESULT_COLORS: Record<string, string> = {
 export default function EnterpriseDashboard({ session, catalog }: { session: Session; catalog: Svc[] }) {
   const router = useRouter();
   const isSuper = session.role === "super_admin";
-  const [tab, setTab] = useState<"overview" | "employees" | "new" | "requests" | "messages" | "documents" | "invoices">("overview");
+  const [tab, setTab] = useState<"overview" | "employees" | "new" | "requests" | "messages" | "documents" | "invoices" | "dot">("overview");
   const [stats, setStats] = useState<any>(null);
   const [requests, setRequests] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
@@ -204,7 +205,7 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
     reader.readAsDataURL(file);
   }
 
-  const TABS = [["overview", "Overview"], ["employees", "Employees"], ["new", "New request"], ["requests", "Requests"], ["messages", "Messages"], ["documents", "Documents"], ["invoices", "Invoices"]] as const;
+  const TABS = [["overview", "Overview"], ["employees", "Employees"], ["new", "New request"], ["requests", "Requests"], ["dot", "DOT / FMCSA"], ["messages", "Messages"], ["documents", "Documents"], ["invoices", "Invoices"]] as const;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -578,6 +579,8 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
             </table>
           </div>
         )}
+
+        {tab === "dot" && <DotPanel isSuper={isSuper} companyId={companyId} />}
       </main>
       {toast && <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-slate-900 text-white text-sm px-4 py-2 shadow-lg">{toast}</div>}
     </div>

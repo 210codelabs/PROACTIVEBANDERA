@@ -23,6 +23,8 @@ const PUBLIC_PREFIX = [
   "/api/stedi/webhook",
   "/api/weno/callback",
   "/api/weno/online-callback",
+  "/enterprise/dot/kiosk",
+  "/api/enterprise/dot/kiosk",
   "/api/internal/weno-autosync",
   "/api/internal/weno-apply-env",
   "/api/compare",

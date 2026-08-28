@@ -1253,6 +1253,7 @@ model EnterpriseAccount {
   invoices      EnterpriseInvoice[]
   employees     EnterpriseEmployee[]
   consents      EnterpriseConsent[]
+  dotExams      DotExam[]
 }
 
 model EnterprisePortalUser {
@@ -1402,5 +1403,64 @@ model EnterpriseInvoice {
 
   enterprise    EnterpriseAccount @relation(fields: [enterpriseId], references: [id])
   @@index([enterpriseId])
+}
+
+// DOT / FMCSA commercial-driver medical examination (MCSA-5875 report + MCSA-5876 MEC card).
+model DotExam {
+  id            String   @id @default(cuid()) @map("_id")
+  enterpriseId  String
+  employeeId    String
+  patientId     String?
+  driverName    String
+  status        String   @default("driver_pending") // driver_pending | exam_pending | completed
+  outcome       String   @default("pending")        // pending | qualified | qualified_with_restrictions | not_qualified | incomplete
+
+  driverInfo      Json?
+  healthHistory   Json?
+  driverSignature String?
+  driverSignedAt  DateTime?
+
+  vitals        Json?
+  vision        Json?
+  hearing       Json?
+  urinalysis    Json?
+  physicalExam  Json?
+
+  certMonths              Int?
+  restrictions            Json?
+  determinationFlags      Json?
+  expiresOn               DateTime?
+  additionalFormsRequired Json?
+  alerts                  Json?
+  bpCategory              String?
+
+  examinerName         String?
+  examinerNrcme        String?
+  examinerLicense      String?
+  examinerLicenseState String?
+  examinerSignature    String?
+  examDate             DateTime?
+
+  carrier       Json?
+
+  transmissionStatus String   @default("not_ready") // not_ready | ready | queued | exported
+  transmittedAt      DateTime?
+  transmitPayload    Json?
+
+  kioskToken    String?
+
+  form5875DocId String?
+  mecCardDocId  String?
+
+  createdByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  enterprise    EnterpriseAccount @relation(fields: [enterpriseId], references: [id])
+  @@index([enterpriseId])
+  @@index([employeeId])
+  @@index([patientId])
+  @@index([expiresOn])
+  @@index([kioskToken])
 }
 
