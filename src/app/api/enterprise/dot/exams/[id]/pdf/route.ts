@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getEnterpriseSession } from "@/lib/enterpriseAuth";
 import { buildMcsa5875, buildMecCard5876 } from "@/lib/dot/pdf";
+import { fillMcsa5875, fillMcsa5876 } from "@/lib/dot/fillOfficialPdf";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const form = new URL(req.url).searchParams.get("form") || "5875";
   const isMec = form === "mec" || form === "5876";
-  const bytes = isMec ? await buildMecCard5876(exam) : await buildMcsa5875(exam);
+
+  // Prefer the OFFICIAL FMCSA AcroForm templates (exact federal format); fall
+  // back to the generated replica if a template can't be read.
+  let bytes: Uint8Array;
+  try {
+    bytes = isMec ? await fillMcsa5876(exam) : await fillMcsa5875(exam);
+  } catch {
+    bytes = isMec ? await buildMecCard5876(exam) : await buildMcsa5875(exam);
+  }
   const fname = isMec ? `MEC-5876-${exam.driverName}.pdf` : `MCSA-5875-${exam.driverName}.pdf`;
 
   // Auto-file into the company's documents (best effort).
