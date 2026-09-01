@@ -518,3 +518,10 @@ New end-to-end module for corporate clients (drug tests, DOT/non-DOT physicals, 
 - Resend configured (RESEND_API_KEY + EMAIL_FROM no-reply@proactiveclinics.com), domain verified, test send confirmed delivered.
 - FMCSA_QCMOBILE_KEY configured (carrier lookup live).
 - Pending: SMS via Twilio (needs creds + approach confirm).
+
+## Patient Queue / Waiting-Room Tracker (added 2026-09)
+- Live waiting-room queue attached to a Users icon in the EMR dashboard topbar (src/components/Shell.tsx -> QueuePanel). Collapsible dropdown, OPEN BY DEFAULT, visible to all signed-in EMR staff.
+- Data: model QueueEntry in prisma/schema.prisma (day-partitioned YYYY-MM-DD, status waiting|in-room|checked-out|no-show|rescheduled, kind scheduled|walkin, checkInAt/inRoomAt/checkOutAt timestamps). db push + client generate succeeded (preview DB in sync).
+- API: GET /api/queue?day= (returns day entries + today's appointments for one-tap check-in), POST /api/queue (check in scheduled or walk-in; walk-ins MUST be a registered EMR patient else 404; dup active entry -> 409; syncs linked appointment to checked-in), PATCH /api/queue/:id (status transitions + appointment sync), DELETE /api/queue/:id. All require staff session (401 unauth).
+- UI: today's scheduled patients ("Scheduled today") one-tap Check in; walk-in search hits /api/patients/search (registered patients only) with "Register new patient ->" link to /patients/new; live per-patient "time waiting" clock (1s tick, color-coded green<15m/amber<30m/rose>=30m); arrival-order numbering; In room / Check out / No-show / Re-sched action buttons inline; sort = scheduled kind first then arrival (checkInAt); "Done today" section for checked-out/no-show/rescheduled; topbar badge = in-room + waiting count.
+- Verified: backend agent 12/12 passed; UI screenshot-verified (default-open panel, walk-in search Eleanor Adams, check-in, live 4s timer, action buttons, badge count). Preview-only; redeploy to publish.

@@ -12,6 +12,7 @@ import { CLINICAL_MODULES } from "@/lib/modules";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import RecordRequestBell from "@/components/RecordRequestBell";
+import QueuePanel from "@/components/QueuePanel";
 
 type NavItem = {
   label: string;
@@ -307,6 +308,7 @@ export default function Shell({
 
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <LanguageSwitcher className="hidden sm:inline-flex" />
+            <QueuePanel />
             <RecordRequestBell />
             <Link href="/messages" prefetch={false} className="relative h-9 w-9 rounded-full hover:bg-slate-100 grid place-items-center text-slate-500" title={t("shell.messagesTitle")}>
               <Icon.Mail />

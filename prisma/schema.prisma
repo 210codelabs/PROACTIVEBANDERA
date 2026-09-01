@@ -1466,3 +1466,32 @@ model DotExam {
   @@index([kioskToken])
 }
 
+// -------------------------------------------------------------
+// Front-desk patient queue / waiting room tracker
+// Scheduled arrivals + walk-ins, with live wait time and line order.
+// -------------------------------------------------------------
+model QueueEntry {
+  id            String    @id @default(cuid()) @map("_id")
+  patientId     String
+  patientName   String
+  appointmentId String?   // set when a scheduled appointment is checked in
+  providerId    String?
+  providerName  String?
+  kind          String    @default("walkin")  // scheduled | walkin
+  status        String    @default("waiting")  // waiting | in-room | checked-out | no-show | rescheduled
+  reason        String?
+  scheduledAt   DateTime? // the scheduled appointment time (scheduled kind)
+  checkInAt     DateTime  @default(now())
+  inRoomAt      DateTime?
+  checkOutAt    DateTime?
+  day           String    // YYYY-MM-DD (clinic-local) for fast day filtering
+  createdByName String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([day])
+  @@index([status])
+  @@index([patientId])
+  @@index([appointmentId])
+}
+
