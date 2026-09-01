@@ -535,3 +535,9 @@ New end-to-end module for corporate clients (drug tests, DOT/non-DOT physicals, 
 - PROVIDER FILTER: View = All providers / My patients (provider role) / specific provider.
 - DASHBOARD SCHEDULE: replaced the "Today's Schedule" list card with an embedded MonthCalendar (reuses src/app/(app)/schedule/MonthCalendar.tsx) — "Schedule · <Month Year>", drag-to-reschedule, day cells link to /schedule day view, "N today" + "Open schedule →". Data fetched resiliently in dashboard/page.tsx. (Note: /schedule page already defaulted to Month view.)
 - Verified: QueuePanel + dashboard TypeScript-clean (scoped); UI screenshot-verified (Waiting Room default-open, search Check-in/Schedule, Schedule form, Daily Recap overlay, dashboard month calendar). Preview-only; redeploy to publish.
+
+## Waiting Room recap combined + blue topbar icon + calendar legend (2026-09)
+- TODAY'S RECAP is now INLINE in the Waiting Room panel (replaced the separate overlay): 3 cards — Seen (emerald), No-shows (rose), Avg wait (slate) — plus a "Walk-ins: N · Rescheduled: N" line, above the footer. Matches user's reference layout. Removed the Recap overlay + toolbar Recap button; kept the View (provider filter) + Alert (threshold) toolbar.
+- TOPBAR trigger restyled: blue rounded button (bg-blue-600, rounded-lg) with white users icon; count shows as a RED SQUARE badge (rounded-[5px], bg-red-600, white text) only when in-room+waiting > 0.
+- DASHBOARD month calendar now has a PROVIDERS color legend under it (src/app/(app)/dashboard/page.tsx using ../schedule/palette PROVIDER_PALETTE.legend), listing only providers with appts in the visible month + their swatch.
+- Verified: QueuePanel + dashboard TypeScript-clean; screenshot-verified (inline recap cards, blue topbar icon, provider legend "Devon Jones, DPT"). Frontend-only changes (no backend). Preview-only; redeploy to publish.

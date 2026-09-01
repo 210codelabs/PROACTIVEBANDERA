@@ -8,6 +8,7 @@ import JellyBeans from "@/components/JellyBeans";
 import LiveOpsPanel from "@/components/LiveOpsPanel";
 import RecallSweepBanner from "@/components/inventory/RecallSweepBanner";
 import MonthCalendar, { type MAppt } from "../schedule/MonthCalendar";
+import { PROVIDER_PALETTE } from "../schedule/palette";
 
 export default async function DashboardPage() {
   const user = await requireSession();
@@ -118,6 +119,7 @@ export default async function DashboardPage() {
   const monthLabel = format(today, "MMMM yyyy");
   let monthAppts: MAppt[] = [];
   const monthProviderColors: Record<string, number> = {};
+  let monthProviders: { id: string; name: string; colorIndex: number }[] = [];
   try {
     const [apRes, prRes] = await Promise.allSettled([
       db.appointment.findMany({ where: { startsAt: { gte: mStart, lte: mEnd }, ...(user.role === "provider" ? { providerId: user.id } : {}) }, orderBy: { startsAt: "asc" }, take: 1000 }),
@@ -138,6 +140,16 @@ export default async function DashboardPage() {
       const p: any = pM.get(r.patientId); const u: any = uM.get(r.providerId);
       return { id: r.id, patientId: r.patientId, providerId: r.providerId, startsAt: new Date(r.startsAt).toISOString(), endsAt: new Date(r.endsAt).toISOString(), status: r.status, pFirst: p?.firstName || "", pLast: p?.lastName || "", provLast: u?.lastName || "", svcName: null };
     }).filter((a: MAppt) => a.pFirst || a.pLast);
+    // Provider legend: only providers that actually appear on this month's calendar.
+    const provNameById = new Map(provList.map((p: any) => [p.id, `${p.firstName} ${p.lastName}${p.credential ? ", " + p.credential : ""}`]));
+    const seenProv = new Set<string>();
+    for (const a of monthAppts) {
+      if (a.providerId && !seenProv.has(a.providerId)) {
+        seenProv.add(a.providerId);
+        monthProviders.push({ id: a.providerId, name: provNameById.get(a.providerId) || a.provLast || "Provider", colorIndex: monthProviderColors[a.providerId] ?? 0 });
+      }
+    }
+    monthProviders.sort((x, y) => x.name.localeCompare(y.name));
   } catch (e) {
     console.error("[dashboard] month calendar load failed:", e);
   }
@@ -205,6 +217,17 @@ export default async function DashboardPage() {
             providerColors={monthProviderColors}
             providerQuery=""
           />
+          {monthProviders.length > 0 && (
+            <div className="px-4 py-2.5 border-t border-slate-100 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Providers</span>
+              {monthProviders.map((p) => (
+                <span key={p.id} className="inline-flex items-center gap-1.5 text-[11px] text-slate-600">
+                  <span className={`h-2.5 w-2.5 rounded-sm ${PROVIDER_PALETTE[p.colorIndex % PROVIDER_PALETTE.length].legend}`} />
+                  {p.name}
+                </span>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* open notes */}

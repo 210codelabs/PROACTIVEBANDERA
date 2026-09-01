@@ -116,7 +116,6 @@ export default function QueuePanel({ user }: { user?: QUser }) {
   // long-wait sound + toast alerts
   const [muted, setMuted] = useState(false);
   const [threshMin, setThreshMin] = useState(15); // configurable long-wait alert threshold
-  const [showRecap, setShowRecap] = useState(false);
   const [toasts, setToasts] = useState<{ id: string; text: string }[]>([]);
   const alertedRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<any>(null);
@@ -405,11 +404,11 @@ export default function QueuePanel({ user }: { user?: QUser }) {
       <button
         onClick={() => setOpen((o) => !o)}
         title="Waiting Room"
-        className="relative h-9 w-9 rounded-full hover:bg-slate-100 grid place-items-center text-slate-500"
+        className="relative h-9 w-9 rounded-lg bg-blue-600 hover:bg-blue-700 grid place-items-center text-white shadow-sm transition-colors"
       >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-3-3" /></svg>
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-3-3" /></svg>
         {badgeCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full bg-indigo-600 text-white text-[10px] font-bold ring-2 ring-white">{badgeCount}</span>
+          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-[5px] bg-red-600 text-white text-[10px] font-bold ring-2 ring-white">{badgeCount}</span>
         )}
       </button>
 
@@ -466,30 +465,22 @@ export default function QueuePanel({ user }: { user?: QUser }) {
             {q && !searching && results.length === 0 && <div className="text-[11px] text-slate-400 mt-1.5">No registered patient found. Use “+ New patient”.</div>}
           </div>
 
-          {/* Provider filter + wait-alert threshold + daily recap */}
-          <div className="flex items-center justify-between gap-2 px-4 py-2 bg-slate-50 border-y border-slate-100">
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1 text-[11px] text-slate-500">
-                <span className="font-semibold uppercase tracking-wide text-[10px]">View</span>
-                <select value={providerFilter} onChange={(e) => setProviderFilter(e.target.value)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 max-w-[120px]">
-                  <option value="all">All providers</option>
-                  {user && user.role === "provider" && <option value="mine">My patients</option>}
-                  {providerOpts.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                </select>
-              </label>
-              <label className="flex items-center gap-1 text-[11px] text-slate-500" title="Long-wait alert threshold">
-                <span className="font-semibold uppercase tracking-wide text-[10px]">Alert</span>
-                <select value={threshMin} onChange={(e) => changeThresh(Number(e.target.value))} className="rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[11px] font-medium text-slate-700">
-                  {[5, 10, 15, 20, 30, 45].map((m) => <option key={m} value={m}>{`>${m}m`}</option>)}
-                </select>
-              </label>
-            </div>
-            <button onClick={() => setShowRecap(true)} className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-100" title="Open daily recap">
-              <span><span className="font-bold text-slate-700 tabular-nums">{report.seen ? fmtDur(report.avgWaitMs) : "—"}</span> avg</span>
-              <span className="text-slate-300">·</span>
-              <span><span className={`font-bold tabular-nums ${report.noShow > 0 ? "text-rose-600" : "text-slate-700"}`}>{report.noShow}</span> ns</span>
-              <span className="font-semibold text-indigo-600">Recap ›</span>
-            </button>
+          {/* Provider filter + wait-alert threshold */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border-y border-slate-100">
+            <label className="flex items-center gap-1 text-[11px] text-slate-500">
+              <span className="font-semibold uppercase tracking-wide text-[10px]">View</span>
+              <select value={providerFilter} onChange={(e) => setProviderFilter(e.target.value)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 max-w-[120px]">
+                <option value="all">All providers</option>
+                {user && user.role === "provider" && <option value="mine">My patients</option>}
+                {providerOpts.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+              </select>
+            </label>
+            <label className="flex items-center gap-1 text-[11px] text-slate-500" title="Long-wait alert threshold">
+              <span className="font-semibold uppercase tracking-wide text-[10px]">Alert</span>
+              <select value={threshMin} onChange={(e) => changeThresh(Number(e.target.value))} className="rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[11px] font-medium text-slate-700">
+                {[5, 10, 15, 20, 30, 45].map((m) => <option key={m} value={m}>{`>${m}m`}</option>)}
+              </select>
+            </label>
           </div>
 
           {err && <div className="px-4 py-2 text-xs text-rose-600 bg-rose-50">{err}</div>}
@@ -569,6 +560,20 @@ export default function QueuePanel({ user }: { user?: QUser }) {
             )}
           </div>
 
+          {/* Today's recap (inline) */}
+          <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/70">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">Today's recap</div>
+            <div className="grid grid-cols-3 gap-2">
+              <RecapCard label="Seen" value={report.seen} tone="emerald" />
+              <RecapCard label="No-shows" value={report.noShow} tone="rose" />
+              <RecapCard label="Avg wait" value={report.seen ? fmtDur(report.avgWaitMs) : "—"} tone="slate" />
+            </div>
+            <div className="mt-2 flex items-center gap-5 text-[11px] text-slate-500">
+              <span>Walk-ins: <span className="font-bold text-slate-700">{report.walkins}</span></span>
+              <span>Rescheduled: <span className="font-bold text-slate-700">{report.rescheduled}</span></span>
+            </div>
+          </div>
+
           {/* Footer */}
           <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 text-center text-[10px] text-slate-400">
             Shared live queue · scheduled patients are prioritized by arrival · updates every 15s
@@ -636,29 +641,6 @@ export default function QueuePanel({ user }: { user?: QUser }) {
             </div>
           )}
 
-          {/* Daily Recap overlay */}
-          {showRecap && (
-            <div className="absolute inset-0 z-40 bg-white flex flex-col">
-              <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
-                <div className="text-sm font-bold">Daily Recap · {fmtDayShort()}</div>
-                <button onClick={() => setShowRecap(false)} className="text-white/80 hover:text-white text-lg leading-none">×</button>
-              </div>
-              <div className="p-4 grid grid-cols-2 gap-2.5 overflow-y-auto">
-                <Stat label="Checked in" value={report.total} />
-                <Stat label="Seen (roomed)" value={report.seen} tone="indigo" />
-                <Stat label="Checked out" value={report.checkedOut} tone="emerald" />
-                <Stat label="No-shows" value={report.noShow} tone={report.noShow > 0 ? "rose" : "slate"} />
-                <Stat label="Rescheduled" value={report.rescheduled} />
-                <Stat label="Still waiting" value={waitingCount} />
-                <Stat label="Walk-ins" value={report.walkins} />
-                <Stat label="Scheduled" value={report.scheduledCount} />
-                <Stat label="Avg wait" value={report.seen ? fmtDur(report.avgWaitMs) : "—"} tone="violet" />
-                <Stat label="Longest wait" value={report.seen ? fmtDur(report.longestWaitMs) : "—"} tone="amber" />
-              </div>
-              <div className="mt-auto px-4 py-3 border-t border-slate-100 text-[10px] text-slate-400 text-center">Counts reflect today's queue history · clinic-wide</div>
-            </div>
-          )}
-
         </div>
       )}
 
@@ -704,15 +686,17 @@ function Section({ title, children, accent = "slate" }: { title: string; childre
 function Row({ children, flag }: { children: React.ReactNode; flag?: boolean }) {
   return <div className={`px-4 py-2 ${flag ? "bg-rose-50 border-l-2 border-rose-400" : ""}`}>{children}</div>;
 }
-function Stat({ label, value, tone = "slate" }: { label: string; value: React.ReactNode; tone?: "slate" | "indigo" | "violet" | "emerald" | "rose" | "amber" }) {
-  const map: Record<string, string> = {
-    slate: "text-slate-800", indigo: "text-indigo-600", violet: "text-violet-600",
-    emerald: "text-emerald-600", rose: "text-rose-600", amber: "text-amber-600",
+function RecapCard({ label, value, tone }: { label: string; value: React.ReactNode; tone: "emerald" | "rose" | "slate" }) {
+  const bg: Record<string, string> = {
+    emerald: "bg-emerald-50 ring-emerald-100", rose: "bg-rose-50 ring-rose-100", slate: "bg-slate-100 ring-slate-200",
+  };
+  const fg: Record<string, string> = {
+    emerald: "text-emerald-600", rose: "text-rose-600", slate: "text-slate-500",
   };
   return (
-    <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 px-3 py-2.5">
-      <div className={`text-xl font-extrabold tabular-nums leading-none ${map[tone]}`}>{value}</div>
-      <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
+    <div className={`rounded-xl ring-1 px-2 py-2.5 text-center ${bg[tone]}`}>
+      <div className={`text-lg font-extrabold tabular-nums leading-none ${fg[tone]}`}>{value}</div>
+      <div className="mt-1 text-[10px] font-semibold text-slate-500">{label}</div>
     </div>
   );
 }
