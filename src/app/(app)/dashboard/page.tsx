@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { startOfDay, endOfDay } from "date-fns";
+import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from "date-fns";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Shell from "@/components/Shell";
-import { fmtTime, fmtDateTime, colorForApptStatus, colorForCategory } from "@/lib/utils";
+import { fmtDateTime } from "@/lib/utils";
 import JellyBeans from "@/components/JellyBeans";
 import LiveOpsPanel from "@/components/LiveOpsPanel";
 import RecallSweepBanner from "@/components/inventory/RecallSweepBanner";
+import MonthCalendar, { type MAppt } from "../schedule/MonthCalendar";
 
 export default async function DashboardPage() {
   const user = await requireSession();
@@ -107,6 +108,40 @@ export default async function DashboardPage() {
   const checkedIn = todays.filter(a => a.status === "checked-in").length;
   const inRoom = todays.filter(a => a.status === "in-room").length;
   const noShow = todays.filter(a => a.status === "no-show").length;
+
+  // ---- Month calendar widget (resilient; separate from KPI queries) ----
+  const mStart = startOfWeek(startOfMonth(today), { weekStartsOn: 0 });
+  const mEnd = endOfWeek(endOfMonth(today), { weekStartsOn: 0 });
+  const monthISO = today.toISOString();
+  const monthStartISO = mStart.toISOString();
+  const monthEndISO = mEnd.toISOString();
+  const monthLabel = format(today, "MMMM yyyy");
+  let monthAppts: MAppt[] = [];
+  const monthProviderColors: Record<string, number> = {};
+  try {
+    const [apRes, prRes] = await Promise.allSettled([
+      db.appointment.findMany({ where: { startsAt: { gte: mStart, lte: mEnd }, ...(user.role === "provider" ? { providerId: user.id } : {}) }, orderBy: { startsAt: "asc" }, take: 1000 }),
+      db.user.findMany({ where: { role: "provider", active: true }, orderBy: { lastName: "asc" } }),
+    ]);
+    const mRows = apRes.status === "fulfilled" ? apRes.value : [];
+    const provList = prRes.status === "fulfilled" ? prRes.value : [];
+    provList.forEach((p: any, i: number) => { monthProviderColors[p.id] = i; });
+    const pids = [...new Set(mRows.map((r: any) => r.patientId))];
+    const uids = [...new Set(mRows.map((r: any) => r.providerId))];
+    const [pR, uR] = await Promise.allSettled([
+      pids.length ? db.patient.findMany({ where: { id: { in: pids } } }) : Promise.resolve([] as any[]),
+      uids.length ? db.user.findMany({ where: { id: { in: uids } } }) : Promise.resolve([] as any[]),
+    ]);
+    const pM = new Map((pR.status === "fulfilled" ? pR.value : []).map((p: any) => [p.id, p]));
+    const uM = new Map((uR.status === "fulfilled" ? uR.value : []).map((u: any) => [u.id, u]));
+    monthAppts = mRows.map((r: any) => {
+      const p: any = pM.get(r.patientId); const u: any = uM.get(r.providerId);
+      return { id: r.id, patientId: r.patientId, providerId: r.providerId, startsAt: new Date(r.startsAt).toISOString(), endsAt: new Date(r.endsAt).toISOString(), status: r.status, pFirst: p?.firstName || "", pLast: p?.lastName || "", provLast: u?.lastName || "", svcName: null };
+    }).filter((a: MAppt) => a.pFirst || a.pLast);
+  } catch (e) {
+    console.error("[dashboard] month calendar load failed:", e);
+  }
+
   const pendingRx = openOrders.filter(o => o.type === "rx").length;
   const pendingLabs = openOrders.filter(o => o.type === "lab").length;
   const initialMetrics = {
@@ -153,31 +188,23 @@ export default async function DashboardPage() {
           <LiveOpsPanel initialMetrics={initialMetrics} />
         </div>
 
-        {/* today's schedule */}
-        <section className="card card-interactive lg:col-span-2 border-l-4 border-l-brand-500">
+        {/* schedule — embedded month calendar */}
+        <section className="card card-interactive lg:col-span-2 border-l-4 border-l-brand-500 overflow-hidden">
           <header className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-            <div className="font-semibold text-brand-900 flex items-center gap-2"><span className="h-7 w-7 rounded-lg bg-brand-100 grid place-items-center text-brand-700"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></span>Today's Schedule</div>
-            <Link href="/schedule" prefetch={false} className="text-xs font-semibold text-brand-700 hover:underline">Open schedule →</Link>
+            <div className="font-semibold text-brand-900 flex items-center gap-2"><span className="h-7 w-7 rounded-lg bg-brand-100 grid place-items-center text-brand-700"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></span>Schedule · {monthLabel}</div>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-slate-500">{todays.length} today</span>
+              <Link href="/schedule" prefetch={false} className="font-semibold text-brand-700 hover:underline">Open schedule →</Link>
+            </div>
           </header>
-          {todays.length === 0 ? (
-            <div className="p-6 text-sm text-slate-500">No appointments today.</div>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {todays.map(a => (
-                <li key={a.id} className="px-4 py-3 flex items-center gap-3 hover:bg-slate-50">
-                  <div className="w-20 text-sm font-semibold text-slate-700">{fmtTime(a.startsAt)}</div>
-                  <Link href={`/patients/${a.patientId}`} prefetch={false} className="flex-1 min-w-0">
-                    <div className="font-medium text-slate-900 truncate">{a.patient.lastName}, {a.patient.firstName}</div>
-                    <div className="text-xs text-slate-500 truncate">{a.reason || a.serviceType?.name || "Office visit"} · with {a.provider.firstName} {a.provider.lastName}{a.provider.credential ? `, ${a.provider.credential}` : ""}</div>
-                  </Link>
-                  {a.serviceType && (
-                    <span className={`chip ${colorForCategory(a.serviceType.category)}`}>{a.serviceType.name}</span>
-                  )}
-                  <span className={`chip ${colorForApptStatus(a.status)}`}>{a.status}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <MonthCalendar
+            monthISO={monthISO}
+            startISO={monthStartISO}
+            endISO={monthEndISO}
+            appts={monthAppts}
+            providerColors={monthProviderColors}
+            providerQuery=""
+          />
         </section>
 
         {/* open notes */}

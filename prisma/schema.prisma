@@ -1480,6 +1480,7 @@ model QueueEntry {
   kind          String    @default("walkin")  // scheduled | walkin
   status        String    @default("waiting")  // waiting | in-room | checked-out | no-show | rescheduled
   reason        String?
+  room          String?   // exam/treatment room, set when patient is placed in-room
   scheduledAt   DateTime? // the scheduled appointment time (scheduled kind)
   checkInAt     DateTime  @default(now())
   inRoomAt      DateTime?
