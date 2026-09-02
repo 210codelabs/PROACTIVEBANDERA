@@ -10,7 +10,7 @@ const CreateUserBody = z.object({
   email: z.string().email(),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
-  role: z.enum(["provider", "nurse", "frontdesk", "billing", "admin"]),
+  role: z.enum(["provider", "nurse", "frontdesk", "billing", "admin", "physical_therapist"]),
   credential: z.string().optional(),
   specialty: z.string().optional(),
   npi: z.string().optional(),
@@ -20,7 +20,7 @@ const CreateUserBody = z.object({
 const UpdateUserBody = z.object({
   id: z.string().min(1),
   active: z.boolean().optional(),
-  role: z.enum(["provider", "nurse", "frontdesk", "billing", "admin"]).optional(),
+  role: z.enum(["provider", "nurse", "frontdesk", "billing", "admin", "physical_therapist"]).optional(),
   email: z.string().email().optional(),
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),

@@ -1530,3 +1530,35 @@ model PtNote {
   @@index([legalCaseId])
   @@index([status])
 }
+
+// Separate, legally-formatted Personal Injury accident intake that flows into a PI note.
+model PiIntake {
+  id            String    @id @default(cuid()) @map("_id")
+  patientId     String
+  legalCaseId   String?
+  accidentDate  DateTime?
+  accidentTime  String?
+  accidentType  String?
+  location      String?
+  description   String?
+  role          String?
+  seatbelt      Boolean?
+  airbag        Boolean?
+  policeReport  String?
+  bodyParts     String[]
+  painLevel     Int?
+  priorInjuries String?
+  autoInsurer   String?
+  autoPolicy    String?
+  claimNumber   String?
+  adjuster      String?
+  attorney      String?
+  lawFirm       String?
+  status        String    @default("submitted")
+  createdByName String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([patientId])
+  @@index([legalCaseId])
+}

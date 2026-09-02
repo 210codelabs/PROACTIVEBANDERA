@@ -40,6 +40,9 @@ export async function PUT(req: Request) {
   const parse = Body.safeParse(body);
   if (!parse.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
 
-  const config = await patchAdminConfig("roles", parse.data.roles);
+  // Merge with existing config so roles not editable in this UI (e.g. physical_therapist) are preserved.
+  const current = await readAdminConfig();
+  const merged = { ...current.roles, ...parse.data.roles };
+  const config = await patchAdminConfig("roles", merged);
   return NextResponse.json({ ok: true, roles: config.roles });
 }

@@ -1,6 +1,6 @@
 /** Client-safe auth types and utilities (no server API imports) */
 
-export type Role = "provider" | "nurse" | "frontdesk" | "billing" | "admin";
+export type Role = "provider" | "nurse" | "frontdesk" | "billing" | "admin" | "physical_therapist";
 
 export type SessionUser = {
   id: string;
@@ -18,5 +18,6 @@ export function roleLabel(role: Role): string {
     case "frontdesk": return "Front Desk";
     case "billing": return "Billing";
     case "admin": return "Administrator";
+    case "physical_therapist": return "Physical Therapist";
   }
 }

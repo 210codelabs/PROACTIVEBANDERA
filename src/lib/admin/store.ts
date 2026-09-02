@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { ClinicalModuleKey } from "@/lib/modules";
 
-export type StaffRole = "provider" | "nurse" | "frontdesk" | "billing" | "admin";
+export type StaffRole = "provider" | "nurse" | "frontdesk" | "billing" | "admin" | "physical_therapist";
 
 export type RolePermissionSet = {
   dashboard: boolean;
@@ -250,6 +250,18 @@ const DEFAULTS: AdminConfig = {
     },
   },
   roles: {
+    physical_therapist: {
+      dashboard: true,
+      scheduling: true,
+      patientsRead: true,
+      patientsWrite: true,
+      encountersWrite: true,
+      ordersWrite: true,
+      billingRead: true,
+      billingWrite: false,
+      messaging: true,
+      adminAccess: false,
+    },
     provider: {
       dashboard: true,
       scheduling: true,

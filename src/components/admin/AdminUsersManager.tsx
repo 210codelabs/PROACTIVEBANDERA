@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
 
-type RoleKey = "provider" | "nurse" | "frontdesk" | "billing" | "admin";
+type RoleKey = "provider" | "nurse" | "frontdesk" | "billing" | "admin" | "physical_therapist";
 
 type UserRecord = {
   id: string;
@@ -57,6 +57,7 @@ const ROLE_OPTIONS: Array<{ value: RoleKey; label: string }> = [
   { value: "frontdesk", label: "Front Desk" },
   { value: "billing", label: "Billing" },
   { value: "admin", label: "Admin" },
+  { value: "physical_therapist", label: "Physical Therapist" },
 ];
 
 function fullName(u: UserRecord) {

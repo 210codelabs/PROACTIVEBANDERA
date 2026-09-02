@@ -137,9 +137,19 @@ export default function Shell({
         { label: "Overview", href: "/billing" },
         { label: "Eligibility worklist", href: "/billing/eligibility-report" },
         { label: "Revenue Cycle", href: "/billing/revenue-cycle" },
-        { label: "PT Encounters", href: "/pt/encounters" },
-        { label: "PT Claims", href: "/pt/claims" },
         { label: "Bank & EFT", href: "/billing/bank-eft" },
+      ],
+    },
+    {
+      label: "Physical Rehab",
+      href: "/pt",
+      icon: <Icon.Sparkle />,
+      children: [
+        { label: "Overview", href: "/pt" },
+        { label: "PT Encounters", href: "/pt/encounters" },
+        { label: "PI Intake", href: "/pt/intake" },
+        { label: "PT Claims", href: "/pt/claims" },
+        { label: "Reporting", href: "/pt/reporting" },
       ],
     },
     { label: t("nav.messages"), href: "/messages", icon: <Icon.Mail /> },
@@ -168,6 +178,10 @@ export default function Shell({
     {
       title: t("sections.operations"),
       items: NAV.filter((item) => ["/billing", "/messages", "/services"].includes(item.href)),
+    },
+    {
+      title: "Physical Rehab",
+      items: NAV.filter((item) => ["/pt"].includes(item.href)),
     },
     {
       title: t("sections.administration"),

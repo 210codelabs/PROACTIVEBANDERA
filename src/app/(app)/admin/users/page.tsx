@@ -29,7 +29,7 @@ export default async function AdminUsersPage() {
         <AdminUsersManager
           initialUsers={users.map((u) => ({
             ...u,
-            role: u.role as "provider" | "nurse" | "frontdesk" | "billing" | "admin",
+            role: u.role as "provider" | "nurse" | "frontdesk" | "billing" | "admin" | "physical_therapist",
             createdAt: u.createdAt.toISOString(),
           }))}
         />
