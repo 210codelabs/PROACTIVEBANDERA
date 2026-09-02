@@ -1523,6 +1523,10 @@ model CredentialingProvider {
   samClear          Boolean?
   lastValidationAt  DateTime?
   validationResult  Json?
+  excluded          Boolean  @default(false)
+  excludedAt        DateTime?
+  excludedReason    String?
+  lastRecheckAt     DateTime?
   caqhAttestationDate DateTime?
   licenseExpDate    DateTime?
   licenseState      String?

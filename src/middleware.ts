@@ -29,6 +29,7 @@ const PUBLIC_PREFIX = [
   "/api/internal/weno-autosync",
   "/api/internal/dot-reminders",
   "/api/internal/weno-apply-env",
+  "/api/internal/credentialing-recheck",
   "/api/compare",
   "/fhir",
   "/api/auth/login",

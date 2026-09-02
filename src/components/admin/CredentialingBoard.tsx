@@ -2,12 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 
-type Provider = { id: string; npi: string; firstName: string; lastName: string; credential?: string; taxonomy?: string; status: string; nppesVerified: boolean; oigClear: boolean | null; samClear: boolean | null; hasPortalPassword?: boolean; validationResult?: any; portalUsername?: string | null };
+type Provider = { id: string; npi: string; firstName: string; lastName: string; credential?: string; taxonomy?: string; status: string; nppesVerified: boolean; oigClear: boolean | null; samClear: boolean | null; hasPortalPassword?: boolean; validationResult?: any; portalUsername?: string | null; excluded?: boolean; excludedReason?: string | null; lastRecheckAt?: string | null };
 type Job = { id: string; providerName: string; npi: string; status: string; webhookToken: string; error?: string | null; logs?: any[]; mfaReceivedAt?: string | null };
 
 const STATUS_TONE: Record<string, string> = {
   draft: "bg-slate-100 text-slate-600", validating: "bg-sky-100 text-sky-700", validated: "bg-emerald-100 text-emerald-700",
-  awaiting_mfa: "bg-amber-100 text-amber-800", processing: "bg-indigo-100 text-indigo-700", completed: "bg-emerald-100 text-emerald-800", failed: "bg-rose-100 text-rose-700", pending: "bg-slate-100 text-slate-600",
+  awaiting_mfa: "bg-amber-100 text-amber-800", processing: "bg-indigo-100 text-indigo-700", completed: "bg-emerald-100 text-emerald-800", failed: "bg-rose-100 text-rose-700", pending: "bg-slate-100 text-slate-600", flagged: "bg-rose-100 text-rose-700",
 };
 
 function Chip({ s }: { s: string }) { return <span className={`chip ${STATUS_TONE[s] || "bg-slate-100 text-slate-600"}`}>{s.replace(/_/g, " ")}</span>; }
@@ -63,11 +63,29 @@ export default function CredentialingBoard() {
     try { await fetch(`/api/credentialing/providers/${id}`, { method: "DELETE" }); await load(); } finally { setBusy(null); }
   }
 
+  async function recheckAll() {
+    setBusy("recheck"); setMsg(null);
+    try {
+      const r = await fetch("/api/credentialing/recheck", { method: "POST" });
+      const d = await r.json();
+      if (!r.ok) setMsg(d.error || "Recheck failed.");
+      else setMsg(`Rechecked ${d.checked} provider(s): ${d.newlyExcluded?.length || 0} newly excluded, ${d.cleared?.length || 0} cleared, ${d.excludedCount || 0} currently excluded.`);
+      await load();
+    } catch { setMsg("Recheck request failed."); } finally { setBusy(null); }
+  }
+
   return (
     <div className="space-y-4 max-w-6xl">
       <section className="card card-pad">
-        <h1 className="text-xl font-bold text-slate-900">Credentialing Automation</h1>
-        <p className="text-sm text-slate-500">Validate providers against federal sources (NPPES · OIG LEIE · SAM.gov), then hand a validated CAQH package + MFA webhook to your external RPA/SMS agent.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">Credentialing Automation</h1>
+            <p className="text-sm text-slate-500">Validate providers against federal sources (NPPES · OIG LEIE · SAM.gov), then hand a validated CAQH package + MFA webhook to your external RPA/SMS agent.</p>
+          </div>
+          <button onClick={recheckAll} disabled={busy === "recheck"} className="shrink-0 rounded-lg bg-slate-800 text-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-900 disabled:opacity-50" title="Re-run OIG/SAM screening for all validated providers now">
+            {busy === "recheck" ? "Rechecking…" : "↻ Recheck exclusions"}
+          </button>
+        </div>
         <div className="mt-2 rounded-lg bg-amber-50 ring-1 ring-amber-200 p-3 text-[13px] text-amber-800">
           <b>How MFA works:</b> This system validates data and holds job state. It does <b>not</b> log into CAQH or intercept SMS itself. Your external agent drives the portal; when it hits MFA it POSTs the code to the job&apos;s webhook to resume.
         </div>
@@ -100,7 +118,7 @@ export default function CredentialingBoard() {
             <tbody className="divide-y divide-slate-100">
               {providers.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-2"><div className="font-medium text-slate-800">{p.lastName}, {p.firstName}{p.credential ? `, ${p.credential}` : ""}</div><div className="text-[11px] text-slate-400">{p.taxonomy || "—"}</div></td>
+                  <td className="px-4 py-2"><div className="font-medium text-slate-800">{p.lastName}, {p.firstName}{p.credential ? `, ${p.credential}` : ""}{p.excluded ? <span className="ml-2 chip bg-rose-600 text-white" title={p.excludedReason || "Excluded"}>EXCLUDED</span> : null}</div><div className="text-[11px] text-slate-400">{p.taxonomy || "—"}{p.excluded && p.excludedReason ? ` · ${p.excludedReason}` : ""}</div></td>
                   <td className="px-4 py-2 font-mono text-xs">{p.npi}</td>
                   <td className="px-4 py-2 text-[11px]"><span className={p.nppesVerified ? "text-emerald-600" : "text-slate-400"}>NPPES {p.nppesVerified ? "✓" : "–"}</span> · <span className={p.oigClear === false ? "text-rose-600" : p.oigClear ? "text-emerald-600" : "text-slate-400"}>OIG {p.oigClear === false ? "✗" : p.oigClear ? "✓" : "?"}</span> · <span className={p.samClear === false ? "text-rose-600" : p.samClear ? "text-emerald-600" : "text-slate-400"}>SAM {p.samClear === false ? "✗" : p.samClear ? "✓" : "?"}</span></td>
                   <td className="px-4 py-2"><Chip s={p.status} /></td>
