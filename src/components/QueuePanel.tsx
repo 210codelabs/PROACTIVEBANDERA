@@ -86,7 +86,19 @@ function nextSlot() {
 }
 
 export default function QueuePanel({ user }: { user?: QUser }) {
-  const [open, setOpen] = useState(true); // visible by default
+  // Visible by default, but once the user manually collapses it we remember that
+  // choice for the rest of the browser session (survives page/section navigation).
+  const [open, setOpenState] = useState(true);
+  const setOpen = useCallback((v: boolean | ((o: boolean) => boolean)) => {
+    setOpenState((prev) => {
+      const next = typeof v === "function" ? (v as (o: boolean) => boolean)(prev) : v;
+      try { sessionStorage.setItem("pc_queue_open", next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    try { if (sessionStorage.getItem("pc_queue_open") === "0") setOpenState(false); } catch { /* ignore */ }
+  }, []);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [scheduled, setScheduled] = useState<Sched[]>([]);
   const [now, setNow] = useState(Date.now());

@@ -21,6 +21,7 @@ const PermissionSet = z.object({
 const Body = z.object({
   roles: z.object({
     provider: PermissionSet,
+    physical_therapist: PermissionSet,
     nurse: PermissionSet,
     frontdesk: PermissionSet,
     billing: PermissionSet,

@@ -137,6 +137,18 @@
     }
   },
   "roles": {
+    "physical_therapist": {
+      "dashboard": true,
+      "scheduling": true,
+      "patientsRead": true,
+      "patientsWrite": true,
+      "encountersWrite": true,
+      "ordersWrite": true,
+      "billingRead": true,
+      "billingWrite": false,
+      "messaging": true,
+      "adminAccess": false
+    },
     "provider": {
       "dashboard": true,
       "scheduling": true,

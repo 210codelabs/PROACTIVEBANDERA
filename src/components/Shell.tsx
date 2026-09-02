@@ -19,6 +19,7 @@ type NavItem = {
   href: string;
   icon: React.ReactNode;
   children?: Array<{ label: string; href: string }>;
+  alwaysOpen?: boolean;
 };
 
 type NavSection = {
@@ -144,6 +145,7 @@ export default function Shell({
       label: "Physical Rehab",
       href: "/pt",
       icon: <Icon.Sparkle />,
+      alwaysOpen: true,
       children: [
         { label: "Overview", href: "/pt" },
         { label: "PT Encounters", href: "/pt/encounters" },
@@ -248,10 +250,10 @@ export default function Shell({
                     <span className="ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold">{pendingCount}</span>
                   )}
                 </Link>
-                {!iconOnly && item.children && active && (
+                {!iconOnly && item.children && (active || item.alwaysOpen) && (
                   <div className="ml-8 mt-1 mb-1 space-y-0.5 border-l border-sky-800/60 pl-2">
                     {item.children.map((child) => {
-                      const childActive = pathname === child.href;
+                      const childActive = pathname === child.href || (child.href !== item.href && pathname.startsWith(`${child.href}/`));
                       return (
                         <Link
                           key={child.href}

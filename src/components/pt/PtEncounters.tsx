@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 type QUser = { id: string; firstName: string; lastName: string; role: string; credential: string | null };
@@ -20,6 +20,13 @@ export default function PtEncounters({ user }: { user: QUser }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [intakeFor, setIntakeFor] = useState<null | { patient: CaseRow["patient"]; legalCase: LegalCase | null; form: typeof BLANK_INTAKE }>(null);
+
+  // AI dictation + normalization
+  const [dictation, setDictation] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
+  const recogRef = useRef<any>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -141,6 +148,92 @@ export default function PtEncounters({ user }: { user: QUser }) {
 
   const set = (k: keyof typeof BLANK, v: string) => editing && setEditing({ ...editing, form: { ...editing.form, [k]: v } });
 
+  // ---- In-note lookups (append a picked code/med into a field) ----
+  function appendField(k: keyof typeof BLANK, value: string, sep = ", ") {
+    if (!editing || !value) return;
+    const cur = String(editing.form[k] || "").trim();
+    const exists = cur.split(sep).map((s) => s.trim()).includes(value.trim());
+    const next = cur ? (exists ? cur : `${cur}${sep}${value}`) : value;
+    set(k, next);
+  }
+
+  // ---- Dictation (browser speech-to-text) ----
+  function toggleMic() {
+    if (listening) { try { recogRef.current?.stop(); } catch { /* ignore */ } setListening(false); return; }
+    const SR = (typeof window !== "undefined") && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    if (!SR) { setAiMsg("Dictation isn't supported in this browser. Try Chrome, or type your notes."); return; }
+    const rec = new SR();
+    rec.lang = "en-US"; rec.continuous = true; rec.interimResults = true;
+    let final = "";
+    rec.onresult = (ev: any) => {
+      let interim = "";
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const tr = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) final += tr + " "; else interim += tr;
+      }
+      setDictation((prev) => {
+        // keep any text the user typed before mic started, then live transcript
+        const base = prev.replace(/\s*\[…listening][\s\S]*$/, "");
+        return `${base}${final}${interim ? " […listening] " + interim : ""}`.trimStart();
+      });
+    };
+    rec.onerror = () => { setListening(false); };
+    rec.onend = () => {
+      setListening(false);
+      setDictation((prev) => prev.replace(/\s*\[…listening][\s\S]*$/, (final ? "" : "")).trim() + (final ? "" : ""));
+    };
+    recogRef.current = rec;
+    try { rec.start(); setListening(true); setAiMsg(null); } catch { setListening(false); }
+  }
+
+  async function runAiNormalize() {
+    if (!editing) return;
+    setAiBusy(true); setAiMsg(null); setErr(null);
+    try { if (listening) { recogRef.current?.stop(); setListening(false); } } catch { /* ignore */ }
+    const clean = dictation.replace(/\s*\[…listening][\s\S]*$/, "").trim();
+    try {
+      const r = await fetch(`/api/pt/ai-note`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dictation: clean, draft: editing.form, patientId: editing.patient.id }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setAiMsg(d.error || "AI could not draft the note."); setAiBusy(false); return; }
+      const n = d.note || {};
+      setEditing((cur) => cur ? ({
+        ...cur,
+        form: {
+          ...cur.form,
+          mechanism: n.mechanism || cur.form.mechanism,
+          subjective: n.subjective || cur.form.subjective,
+          objective: n.objective || cur.form.objective,
+          assessment: n.assessment || cur.form.assessment,
+          plan: n.plan || cur.form.plan,
+          goals: n.goals || cur.form.goals,
+          causation: n.causation || cur.form.causation,
+          cpt: (n.cptCodes || []).length ? [...new Set([...cur.form.cpt.split(",").map((s: string) => s.trim()).filter(Boolean), ...n.cptCodes])].join(", ") : cur.form.cpt,
+          icd: (n.icdCodes || []).length ? [...new Set([...cur.form.icd.split(",").map((s: string) => s.trim()).filter(Boolean), ...n.icdCodes])].join(", ") : cur.form.icd,
+        },
+      }) : cur);
+      setAiMsg("AI draft applied — please review and edit before signing.");
+    } catch {
+      setAiMsg("AI request failed. Please try again.");
+    } finally { setAiBusy(false); }
+  }
+
+  // Stop mic + clear dictation when the editor closes.
+  useEffect(() => {
+    if (!editing) {
+      try { recogRef.current?.stop(); } catch { /* ignore */ }
+      setListening(false); setDictation(""); setAiMsg(null);
+    }
+  }, [editing]);
+
+  function startNoteForPatient(p: { id: string; firstName: string; lastName: string; mrn: string; dob?: string }) {
+    setErr(null);
+    setEditing({ patient: { ...p, dob: (p as any).dob || "" }, legalCase: null, form: { ...BLANK }, visitDate: new Date().toISOString().slice(0, 10) });
+  }
+
+
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
@@ -148,7 +241,10 @@ export default function PtEncounters({ user }: { user: QUser }) {
           <h1 className="text-xl font-bold text-slate-900">PT / Personal Injury Encounters</h1>
           <p className="text-sm text-slate-500">Separate from clinical notes · only for patients registered under Physical Rehabilitation / Personal Injury.</p>
         </div>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search PI patients & notes…" className="input w-64" />
+        <div className="flex items-center gap-2">
+          <div className="w-56"><CodeLookup kind="patient" placeholder="Find patient → start PI note…" onPick={(it) => startNoteForPatient(it.raw)} /></div>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search PI patients & notes…" className="input w-56" />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
@@ -209,16 +305,53 @@ export default function PtEncounters({ user }: { user: QUser }) {
                 <label className="block"><span className="lbl">Date of visit</span><input type="date" value={editing.visitDate} onChange={(e) => setEditing({ ...editing, visitDate: e.target.value })} className="input w-full" /></label>
                 <div className="text-[11px] text-slate-500 self-end pb-1">Texas PI documentation · English</div>
               </div>
+
+              {/* AI dictation + normalization */}
+              <div className="rounded-xl bg-indigo-50/70 ring-1 ring-indigo-200 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-500">AI dictation & drafting</span>
+                  <button type="button" onClick={toggleMic} className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold transition ${listening ? "bg-rose-600 text-white" : "bg-white text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100"}`}>
+                    {listening ? "● Stop dictation" : "🎤 Dictate"}
+                  </button>
+                </div>
+                <textarea
+                  value={dictation}
+                  onChange={(e) => setDictation(e.target.value)}
+                  rows={2}
+                  placeholder="Dictate or type a quick summary of the visit — the AI will organize it into the PI note fields below."
+                  className="input w-full resize-y text-sm"
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-indigo-700/80">AI produces a draft — review & edit before signing.</span>
+                  <button type="button" disabled={aiBusy} onClick={runAiNormalize} className="rounded-lg bg-indigo-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50">
+                    {aiBusy ? "Drafting…" : "✨ AI normalize note"}
+                  </button>
+                </div>
+                {aiMsg && <div className="text-[11px] font-medium text-indigo-700">{aiMsg}</div>}
+              </div>
+
               <Field label="Mechanism of injury (how the accident occurred)" v={editing.form.mechanism} on={(v) => set("mechanism", v)} />
               <Field label="Subjective (patient-reported symptoms, pain scale)" v={editing.form.subjective} on={(v) => set("subjective", v)} />
               <Field label="Objective (ROM, MMT, palpation, special tests)" v={editing.form.objective} on={(v) => set("objective", v)} />
               <Field label="Assessment (diagnosis / clinical impression)" v={editing.form.assessment} on={(v) => set("assessment", v)} />
               <Field label="Plan (treatment plan, frequency, duration)" v={editing.form.plan} on={(v) => set("plan", v)} />
+              <div className="-mt-1">
+                <span className="lbl">Medication lookup (openFDA / RxNorm) — adds to plan</span>
+                <CodeLookup kind="med" placeholder="Search a medication to reference in the plan…" compact onPick={(it) => appendField("plan", it.label + (it.code ? ` (${it.code})` : ""))} />
+              </div>
               <Field label="Functional goals" v={editing.form.goals} on={(v) => set("goals", v)} />
               <Field label="Causation statement (relationship of injury to the accident)" v={editing.form.causation} on={(v) => set("causation", v)} />
               <div className="grid grid-cols-2 gap-3">
-                <label className="block"><span className="lbl">CPT codes (comma-separated)</span><input value={editing.form.cpt} onChange={(e) => set("cpt", e.target.value)} placeholder="97110, 97140, 97530" className="input w-full" /></label>
-                <label className="block"><span className="lbl">ICD-10 codes (comma-separated)</span><input value={editing.form.icd} onChange={(e) => set("icd", e.target.value)} placeholder="S13.4XXA, M54.2" className="input w-full" /></label>
+                <label className="block">
+                  <span className="lbl">CPT codes (comma-separated)</span>
+                  <input value={editing.form.cpt} onChange={(e) => set("cpt", e.target.value)} placeholder="97110, 97140, 97530" className="input w-full" />
+                  <div className="mt-1"><CodeLookup kind="cpt" placeholder="Search CPT / HCPCS…" compact onPick={(it) => appendField("cpt", it.code)} /></div>
+                </label>
+                <label className="block">
+                  <span className="lbl">ICD-10 codes (comma-separated)</span>
+                  <input value={editing.form.icd} onChange={(e) => set("icd", e.target.value)} placeholder="S13.4XXA, M54.2" className="input w-full" />
+                  <div className="mt-1"><CodeLookup kind="icd" placeholder="Search ICD-10 diagnosis…" compact onPick={(it) => appendField("icd", it.code)} /></div>
+                </label>
               </div>
 
               {/* Signature block */}
@@ -300,5 +433,84 @@ function Field({ label, v, on }: { label: string; v: string; on: (v: string) => 
       <span className="lbl">{label}</span>
       <textarea value={v} onChange={(e) => on(e.target.value)} rows={2} className="input w-full resize-y" />
     </label>
+  );
+}
+
+type LookupKind = "icd" | "cpt" | "med" | "patient";
+type LookupItem = { code: string; label: string; sub?: string; raw?: any };
+
+function CodeLookup({ kind, placeholder, onPick, compact }: {
+  kind: LookupKind;
+  placeholder: string;
+  onPick: (item: LookupItem) => void;
+  compact?: boolean;
+}) {
+  const [q, setQ] = useState("");
+  const [items, setItems] = useState<LookupItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const timer = useRef<any>(null);
+
+  useEffect(() => {
+    if (timer.current) clearTimeout(timer.current);
+    if (q.trim().length < 2) { setItems([]); return; }
+    setLoading(true); setOpen(true);
+    timer.current = setTimeout(async () => {
+      try {
+        let url = "";
+        if (kind === "icd") url = `/api/refdata?type=diagnosis&q=${encodeURIComponent(q.trim())}&limit=8`;
+        else if (kind === "cpt") url = `/api/refdata?type=billingCode&q=${encodeURIComponent(q.trim())}&limit=8`;
+        else if (kind === "med") url = `/api/drugs/search?q=${encodeURIComponent(q.trim())}`;
+        else url = `/api/patients/search?q=${encodeURIComponent(q.trim())}&limit=8`;
+        const r = await fetch(url);
+        const d = await r.json();
+        let mapped: LookupItem[] = [];
+        if (kind === "icd" || kind === "cpt") {
+          mapped = (d.items || []).map((i: any) => ({ code: i.code || "", label: i.display || "", raw: i }));
+        } else if (kind === "med") {
+          mapped = (d.results || []).map((i: any) => ({
+            code: i.rxcui || i.ndc || "",
+            label: i.name || i.brandName || i.brand_name || i.genericName || i.generic_name || i.display || i.proprietaryName || "(unnamed)",
+            sub: i.genericName || i.generic_name || undefined,
+            raw: i,
+          }));
+        } else {
+          mapped = (d.results || []).map((p: any) => ({
+            code: p.id, label: `${p.lastName}, ${p.firstName}`, sub: p.mrn ? `MRN ${p.mrn}` : undefined, raw: p,
+          }));
+        }
+        setItems(mapped);
+      } catch { setItems([]); } finally { setLoading(false); }
+    }, 300);
+    return () => { if (timer.current) clearTimeout(timer.current); };
+  }, [q, kind]);
+
+  return (
+    <div className="relative">
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onFocus={() => q.trim().length >= 2 && setOpen(true)}
+        placeholder={placeholder}
+        className={`input w-full ${compact ? "text-xs py-1" : ""}`}
+      />
+      {open && (loading || items.length > 0 || q.trim().length >= 2) && (
+        <div className="absolute z-[60] mt-1 w-full rounded-lg bg-white ring-1 ring-slate-200 shadow-xl max-h-56 overflow-y-auto">
+          {loading && <div className="px-3 py-2 text-[11px] text-slate-400">Searching…</div>}
+          {!loading && items.length === 0 && <div className="px-3 py-2 text-[11px] text-slate-400">No matches.</div>}
+          {items.map((it, idx) => (
+            <button
+              key={`${it.code}-${idx}`}
+              type="button"
+              onClick={() => { onPick(it); setQ(""); setItems([]); setOpen(false); }}
+              className="block w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 border-b border-slate-50 last:border-0"
+            >
+              <span className="font-semibold text-slate-800">{it.code ? `${it.code} · ` : ""}{it.label}</span>
+              {it.sub && <span className="block text-[10px] text-slate-400">{it.sub}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

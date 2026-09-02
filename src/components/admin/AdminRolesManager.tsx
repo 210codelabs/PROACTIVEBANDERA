@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type RoleKey = "provider" | "nurse" | "frontdesk" | "billing" | "admin";
+type RoleKey = "provider" | "nurse" | "frontdesk" | "billing" | "admin" | "physical_therapist";
 
 type PermissionSet = {
   dashboard: boolean;
@@ -78,6 +78,7 @@ export default function AdminRolesManager({ initialRoles }: { initialRoles: Role
             <tr>
               <th>Permission</th>
               <th>Provider</th>
+              <th>Physical Therapist</th>
               <th>Nurse</th>
               <th>Front Desk</th>
               <th>Billing</th>
@@ -88,7 +89,7 @@ export default function AdminRolesManager({ initialRoles }: { initialRoles: Role
             {columns.map((col) => (
               <tr key={col}>
                 <td className="font-medium">{col}</td>
-                {(["provider", "nurse", "frontdesk", "billing", "admin"] as RoleKey[]).map((role) => (
+                {(["provider", "physical_therapist", "nurse", "frontdesk", "billing", "admin"] as RoleKey[]).map((role) => (
                   <td key={`${role}-${col}`}>
                     <label className="inline-flex items-center gap-2 text-xs">
                       <input type="checkbox" checked={roles[role][col]} onChange={() => toggle(role, col)} />
