@@ -46,6 +46,7 @@ export async function POST(req: Request) {
     supportsEligibility: b.supportsEligibility !== false,
     supportsClaims: b.supportsClaims !== false,
     supportsRemittance: Boolean(b.supportsRemittance),
+    casualty: Boolean(b.casualty),
     active: b.active !== false,
     notes: b.notes || null,
   };

@@ -731,6 +731,7 @@ model Payer {
   supportsEligibility Boolean @default(true)
   supportsClaims    Boolean  @default(true)
   supportsRemittance Boolean @default(false)
+  casualty          Boolean  @default(false)  // auto / PIP / med-pay (casualty) payer
   active            Boolean  @default(true)
   notes             String?
   createdAt         DateTime @default(now())

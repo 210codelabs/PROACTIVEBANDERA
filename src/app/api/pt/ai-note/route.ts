@@ -106,13 +106,20 @@ export async function POST(request: Request) {
     ].join("\n");
 
     const apiKey = validateApiKey(process.env.EMERGENT_LLM_KEY);
+    // PT-only model (defaults to gpt-5) so this does not disturb the clinical AI-SOAP feature.
+    const provider = (process.env.PT_MODEL_PROVIDER || process.env.PORTAL_MODEL_PROVIDER || "openai") as "openai" | "anthropic" | "gemini";
+    const model = process.env.PT_MODEL_ID || process.env.PORTAL_MODEL_ID || "gpt-5";
+    // GPT-5 only supports the default temperature and consumes reasoning tokens,
+    // so we omit temperature and give a generous token budget.
+    const params: Record<string, unknown> = { max_tokens: 4000 };
+    if (!/^gpt-5/i.test(model)) params.temperature = 0.2;
     const chat = createChat({
       apiKey,
       sessionId: `pt-note-${patientId || Math.random().toString(36).slice(2)}`,
       systemMessage,
-      provider: (process.env.PORTAL_MODEL_PROVIDER as "openai" | "anthropic" | "gemini") || "openai",
-      model: process.env.PORTAL_MODEL_ID || "gpt-4o",
-      params: { temperature: 0.2, max_tokens: 1600 },
+      provider,
+      model,
+      params,
     });
 
     const raw = await chat.sendMessage(

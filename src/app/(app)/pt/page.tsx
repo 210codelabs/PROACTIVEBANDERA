@@ -22,9 +22,10 @@ export default async function PtHubPage() {
     { href: "/pt/intake", title: "PI Intake", desc: "Legally-formatted accident intake that flows into the PI note.", stat: `${intakes} intakes`, tone: "violet" },
     { href: "/pt/claims", title: "PT Claims", desc: "Submit CMS-1500 style claims to auto / casualty payers via Stedi.", stat: `${notesSigned} ready`, tone: "emerald" },
     { href: "/pt/reporting", title: "Reporting", desc: "Volumes, signed vs draft, by auto insurer, monthly trend.", stat: `${legalPatients} PI patients`, tone: "amber" },
+    { href: "/settings/casualty-payers", title: "Casualty Payers", desc: "Find & save auto / PIP payers (Stedi) used for PT claims.", stat: "Setup & enrollment", tone: "sky" },
   ];
   const toneMap: Record<string, string> = {
-    indigo: "border-l-indigo-500", violet: "border-l-violet-500", emerald: "border-l-emerald-500", amber: "border-l-amber-500",
+    indigo: "border-l-indigo-500", violet: "border-l-violet-500", emerald: "border-l-emerald-500", amber: "border-l-amber-500", sky: "border-l-sky-500",
   };
 
   return (
@@ -42,7 +43,7 @@ export default async function PtHubPage() {
           ))}
         </div>
         <div className="mt-5 rounded-xl bg-amber-50 ring-1 ring-amber-200 p-3 text-[13px] text-amber-800">
-          <b>Note:</b> Live claim submission runs through the <b>Stedi</b> clearinghouse to the auto/casualty payer and requires that payer connection to be confirmed. AI transcription / note normalization is available once an LLM key is configured.
+          <b>Note:</b> AI dictation & note normalization are enabled in the PT encounter editor (review drafts before signing). Live claim submission runs through the <b>Stedi</b> clearinghouse to the auto/casualty payer and stays gated until that payer&apos;s claims enrollment is confirmed on your Stedi account.
         </div>
       </div>
     </Shell>

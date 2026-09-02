@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import BodyMap from "@/components/pt/BodyMap";
 
 type QUser = { id: string; firstName: string; lastName: string; role: string; credential: string | null };
 type LegalCase = { id: string; caseType: string; claimNumber?: string | null; dateOfInjury?: string | null; adjuster?: string | null; defendantInsurer?: string | null; lawFirm?: string | null; status?: string };
@@ -399,7 +400,11 @@ export default function PtEncounters({ user }: { user: QUser }) {
                 <label className="block"><span className="lbl">Pain (0-10)</span><input type="number" min={0} max={10} value={intakeFor.form.painLevel} onChange={(e) => setI("painLevel", e.target.value)} className="input w-full" /></label>
                 <label className="block"><span className="lbl">Police report #</span><input value={intakeFor.form.policeReport} onChange={(e) => setI("policeReport", e.target.value)} className="input w-full" /></label>
               </div>
-              <label className="block"><span className="lbl">Injured body parts / pain diagram (comma-separated)</span><input value={intakeFor.form.bodyParts} onChange={(e) => setI("bodyParts", e.target.value)} className="input w-full" placeholder="Neck, Lower back, Right shoulder" /></label>
+              <BodyMap
+                value={intakeFor.form.bodyParts.split(",").map((s) => s.trim()).filter(Boolean)}
+                onChange={(arr) => setI("bodyParts", arr.join(", "))}
+              />
+              <label className="block"><span className="lbl">Injured body parts (tap the map above, or edit here)</span><input value={intakeFor.form.bodyParts} onChange={(e) => setI("bodyParts", e.target.value)} className="input w-full" placeholder="Neck, Lower back, Right shoulder" /></label>
               <label className="block"><span className="lbl">Prior injuries to same areas</span><input value={intakeFor.form.priorInjuries} onChange={(e) => setI("priorInjuries", e.target.value)} className="input w-full" /></label>
               <div className="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3 space-y-2">
                 <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Auto insurance &amp; legal</div>

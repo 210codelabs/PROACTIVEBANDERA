@@ -17,6 +17,7 @@ export default function PtClaims() {
   const [cases, setCases] = useState<CaseRow[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [casualtyPayers, setCasualtyPayers] = useState<Array<{ id: string; name: string; stediId: string | null }>>([]);
 
   const [prep, setPrep] = useState<PrepState>(null);
   const [busy, setBusy] = useState(false);
@@ -25,12 +26,14 @@ export default function PtClaims() {
   async function load() {
     setLoading(true);
     try {
-      const [c, n] = await Promise.all([
+      const [c, n, pay] = await Promise.all([
         fetch(`/api/pt/cases`).then((r) => r.json()),
         fetch(`/api/pt/notes`).then((r) => r.json()),
+        fetch(`/api/stedi/payers`).then((r) => r.json()).catch(() => ({ payers: [] })),
       ]);
       setCases(c.cases || []);
       setNotes((n.notes || []).filter((x: any) => x.status === "signed"));
+      setCasualtyPayers((pay.payers || []).filter((p: any) => p.casualty).map((p: any) => ({ id: p.id, name: p.name, stediId: p.stediId })));
     } catch { /* ignore */ } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
@@ -183,6 +186,24 @@ export default function PtClaims() {
               <button onClick={() => !busy && setPrep(null)} className="text-white/80 hover:text-white text-xl leading-none">×</button>
             </div>
             <div className="p-5 space-y-3">
+              {casualtyPayers.length > 0 && (
+                <label className="block">
+                  <span className="text-[11px] font-semibold text-slate-500">Casualty payer (from your saved Stedi payers)</span>
+                  <select
+                    className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm bg-white"
+                    value={casualtyPayers.find((cp) => cp.name === prep.payerName && (cp.stediId || "") === prep.payerId)?.id || ""}
+                    onChange={(e) => {
+                      const cp = casualtyPayers.find((x) => x.id === e.target.value);
+                      if (cp) setPrep({ ...prep, payerName: cp.name, payerId: cp.stediId || "" });
+                    }}
+                  >
+                    <option value="">— choose a saved casualty payer —</option>
+                    {casualtyPayers.map((cp) => (
+                      <option key={cp.id} value={cp.id}>{cp.name}{cp.stediId ? ` (${cp.stediId})` : ""}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
                   <span className="text-[11px] font-semibold text-slate-500">Auto / PIP payer name</span>
@@ -192,6 +213,9 @@ export default function PtClaims() {
                   <span className="text-[11px] font-semibold text-slate-500">Stedi payer ID</span>
                   <input value={prep.payerId} onChange={(e) => setPrep({ ...prep, payerId: e.target.value })} placeholder="Casualty payer ID" className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
                 </label>
+              </div>
+              <div className="text-[11px] text-slate-500">
+                No saved casualty payers? <a href="/settings/casualty-payers" className="text-indigo-600 hover:underline font-semibold">Set up auto / PIP payers →</a>
               </div>
               <div>
                 <div className="text-[11px] font-semibold text-slate-500 mb-1">Service lines (enter charge per CPT)</div>

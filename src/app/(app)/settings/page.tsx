@@ -57,6 +57,13 @@ export default async function Settings() {
         </div>
         <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Open \u2192</span>
       </Link>
+      <Link href="/settings/profile" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
+        <div>
+          <div className="font-semibold text-slate-900">My Provider Profile (NPI &amp; License)</div>
+          <div className="text-sm text-slate-500">Set your individual NPI, state professional license, credential and specialty. These are stamped on the PT/PI notes you sign and used as the rendering provider on PT claims.</div>
+        </div>
+        <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Open →</span>
+      </Link>
       {user.role === "admin" && (
         <Link href="/admin/installer" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
           <div>
