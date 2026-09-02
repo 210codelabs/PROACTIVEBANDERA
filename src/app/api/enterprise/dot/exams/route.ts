@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getEnterpriseSession } from "@/lib/enterpriseAuth";
 import { resolveEnterpriseId, getScopedEmployee } from "@/lib/enterprise/scope";
+import { ensureEmployeeChart } from "@/lib/enterprise/chartSync";
 
 export const runtime = "nodejs";
 

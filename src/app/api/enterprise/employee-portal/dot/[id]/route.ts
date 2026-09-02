@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getEmployeeSession } from "@/lib/employeeAuth";
 import { computeDerived } from "@/lib/dot/apply";
+import { syncDotExamToChart } from "@/lib/enterprise/chartSync";
 
 export const runtime = "nodejs";
 
@@ -46,5 +47,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       bpCategory: derived.bpCategory,
     },
   });
+  await syncDotExamToChart(exam).catch(() => {});
   return NextResponse.json({ ok: true, exam: { id: exam.id, status: exam.status } });
 }

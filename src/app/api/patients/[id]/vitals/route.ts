@@ -8,6 +8,17 @@ function num(x: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  await requireSession();
+  const { id } = await params;
+  const vitals = await db.vital.findMany({
+    where: { patientId: id },
+    orderBy: { takenAt: "desc" },
+    take: 50,
+  });
+  return NextResponse.json({ ok: true, vitals });
+}
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireSession();
   const { id } = await params;

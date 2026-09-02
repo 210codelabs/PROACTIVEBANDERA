@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { computeDerived } from "@/lib/dot/apply";
+import { syncDotExamToChart } from "@/lib/enterprise/chartSync";
 
 export const runtime = "nodejs";
 
@@ -40,7 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const merged: any = { ...exam, driverInfo, healthHistory: body.healthHistory || exam.healthHistory };
   const derived = computeDerived(merged);
 
-  await db.dotExam.update({
+  const updatedExam = await db.dotExam.update({
     where: { id: exam.id },
     data: {
       driverInfo,
@@ -55,5 +56,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       kioskToken: null,
     },
   });
+  await syncDotExamToChart(updatedExam).catch(() => {});
   return NextResponse.json({ ok: true });
 }

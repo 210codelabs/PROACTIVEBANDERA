@@ -1501,6 +1501,56 @@ model QueueEntry {
 
 // Personal Injury / Physical Therapy encounter note (separate from clinical EncounterNote).
 // Only attached to patients registered under Physical Rehabilitation / Personal Injury (patientType == "legal").
+model CredentialingProvider {
+  id                String   @id @default(cuid()) @map("_id")
+  npi               String   @unique
+  firstName         String
+  lastName          String
+  credential        String?
+  taxonomy          String?
+  taxonomyCode      String?
+  email             String?
+  phone             String?
+  addressLine1      String?
+  city              String?
+  state             String?
+  postalCode        String?
+  portalUsername    String?
+  portalPasswordEnc String?  // AES-256-GCM ciphertext — never plaintext
+  status            String   @default("draft") // draft | validating | validated | failed
+  nppesVerified     Boolean  @default(false)
+  oigClear          Boolean?
+  samClear          Boolean?
+  lastValidationAt  DateTime?
+  validationResult  Json?
+  createdByName     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  jobs              AutomationJob[]
+  @@index([status])
+}
+
+model AutomationJob {
+  id             String   @id @default(cuid()) @map("_id")
+  providerId     String
+  provider       CredentialingProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  target         String   @default("caqh_proview")
+  status         String   @default("pending") // pending | validating | validated | awaiting_mfa | processing | completed | failed
+  mfaCode        String?
+  mfaRequestedAt DateTime?
+  mfaReceivedAt  DateTime?
+  webhookToken   String   @unique
+  logs           Json?    // [{ at, level, message }]
+  error          String?
+  package        Json?    // validated CAQH submission package for the external agent
+  createdByName  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([providerId])
+  @@index([status])
+}
+
+
 model PtCptFee {
   id          String   @id @default(cuid()) @map("_id")
   code        String   @unique

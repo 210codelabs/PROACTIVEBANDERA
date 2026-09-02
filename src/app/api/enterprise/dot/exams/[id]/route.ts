@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getEnterpriseSession } from "@/lib/enterpriseAuth";
 import { computeDerived, outcomeFromFlags } from "@/lib/dot/apply";
+import { syncDotExamToChart } from "@/lib/enterprise/chartSync";
 
 export const runtime = "nodejs";
 
@@ -61,5 +62,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const exam = await db.dotExam.update({ where: { id }, data });
+  // Real-time sync of vitals / medications into the linked EMR patient chart.
+  await syncDotExamToChart(exam).catch(() => {});
   return NextResponse.json({ ok: true, exam, suggestedCertMonths: derived.suggestedCertMonths });
 }

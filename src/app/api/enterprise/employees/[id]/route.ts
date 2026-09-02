@@ -67,6 +67,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (b.lastName) pd.lastName = b.lastName;
     if (b.email !== undefined) pd.email = b.email || null;
     if (b.phone !== undefined) pd.phone = b.phone || null;
+    if (b.dob !== undefined && b.dob) pd.dob = new Date(b.dob);
+    if ((b as any).sex) pd.sex = (b as any).sex;
     if (Object.keys(pd).length) await db.patient.update({ where: { id: emp.patientId }, data: pd }).catch(() => {});
   }
   return NextResponse.json({ ok: true, employee: emp });
