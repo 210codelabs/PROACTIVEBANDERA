@@ -1523,6 +1523,9 @@ model CredentialingProvider {
   samClear          Boolean?
   lastValidationAt  DateTime?
   validationResult  Json?
+  caqhAttestationDate DateTime?
+  licenseExpDate    DateTime?
+  licenseState      String?
   createdByName     String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

@@ -34,6 +34,9 @@ export async function POST(req: Request) {
       state: b.state || null, city: b.city || null, postalCode: b.postalCode || null, addressLine1: b.addressLine1 || null,
       portalUsername: b.portalUsername || null,
       portalPasswordEnc: b.portalPassword ? encryptSecret(String(b.portalPassword)) : null,
+      caqhAttestationDate: b.caqhAttestationDate ? new Date(b.caqhAttestationDate) : null,
+      licenseExpDate: b.licenseExpDate ? new Date(b.licenseExpDate) : null,
+      licenseState: b.licenseState || null,
       createdByName: `${s.firstName} ${s.lastName}`,
     },
   });

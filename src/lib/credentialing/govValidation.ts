@@ -52,14 +52,10 @@ export async function validateNppes(npi: string): Promise<NppesResult> {
 }
 
 // --- OIG LEIE (Medicare/Medicaid exclusions) ---
-// No official REST API; the List of Excluded Individuals/Entities is a monthly CSV
-// download. Placeholder until a data source is configured (OIG_LEIE_DATA_URL).
-export async function checkOigLeie(_firstName: string, _lastName: string, _npi: string): Promise<CheckResult> {
-  if (!process.env.OIG_LEIE_DATA_URL) {
-    return { screened: false, excluded: null, note: "OIG LEIE not screened (no data source configured). Verify manually at oig.hhs.gov/exclusions." };
-  }
-  // A configured deployment could load/index the LEIE CSV here and match on name+NPI.
-  return { screened: false, excluded: null, note: "OIG LEIE data source configured but matching not enabled in this build." };
+// Uses the monthly LEIE CSV (OIG_LEIE_DATA_URL) via a lazily-cached index.
+export async function checkOigLeie(firstName: string, lastName: string, npi: string): Promise<CheckResult> {
+  const { matchOigLeie } = await import("./oigLeie");
+  return matchOigLeie(firstName, lastName, npi);
 }
 
 // --- SAM.gov Exclusions (federal debarments) — live if SAM_API_KEY present ---
@@ -67,13 +63,14 @@ export async function checkSamGov(firstName: string, lastName: string): Promise<
   const apiKey = process.env.SAM_API_KEY;
   if (!apiKey) return { screened: false, excluded: null, note: "SAM.gov not screened (SAM_API_KEY not configured). Get a free key at sam.gov." };
   try {
-    const q = encodeURIComponent(`${lastName}, ${firstName}`.trim());
-    const url = `https://api.sam.gov/entity-information/v3/exclusions?api_key=${apiKey}&exclusionName=${q}`;
-    const res = await fetch(url, { headers: { accept: "application/json" } });
-    if (!res.ok) return { screened: false, excluded: null, note: `SAM.gov HTTP ${res.status}` };
-    const json = await res.json();
-    const total = json.totalRecords ?? (json.excludedEntities?.length || 0);
-    return { screened: true, excluded: total > 0, note: total > 0 ? `SAM.gov: ${total} possible exclusion match(es) — review required.` : "SAM.gov: no exclusions found.", raw: { total } };
+    // v4 is the only supported version (v3 retired). Do NOT send Accept: application/json (406).
+    const name = encodeURIComponent(`${lastName}, ${firstName}`.trim());
+    const url = `https://api.sam.gov/entity-information/v4/exclusions?api_key=${encodeURIComponent(apiKey)}&exclusionName=${name}`;
+    const res = await fetch(url);
+    if (!res.ok) return { screened: false, excluded: null, note: `SAM.gov HTTP ${res.status} (v4 exclusions).` };
+    const json: any = await res.json().catch(() => ({}));
+    const total = json.totalRecords ?? json._embedded?.exclusionDetails?.length ?? json.excludedEntities?.length ?? 0;
+    return { screened: true, excluded: total > 0, note: total > 0 ? `SAM.gov: ${total} possible exclusion match(es) — manual review required.` : "SAM.gov: no exclusions found.", raw: { total } };
   } catch (e: any) {
     return { screened: false, excluded: null, note: `SAM.gov request failed: ${String(e?.message || e).slice(0, 160)}` };
   }

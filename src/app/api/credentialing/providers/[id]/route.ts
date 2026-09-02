@@ -31,6 +31,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (b[k] !== undefined) data[k] = b[k] || null;
   }
   if (b.portalPassword) data.portalPasswordEnc = encryptSecret(String(b.portalPassword));
+  if (b.caqhAttestationDate !== undefined) data.caqhAttestationDate = b.caqhAttestationDate ? new Date(b.caqhAttestationDate) : null;
+  if (b.licenseExpDate !== undefined) data.licenseExpDate = b.licenseExpDate ? new Date(b.licenseExpDate) : null;
+  if (b.licenseState !== undefined) data.licenseState = b.licenseState || null;
   const p = await db.credentialingProvider.update({ where: { id }, data }).catch(() => null);
   if (!p) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ok: true, provider: publicProvider(p) });

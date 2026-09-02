@@ -18,17 +18,19 @@ export default function CredentialingBoard() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [form, setForm] = useState({ npi: "", firstName: "", lastName: "", credential: "", email: "", phone: "", portalUsername: "", portalPassword: "" });
+  const [form, setForm] = useState({ npi: "", firstName: "", lastName: "", credential: "", email: "", phone: "", portalUsername: "", portalPassword: "", caqhAttestationDate: "", licenseExpDate: "", licenseState: "" });
   const [origin, setOrigin] = useState("");
+  const [reminders, setReminders] = useState<any[]>([]);
 
   async function load() {
     setLoading(true);
     try {
-      const [p, j] = await Promise.all([
+      const [p, j, rem] = await Promise.all([
         fetch("/api/credentialing/providers").then((r) => r.json()),
         fetch("/api/credentialing/jobs").then((r) => r.json()),
+        fetch("/api/credentialing/reminders?days=90").then((r) => r.json()).catch(() => ({ items: [] })),
       ]);
-      setProviders(p.providers || []); setJobs(j.jobs || []);
+      setProviders(p.providers || []); setJobs(j.jobs || []); setReminders(rem.items || []);
     } catch { /* ignore */ } finally { setLoading(false); }
   }
   useEffect(() => { load(); setOrigin(window.location.origin); }, []);
@@ -39,7 +41,7 @@ export default function CredentialingBoard() {
       const r = await fetch("/api/credentialing/providers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const d = await r.json();
       if (!r.ok) setMsg(d.error || "Could not add provider.");
-      else { setForm({ npi: "", firstName: "", lastName: "", credential: "", email: "", phone: "", portalUsername: "", portalPassword: "" }); await load(); }
+      else { setForm({ npi: "", firstName: "", lastName: "", credential: "", email: "", phone: "", portalUsername: "", portalPassword: "", caqhAttestationDate: "", licenseExpDate: "", licenseState: "" }); await load(); }
     } catch { setMsg("Network error."); } finally { setBusy(null); }
   }
 
@@ -83,6 +85,9 @@ export default function CredentialingBoard() {
           <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone" className="input" />
           <input value={form.portalUsername} onChange={(e) => setForm({ ...form, portalUsername: e.target.value })} placeholder="CAQH portal username" className="input" />
           <input type="password" value={form.portalPassword} onChange={(e) => setForm({ ...form, portalPassword: e.target.value })} placeholder="CAQH portal password (encrypted)" className="input" />
+          <label className="text-[11px] text-slate-500">CAQH attestation due<input type="date" value={form.caqhAttestationDate} onChange={(e) => setForm({ ...form, caqhAttestationDate: e.target.value })} className="input mt-0.5" /></label>
+          <label className="text-[11px] text-slate-500">License expiration<input type="date" value={form.licenseExpDate} onChange={(e) => setForm({ ...form, licenseExpDate: e.target.value })} className="input mt-0.5" /></label>
+          <input value={form.licenseState} onChange={(e) => setForm({ ...form, licenseState: e.target.value.toUpperCase().slice(0, 2) })} placeholder="License state (TX)" className="input" />
           <button disabled={busy === "add"} className="btn-primary">{busy === "add" ? "Adding…" : "Add provider"}</button>
         </form>
       </section>
@@ -111,6 +116,37 @@ export default function CredentialingBoard() {
             </tbody>
           </table>
         )}
+      </section>
+
+      <section className="card card-pad">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-slate-900">Re-credentialing reminders <span className="text-xs font-normal text-slate-400">(next 90 days & overdue)</span></h2>
+          <span className="text-[11px] text-slate-400">{reminders.length} due</span>
+        </div>
+        {reminders.length === 0 ? (
+          <p className="text-sm text-slate-500 mt-1">Nothing due soon. Add CAQH attestation / license dates to a provider to get alerts.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-slate-100">
+            {reminders.map((r, i) => (
+              <li key={i} className="flex items-center justify-between py-1.5 text-sm">
+                <span className="text-slate-700"><b>{r.name}</b> <span className="text-[11px] text-slate-400">· {r.type}{r.licenseState ? ` (${r.licenseState})` : ""}</span></span>
+                <span className={`chip ${r.overdue ? "bg-rose-100 text-rose-700" : r.dueInDays <= 30 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
+                  {r.overdue ? `Overdue ${Math.abs(r.dueInDays)}d` : `in ${r.dueInDays}d`} · {new Date(r.date).toLocaleDateString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="card card-pad">
+        <h2 className="font-semibold text-slate-900">Twilio SMS relay</h2>
+        <p className="text-sm text-slate-500">Point your Twilio number&apos;s <b>inbound-message webhook</b> at the URL below. When the CAQH OTP text arrives, Twilio forwards it here and the awaiting job resumes automatically.</p>
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <code className="text-[11px] bg-slate-100 rounded px-2 py-1 text-slate-600 break-all">POST {origin}/api/credentialing/twilio/sms</code>
+          <button onClick={() => navigator.clipboard?.writeText(`${origin}/api/credentialing/twilio/sms`)} className="text-[11px] text-indigo-600 hover:underline">copy URL</button>
+        </div>
+        <p className="text-[11px] text-slate-400 mt-1">Set <code>TWILIO_AUTH_TOKEN</code> to enable request-signature verification.</p>
       </section>
 
       <section className="card overflow-hidden">
