@@ -18,6 +18,7 @@ export default function PtClaims() {
   const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [casualtyPayers, setCasualtyPayers] = useState<Array<{ id: string; name: string; stediId: string | null }>>([]);
+  const [feesMap, setFeesMap] = useState<Record<string, number>>({});
 
   const [prep, setPrep] = useState<PrepState>(null);
   const [busy, setBusy] = useState(false);
@@ -26,14 +27,16 @@ export default function PtClaims() {
   async function load() {
     setLoading(true);
     try {
-      const [c, n, pay] = await Promise.all([
+      const [c, n, pay, fee] = await Promise.all([
         fetch(`/api/pt/cases`).then((r) => r.json()),
         fetch(`/api/pt/notes`).then((r) => r.json()),
         fetch(`/api/stedi/payers`).then((r) => r.json()).catch(() => ({ payers: [] })),
+        fetch(`/api/pt/fees`).then((r) => r.json()).catch(() => ({ map: {} })),
       ]);
       setCases(c.cases || []);
       setNotes((n.notes || []).filter((x: any) => x.status === "signed"));
       setCasualtyPayers((pay.payers || []).filter((p: any) => p.casualty).map((p: any) => ({ id: p.id, name: p.name, stediId: p.stediId })));
+      setFeesMap(fee.map || {});
     } catch { /* ignore */ } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
@@ -58,7 +61,7 @@ export default function PtClaims() {
       lc,
       payerId: "",
       payerName: lc?.defendantInsurer || "",
-      lines: (n.cptCodes || []).map((cpt: string) => ({ cpt, dollars: "" })),
+      lines: (n.cptCodes || []).map((cpt: string) => ({ cpt, dollars: feesMap[String(cpt).toUpperCase()] != null ? (feesMap[String(cpt).toUpperCase()] / 100).toFixed(2) : "" })),
     });
   }
 
@@ -161,13 +164,16 @@ export default function PtClaims() {
                       )}
                     </td>
                     <td className="px-4 py-2">
-                      <button
-                        onClick={() => openPrep(n, lc)}
-                        disabled={!(n.cptCodes || []).length}
-                        className="rounded-lg bg-indigo-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40"
-                      >
-                        Prepare &amp; submit
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openPrep(n, lc)}
+                          disabled={!(n.cptCodes || []).length}
+                          className="rounded-lg bg-indigo-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40"
+                        >
+                          Prepare &amp; submit
+                        </button>
+                        <a href={`/api/pt/notes/${n.id}/pdf`} target="_blank" rel="noopener noreferrer" className="rounded-lg ring-1 ring-slate-300 text-slate-700 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50">PDF</a>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -216,6 +222,7 @@ export default function PtClaims() {
               </div>
               <div className="text-[11px] text-slate-500">
                 No saved casualty payers? <a href="/settings/casualty-payers" className="text-indigo-600 hover:underline font-semibold">Set up auto / PIP payers →</a>
+                {" · "}Amounts prefill from your <a href="/settings/pt-fees" className="text-indigo-600 hover:underline font-semibold">PT fee schedule →</a>
               </div>
               <div>
                 <div className="text-[11px] font-semibold text-slate-500 mb-1">Service lines (enter charge per CPT)</div>

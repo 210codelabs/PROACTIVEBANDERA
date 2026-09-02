@@ -221,6 +221,41 @@ export default function PtEncounters({ user }: { user: QUser }) {
     } finally { setAiBusy(false); }
   }
 
+  async function runAiCleanup() {
+    if (!editing) return;
+    setAiBusy(true); setAiMsg(null); setErr(null);
+    const f = editing.form;
+    try {
+      const r = await fetch(`/api/pt/ai-cleanup`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: {
+          mechanism: f.mechanism, subjective: f.subjective, objective: f.objective,
+          assessment: f.assessment, plan: f.plan, goals: f.goals, causation: f.causation,
+        } }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setAiMsg(d.error || "AI could not proofread the note."); setAiBusy(false); return; }
+      const n = d.note || {};
+      setEditing((cur) => cur ? ({
+        ...cur,
+        form: {
+          ...cur.form,
+          // Proofread text only — codes/CPT/ICD are intentionally left unchanged.
+          mechanism: n.mechanism ?? cur.form.mechanism,
+          subjective: n.subjective ?? cur.form.subjective,
+          objective: n.objective ?? cur.form.objective,
+          assessment: n.assessment ?? cur.form.assessment,
+          plan: n.plan ?? cur.form.plan,
+          goals: n.goals ?? cur.form.goals,
+          causation: n.causation ?? cur.form.causation,
+        },
+      }) : cur);
+      setAiMsg("Proofread & tightened — clinical facts and codes were left unchanged. Please review.");
+    } catch {
+      setAiMsg("AI request failed. Please try again.");
+    } finally { setAiBusy(false); }
+  }
+
   // Stop mic + clear dictation when the editor closes.
   useEffect(() => {
     if (!editing) {
@@ -285,7 +320,12 @@ export default function PtEncounters({ user }: { user: QUser }) {
                     <div className="font-medium text-slate-800 truncate">{n.patientName} <span className="text-[11px] text-slate-400">MRN {n.patientMrn}</span></div>
                     <div className="text-[11px] text-slate-500 truncate">{(n.visitDate || "").slice(0, 10)} · {n.assessment || n.subjective || "—"}</div>
                   </button>
-                  <span className={`chip ${n.status === "signed" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{n.status}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`chip ${n.status === "signed" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{n.status}</span>
+                    {n.status === "signed" && (
+                      <a href={`/api/pt/notes/${n.id}/pdf`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="rounded-md ring-1 ring-slate-300 text-slate-700 px-2 py-1 text-[11px] font-semibold hover:bg-slate-100">PDF</a>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -324,9 +364,14 @@ export default function PtEncounters({ user }: { user: QUser }) {
                 />
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] text-indigo-700/80">AI produces a draft — review & edit before signing.</span>
-                  <button type="button" disabled={aiBusy} onClick={runAiNormalize} className="rounded-lg bg-indigo-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50">
-                    {aiBusy ? "Drafting…" : "✨ AI normalize note"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button type="button" disabled={aiBusy} onClick={runAiCleanup} className="rounded-lg bg-white ring-1 ring-indigo-200 text-indigo-700 px-3 py-1.5 text-xs font-semibold hover:bg-indigo-100 disabled:opacity-50" title="Proofread & tighten the existing note without changing clinical facts or codes">
+                      {aiBusy ? "Working…" : "🧹 Proofread & tighten"}
+                    </button>
+                    <button type="button" disabled={aiBusy} onClick={runAiNormalize} className="rounded-lg bg-indigo-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50">
+                      {aiBusy ? "Drafting…" : "✨ AI normalize note"}
+                    </button>
+                  </div>
                 </div>
                 {aiMsg && <div className="text-[11px] font-medium text-indigo-700">{aiMsg}</div>}
               </div>
@@ -360,7 +405,12 @@ export default function PtEncounters({ user }: { user: QUser }) {
                 <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Physical Therapist signature</div>
                 <div className="text-sm font-semibold text-slate-800">{user.firstName} {user.lastName}{user.credential ? `, ${user.credential}` : ""}</div>
                 <div className="text-[11px] text-slate-500">NPI &amp; state license are pulled from your provider profile on sign. Add them in Settings if missing.</div>
-                {editing.status === "signed" && <div className="mt-1 text-[11px] font-semibold text-emerald-600">This note is signed.</div>}
+                {editing.status === "signed" && (
+                  <div className="mt-1 flex items-center gap-3">
+                    <span className="text-[11px] font-semibold text-emerald-600">This note is signed.</span>
+                    {editing.id && <a href={`/api/pt/notes/${editing.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-indigo-600 hover:underline">Download signed PDF →</a>}
+                  </div>
+                )}
               </div>
 
               {err && <div className="text-sm text-rose-600">{err}</div>}

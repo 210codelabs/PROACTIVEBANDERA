@@ -1501,6 +1501,17 @@ model QueueEntry {
 
 // Personal Injury / Physical Therapy encounter note (separate from clinical EncounterNote).
 // Only attached to patients registered under Physical Rehabilitation / Personal Injury (patientType == "legal").
+model PtCptFee {
+  id          String   @id @default(cuid()) @map("_id")
+  code        String   @unique
+  description String?
+  chargeCents Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+
 model PtNote {
   id               String    @id @default(cuid()) @map("_id")
   patientId        String

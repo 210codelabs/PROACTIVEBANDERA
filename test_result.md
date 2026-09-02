@@ -103,6 +103,52 @@
 #====================================================================================================user_problem_statement: "Proactive Clinic EHR (imported ApexCare, rebranded). New backend features: AI assistant (OpenAI GPT-4o via Emergent LLM key) for patient FAQs, and patient-portal appointment request that saves to MongoDB via Prisma."
 
 backend:
+  - task: "PT fee schedule charge master (/api/pt/fees)"
+    implemented: true
+    working: true
+    file: "src/app/api/pt/fees/route.ts, prisma PtCptFee"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW. Practice-wide CPT charge master (PtCptFee, code unique). Auth: admin@proactiveclinic.com/apex123. TEST: (A) POST /api/pt/fees WITHOUT session -> 401. (B) POST (session) {code:'97110', description:'Therapeutic exercise', chargeDollars:120} -> 200 {ok:true, fees:[...]}; assert fee.code==='97110' and fee.chargeCents===12000. (C) POST again with {code:'97110', chargeCents:9999} (upsert same code) -> 200; assert chargeCents===9999 (updated, not duplicated). (D) POST batch {fees:[{code:'97140', chargeDollars:85},{code:'97530', chargeDollars:0}]} -> 200 with 2 fees. (E) GET /api/pt/fees (session) -> 200 {fees:[...], map:{...}}; assert map['97110']===9999 and map['97140']===8500. (F) DELETE /api/pt/fees?code=97110 -> 200 {ok:true}; then GET and assert 97110 gone. Cleanup: DELETE 97140 and 97530 too."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ Comprehensive backend testing completed via backend_test_round3_pt.py. ALL 6 test cases (A-F) passed with NO critical issues. TEST A - AUTH GUARD: POST /api/pt/fees WITHOUT session correctly returns 401 Unauthorized ✅. TEST B - CREATE FEE WITH CHARGEDOLLARS: POST /api/pt/fees with session {code:'97110', description:'Therapeutic exercise', chargeDollars:120} returns 200 {ok:true, fees:[...]} ✅. CRITICAL ASSERTIONS PASSED: fee.code==='97110' ✅, fee.chargeCents===12000 (120 dollars * 100) ✅. TEST C - UPSERT SAME CODE: POST /api/pt/fees with session {code:'97110', chargeCents:9999} returns 200 ✅. CRITICAL ASSERTION PASSED: chargeCents===9999 (updated, not duplicated - same ID maintained) ✅. Upsert logic working correctly (UPDATE instead of INSERT for existing code) ✅. TEST D - BATCH CREATE: POST /api/pt/fees with session {fees:[{code:'97140', chargeDollars:85},{code:'97530', chargeDollars:0}]} returns 200 with 2 fees ✅. Both fees created successfully (97140 with chargeCents=8500, 97530 with chargeCents=0) ✅. TEST E - GET FEES WITH MAP: GET /api/pt/fees with session returns 200 {fees:[...], map:{...}} ✅. CRITICAL ASSERTIONS PASSED: map['97110']===9999 ✅, map['97140']===8500 ✅. Map structure correctly provides code->chargeCents lookup ✅. TEST F - DELETE AND VERIFY: DELETE /api/pt/fees?code=97110 with session returns 200 {ok:true} ✅. Subsequent GET /api/pt/fees confirms 97110 is gone from map ✅. Cleanup: DELETE 97140 and 97530 both return 200 ✅. All authentication (requireSession), authorization (staff session required), CRUD operations (POST create, POST upsert, GET list with map, DELETE), upsert-by-code logic (UPDATE instead of duplicate), batch creation (fees array), dollar-to-cents conversion (chargeDollars * 100), and error handling working correctly. MINOR FIX: Had to run 'npx prisma generate' and restart Next.js to pick up PtCptFee model after it was added to schema - this was a one-time setup issue. Feature is PRODUCTION-READY."
+
+  - task: "AI cleanup / proofread PI note (/api/pt/ai-cleanup)"
+    implemented: true
+    working: true
+    file: "src/app/api/pt/ai-cleanup/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW. Proofreads/tightens an EXISTING note without adding facts. Uses gpt-5 (PT_MODEL_ID). Auth required. TEST: (A) POST WITHOUT session -> 401. (B) POST (session) {note:{subjective:'pt states neck pian and lowback pain since mva, cant turn head good', assessment:'cervical strain, lumbar strain', objective:'', plan:'cont pt 2x wk', goals:'', mechanism:'', causation:''}} -> 200 {ok:true, note:{mechanism,subjective,objective,assessment,plan,goals,causation}} with all 7 string keys. Assert note.subjective is non-empty and reads as cleaned English (typos like 'pian' fixed). Allow up to ~40s (gpt-5). Report exact error if 500/502. (C) POST {note:{}} (all empty) -> 400 (no content to proofread)."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ Comprehensive backend testing completed via backend_test_round3_pt.py. ALL 3 test cases (A-C) passed with NO critical issues. TEST A - AUTH GUARD: POST /api/pt/ai-cleanup WITHOUT session correctly returns 401 Unauthorized ✅. TEST B - AI CLEANUP WITH GPT-5: POST /api/pt/ai-cleanup with session {note:{subjective:'pt states neck pian and lowback pain since mva, cant turn head good', assessment:'cervical strain, lumbar strain', objective:'', plan:'cont pt 2x wk', goals:'', mechanism:'', causation:''}} returns 200 {ok:true, note:{...}} ✅. Response time: 15.0s (within acceptable range for GPT-5, which can take up to ~45s) ✅. CRITICAL ASSERTIONS PASSED: Response has ok=true ✅. Note contains ALL 7 required string fields: mechanism ✅, subjective ✅, objective ✅, assessment ✅, plan ✅, goals ✅, causation ✅. Note.subjective is non-empty (150+ chars) ✅. Typo 'pian' was corrected to 'pain' in cleaned text ✅. Cleaned subjective reads as professional English: 'The patient reports neck pain and low back pain since a motor vehicle accident and cannot turn the head well.' ✅. NO 500/502 errors - GPT-5 integration working correctly ✅. TEST C - VALIDATION (EMPTY NOTE): POST /api/pt/ai-cleanup with session {note:{}} (all empty fields) correctly returns 400 with error='There is no note content to proofread yet.' ✅. Error message mentions 'content' and 'proofread' as required ✅. All authentication (requireSession), authorization (staff session required), LLM integration (emergentintegrations + EMERGENT_LLM_KEY with openai/gpt-5), model configuration (PT_MODEL_PROVIDER=openai, PT_MODEL_ID=gpt-5, temperature omitted for gpt-5, max_tokens 4000), JSON extraction from LLM response, typo correction (grammar/spelling fixes), professional tone improvement, validation (empty note check), and error handling working correctly. The GPT-5 AI cleanup integration is PRODUCTION-READY and working correctly with NO errors."
+
+  - task: "Signed PI note PDF (/api/pt/notes/[id]/pdf)"
+    implemented: true
+    working: true
+    file: "src/app/api/pt/notes/[id]/pdf/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW. Generates a letterhead PDF (pdf-lib) with patient info, note sections, CPT/ICD and the PT signature block. Auth required. TEST: (A) GET /api/pt/notes -> pick a note id (prefer a status==='signed' one; if none signed, any id is fine). (B) GET /api/pt/notes/<id>/pdf WITH session -> 200, response header Content-Type === 'application/pdf', and the raw body STARTS WITH the bytes '%PDF' (magic number). Body length should be > 1000 bytes. (C) GET /api/pt/notes/<bogusid>/pdf -> 404. (D) GET the pdf WITHOUT session -> 401 or redirect (302). NOTE: verify magic bytes '%PDF' rather than trying to parse the PDF."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ Comprehensive backend testing completed via backend_test_round3_pt.py. ALL 4 test cases (A-D) passed with NO critical issues. TEST A - GET NOTE ID: GET /api/pt/notes with session returns 200 with 1 note ✅. Found signed note ID: cmtjqexp50001tgt53sd77i6f (status='signed') ✅. TEST B - GET PDF WITH SESSION: GET /api/pt/notes/{id}/pdf with session returns 200 ✅. CRITICAL ASSERTIONS PASSED: Response Content-Type header === 'application/pdf' ✅. Response body starts with '%PDF' (hex: 25504446) - valid PDF magic number verified ✅. PDF size: 2,597,033 bytes (> 1000 bytes requirement) ✅. Binary PDF verification successful (first 4 bytes are 0x25 0x50 0x44 0x46) ✅. TEST C - BOGUS ID: GET /api/pt/notes/bogus-id-12345/pdf with session correctly returns 404 ✅. TEST D - NO AUTH: GET /api/pt/notes/{id}/pdf WITHOUT session correctly returns 401 Unauthorized ✅. All authentication (requireSession), authorization (staff session required), PDF generation (pdf-lib with letterhead, patient info, note sections, CPT/ICD codes, PT signature block), binary PDF format (magic bytes verification), Content-Type header (application/pdf), error handling (404 for invalid ID, 401 for no auth), and file size (> 1000 bytes) working correctly. The signed PI note PDF generation is PRODUCTION-READY."
+
+
   - task: "Provider self-profile NPI/license (/api/me/profile)"
     implemented: true
     working: true
@@ -3771,10 +3817,7 @@ agent_communication:
 
 
 test_plan:
-  current_focus:
-    - "Provider self-profile NPI/license (/api/me/profile)"
-    - "AI PI note now uses gpt-5 (PT_MODEL_ID) via Emergent key"
-    - "Stedi payers accepts casualty flag (/api/stedi/payers)"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -3796,3 +3839,7 @@ agent_communication:
 
     -agent: "main"
     -message: "Round 2 (4 items): (1) /api/me/profile GET+PATCH for provider NPI/state license self-edit. (2) /api/pt/ai-note switched to gpt-5 via PT_MODEL_ID env (retest happy path; report exact error if catalog rejects gpt-5). (3) /api/stedi/payers now persists casualty flag + new Payer.casualty field. (4) Body-map & casualty-picker are client-only. Please test the 3 backend tasks in current_focus with admin@proactiveclinic.com/apex123."
+    -agent: "main"
+    -message: "Round 3 (4 items): (1) /api/pt/fees charge master (new PtCptFee model) + auto-fills PT claim dollars. (2) /api/pt/ai-cleanup proofreads an existing note (gpt-5) without adding facts. (3) /api/pt/notes/[id]/pdf letterhead PDF with signature block (pdf-lib). (4) Preload payers = user chose SKIP (use search/picker already built). Please test the 3 backend tasks in current_focus with admin@proactiveclinic.com/apex123. For the PDF, verify %PDF magic bytes + application/pdf content-type."
+    -agent: "testing"
+    -message: "✅ Round 3 backend testing completed successfully. ALL 3 HIGH priority backend tasks passed with NO critical issues. Created /app/backend_test_round3_pt.py with comprehensive test coverage. TASK 1 - PT FEE SCHEDULE (/api/pt/fees): ALL 6 test cases (A-F) passed ✅. (A) POST without session correctly returns 401 ✅. (B) POST with chargeDollars:120 creates fee with code='97110' and chargeCents=12000 ✅. (C) POST same code with chargeCents:9999 updates (not duplicates) - upsert logic working correctly ✅. (D) Batch POST with fees array creates 2 fees (97140, 97530) ✅. (E) GET returns fees list with map, map['97110']===9999 and map['97140']===8500 verified ✅. (F) DELETE 97110 returns 200, subsequent GET confirms 97110 gone, cleanup successful ✅. TASK 2 - AI CLEANUP (/api/pt/ai-cleanup): ALL 3 test cases (A-C) passed ✅. (A) POST without session correctly returns 401 ✅. (B) POST with typos ('pian', 'cant turn head good') returns 200 with cleaned note in 15.0s ✅. All 7 required fields present (mechanism, subjective, objective, assessment, plan, goals, causation) ✅. Typo 'pian' corrected to 'pain' ✅. Cleaned subjective reads as professional English ✅. GPT-5 integration working correctly, NO 500/502 errors ✅. (C) POST with empty note correctly returns 400 with error mentioning 'content' and 'proofread' ✅. TASK 3 - SIGNED PI NOTE PDF (/api/pt/notes/[id]/pdf): ALL 4 test cases (A-D) passed ✅. (A) GET /api/pt/notes found signed note ID ✅. (B) GET PDF with session returns 200 with Content-Type='application/pdf' ✅, first 4 bytes are '%PDF' (hex: 25504446) - valid PDF magic number verified ✅, PDF size 2,597,033 bytes (> 1000) ✅. (C) GET with bogus ID correctly returns 404 ✅. (D) GET without session correctly returns 401 ✅. MINOR FIX: Had to run 'npx prisma generate' and restart Next.js to pick up PtCptFee model after it was added to schema - this was a one-time setup issue. All 3 backend features are PRODUCTION-READY with NO critical issues."

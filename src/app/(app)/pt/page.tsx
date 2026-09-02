@@ -23,9 +23,10 @@ export default async function PtHubPage() {
     { href: "/pt/claims", title: "PT Claims", desc: "Submit CMS-1500 style claims to auto / casualty payers via Stedi.", stat: `${notesSigned} ready`, tone: "emerald" },
     { href: "/pt/reporting", title: "Reporting", desc: "Volumes, signed vs draft, by auto insurer, monthly trend.", stat: `${legalPatients} PI patients`, tone: "amber" },
     { href: "/settings/casualty-payers", title: "Casualty Payers", desc: "Find & save auto / PIP payers (Stedi) used for PT claims.", stat: "Setup & enrollment", tone: "sky" },
+    { href: "/settings/pt-fees", title: "Fee Schedule", desc: "Set default charge per PT CPT so claims auto-fill dollars.", stat: "Charge master", tone: "rose" },
   ];
   const toneMap: Record<string, string> = {
-    indigo: "border-l-indigo-500", violet: "border-l-violet-500", emerald: "border-l-emerald-500", amber: "border-l-amber-500", sky: "border-l-sky-500",
+    indigo: "border-l-indigo-500", violet: "border-l-violet-500", emerald: "border-l-emerald-500", amber: "border-l-amber-500", sky: "border-l-sky-500", rose: "border-l-rose-500",
   };
 
   return (
