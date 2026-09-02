@@ -137,6 +137,8 @@ export default function Shell({
         { label: "Overview", href: "/billing" },
         { label: "Eligibility worklist", href: "/billing/eligibility-report" },
         { label: "Revenue Cycle", href: "/billing/revenue-cycle" },
+        { label: "PT Encounters", href: "/pt/encounters" },
+        { label: "PT Claims", href: "/pt/claims" },
         { label: "Bank & EFT", href: "/billing/bank-eft" },
       ],
     },

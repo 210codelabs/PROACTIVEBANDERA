@@ -415,12 +415,12 @@ export default function QueuePanel({ user }: { user?: QUser }) {
       {open && (
         <div className="absolute right-0 top-full mt-2 w-[420px] max-w-[94vw] rounded-2xl bg-white ring-1 ring-slate-200 shadow-2xl z-50 overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600 text-white">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="text-[15px] font-extrabold tracking-tight">Waiting Room</div>
-              <span className="text-[11px] text-white/70">{fmtDayShort()}</span>
+          <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600 text-white">
+            <div className="flex items-baseline gap-1.5 min-w-0 flex-1">
+              <span className="text-[15px] font-extrabold tracking-tight whitespace-nowrap truncate">Waiting Room</span>
+              <span className="hidden sm:inline text-[11px] text-white/70 whitespace-nowrap shrink-0">{fmtDayShort()}</span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <span className="pill">Waiting {waitingCount}</span>
               <span className="pill">In-room {inRoomCount}</span>
               <button onClick={manualRefresh} title="Refresh now" className="h-7 w-7 grid place-items-center rounded-md hover:bg-white/15">

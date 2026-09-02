@@ -84,21 +84,21 @@ export default function DashboardCalendar({
   return (
     <div>
       {/* Toolbar */}
-      <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2 flex-wrap">
-        <div className="inline-flex items-center gap-1.5">
-          <button onClick={() => setMonth((m) => addMonths(m, -1))} className="btn-secondary" aria-label="Previous month">←</button>
-          <button onClick={() => setMonth(new Date())} className="btn-secondary">Today</button>
-          <button onClick={() => setMonth((m) => addMonths(m, 1))} className="btn-secondary" aria-label="Next month">→</button>
+      <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2 flex-nowrap overflow-x-auto">
+        <div className="inline-flex items-center gap-1.5 shrink-0">
+          <button onClick={() => setMonth((m) => addMonths(m, -1))} className="btn-secondary shrink-0" aria-label="Previous month">←</button>
+          <button onClick={() => setMonth(new Date())} className="btn-secondary shrink-0 whitespace-nowrap">Today</button>
+          <button onClick={() => setMonth((m) => addMonths(m, 1))} className="btn-secondary shrink-0" aria-label="Next month">→</button>
         </div>
-        <div className="ml-1 text-base font-semibold text-brand-900">{format(month, "MMMM yyyy")}</div>
-        {loading && <span className="text-xs text-slate-400">Loading…</span>}
-        <div className="ml-auto flex items-center gap-2">
-          <select value={providerId} onChange={(e) => setProviderId(e.target.value)} className="input min-w-[170px]">
+        <div className="ml-1 text-base font-semibold text-brand-900 whitespace-nowrap shrink-0">{format(month, "MMMM yyyy")}</div>
+        {loading && <span className="text-xs text-slate-400 whitespace-nowrap shrink-0">Loading…</span>}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          <select value={providerId} onChange={(e) => setProviderId(e.target.value)} className="input w-[150px] shrink-0">
             <option value="">All providers</option>
             {providers.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
           </select>
-          <span className="inline-flex items-center rounded-lg bg-brand-600 text-white px-3 py-1.5 text-sm font-medium">Month</span>
-          <a href="/schedule" className="btn-secondary">Open schedule →</a>
+          <span className="inline-flex items-center rounded-lg bg-brand-600 text-white px-3 py-1.5 text-sm font-medium whitespace-nowrap shrink-0">Month</span>
+          <a href="/schedule" className="btn-secondary whitespace-nowrap shrink-0">Open schedule →</a>
         </div>
       </div>
 
