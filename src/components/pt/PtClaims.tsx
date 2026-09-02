@@ -19,6 +19,8 @@ export default function PtClaims() {
   const [loading, setLoading] = useState(true);
   const [casualtyPayers, setCasualtyPayers] = useState<Array<{ id: string; name: string; stediId: string | null }>>([]);
   const [feesMap, setFeesMap] = useState<Record<string, number>>({});
+  const [claims, setClaims] = useState<any[]>([]);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
   const [prep, setPrep] = useState<PrepState>(null);
   const [busy, setBusy] = useState(false);
@@ -27,21 +29,41 @@ export default function PtClaims() {
   async function load() {
     setLoading(true);
     try {
-      const [c, n, pay, fee] = await Promise.all([
+      const [c, n, pay, fee, cl] = await Promise.all([
         fetch(`/api/pt/cases`).then((r) => r.json()),
         fetch(`/api/pt/notes`).then((r) => r.json()),
         fetch(`/api/stedi/payers`).then((r) => r.json()).catch(() => ({ payers: [] })),
         fetch(`/api/pt/fees`).then((r) => r.json()).catch(() => ({ map: {} })),
+        fetch(`/api/stedi/claims`).then((r) => r.json()).catch(() => ({ claims: [] })),
       ]);
       setCases(c.cases || []);
       setNotes((n.notes || []).filter((x: any) => x.status === "signed"));
       setCasualtyPayers((pay.payers || []).filter((p: any) => p.casualty).map((p: any) => ({ id: p.id, name: p.name, stediId: p.stediId })));
       setFeesMap(fee.map || {});
+      setClaims(cl.claims || []);
     } catch { /* ignore */ } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
   const caseByPatient = new Map(cases.map((c) => [c.patient.id, c]));
+
+  // Latest claim per patient (claims are returned newest-first).
+  const latestClaimByPatient = new Map<string, any>();
+  for (const cl of claims) {
+    if (cl.patientId && !latestClaimByPatient.has(cl.patientId)) latestClaimByPatient.set(cl.patientId, cl);
+  }
+
+  async function refreshStatus(claimId: string) {
+    setRefreshingId(claimId);
+    try {
+      const r = await fetch(`/api/stedi/claims/${claimId}/status`);
+      const d = await r.json();
+      if (d.error) setResult({ ok: false, text: d.error });
+      await load();
+    } catch (e: any) {
+      setResult({ ok: false, text: String(e?.message || e).slice(0, 200) });
+    } finally { setRefreshingId(null); }
+  }
 
   const rows = notes.map((n) => {
     const c = caseByPatient.get(n.patientId);
@@ -144,6 +166,7 @@ export default function PtClaims() {
                   <th className="text-left px-4 py-2">CPT</th>
                   <th className="text-left px-4 py-2">Rendering PT (NPI)</th>
                   <th className="text-left px-4 py-2">Status</th>
+                  <th className="text-left px-4 py-2">Claim status</th>
                   <th className="text-left px-4 py-2">Action</th>
                 </tr>
               </thead>
@@ -162,6 +185,22 @@ export default function PtClaims() {
                       ) : (
                         <span className="chip bg-amber-100 text-amber-700" title={issues.join(" · ")}>{issues.length} to fix</span>
                       )}
+                    </td>
+                    <td className="px-4 py-2">
+                      {(() => {
+                        const claim = latestClaimByPatient.get(n.patientId);
+                        if (!claim) return <span className="text-[11px] text-slate-400">Not submitted</span>;
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <ClaimStatusChip status={claim.status} paidCents={claim.paidCents} />
+                            {claim.status !== "draft" && (
+                              <button onClick={() => refreshStatus(claim.id)} disabled={refreshingId === claim.id} title="Refresh status from Stedi" className="text-[11px] text-indigo-600 hover:underline disabled:opacity-50">
+                                {refreshingId === claim.id ? "…" : "↻"}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-2">
@@ -257,4 +296,19 @@ export default function PtClaims() {
       )}
     </div>
   );
+}
+
+
+function ClaimStatusChip({ status, paidCents }: { status?: string; paidCents?: number }) {
+  const s = String(status || "draft").toLowerCase();
+  const map: Record<string, string> = {
+    draft: "bg-slate-100 text-slate-600",
+    submitted: "bg-sky-100 text-sky-700",
+    accepted: "bg-emerald-100 text-emerald-700",
+    paid: "bg-emerald-100 text-emerald-800",
+    rejected: "bg-rose-100 text-rose-700",
+    denied: "bg-rose-100 text-rose-700",
+  };
+  const label = s === "paid" && paidCents ? `Paid $${(paidCents / 100).toFixed(2)}` : s.charAt(0).toUpperCase() + s.slice(1);
+  return <span className={`chip ${map[s] || "bg-slate-100 text-slate-600"}`}>{label}</span>;
 }

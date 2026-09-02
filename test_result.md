@@ -103,6 +103,52 @@
 #====================================================================================================user_problem_statement: "Proactive Clinic EHR (imported ApexCare, rebranded). New backend features: AI assistant (OpenAI GPT-4o via Emergent LLM key) for patient FAQs, and patient-portal appointment request that saves to MongoDB via Prisma."
 
 backend:
+  - task: "AI codes check (/api/pt/ai-codes)"
+    implemented: true
+    working: true
+    file: "src/app/api/pt/ai-codes/route.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW. Flags CPT/ICD not supported by the note documentation (gpt-5). Auth: admin@proactiveclinic.com/apex123. TEST: (A) POST WITHOUT session -> 401. (B) POST (session) with a MISMATCH: {note:{subjective:'Neck pain after MVA, limited cervical rotation.', objective:'Cervical AROM reduced.', assessment:'Cervical strain', plan:'Manual therapy and therapeutic exercise 2x/week', mechanism:'', goals:'', causation:''}, cptCodes:['97110','97140','97535'], icdCodes:['M54.2','E11.9']} -> 200 {ok:true, flags:[...], summary}. Expect flags to be an array; ideally it flags '97535' (self-care, not documented) and/or ICD 'E11.9' (diabetes, unrelated). Assert each flag has {code,type('cpt'|'icd'),severity,issue}. gpt-5 up to ~40s. Report exact error if 500/502. (C) POST (session) {note:{...}, cptCodes:[], icdCodes:[]} -> 400 (add at least one code)."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ Comprehensive backend testing completed via backend_test_round4_pt.py. ALL 3 test cases (A-C) passed with NO critical issues. TEST A - AUTH GUARD: POST /api/pt/ai-codes WITHOUT session correctly returns 401 Unauthorized ✅. TEST B - AI CODES CHECK WITH GPT-5 (DELIBERATE MISMATCH): POST /api/pt/ai-codes with session and body {note:{subjective:'Neck pain after MVA, limited cervical rotation.', objective:'Cervical AROM reduced.', assessment:'Cervical strain', plan:'Manual therapy and therapeutic exercise 2x/week', mechanism:'', goals:'', causation:''}, cptCodes:['97110','97140','97535'], icdCodes:['M54.2','E11.9']} returns 200 {ok:true, flags:[...], summary} ✅. Response time: 16.9s (within acceptable range for GPT-5, which can take up to ~45s) ✅. CRITICAL ASSERTIONS PASSED: Response has ok=true ✅. Response has 'flags' array with 4 flags ✅. Response has 'summary' field ✅. Each flag has ALL required keys: code, type ('cpt' or 'icd'), severity, issue ✅. EXPECTED CODES FLAGGED: Flag 1: code='97110' (therapeutic exercise), type='cpt', severity='warning', issue='No therapeutic exercises performed today documented; only a plan noted.' ✅. Flag 2: code='97140' (manual therapy), type='cpt', severity='warning', issue='No manual therapy techniques documented as performed; only in the plan.' ✅. Flag 3: code='97535' (self-care), type='cpt', severity='warning', issue='No self-care/home management training (ADLs, home safety, education) documented.' ✅ (EXPECTED FLAG). Flag 4: code='E11.9' (diabetes), type='icd', severity='warning', issue='Diabetes is not mentioned in the history, exam, or assessment.' ✅ (EXPECTED FLAG). Summary: 'Neck pain diagnosis is supported, but no interventions were documented as performed and the diabetes ICD-10 code is unsupported.' ✅. AI correctly identified BOTH expected unsupported codes (97535 and E11.9) plus additional issues with 97110 and 97140 (plan vs performed) ✅. NO 500/502 errors - GPT-5 integration working correctly ✅. TEST C - VALIDATION (EMPTY CODES): POST /api/pt/ai-codes with session and {note:{subjective:'x'}, cptCodes:[], icdCodes:[]} correctly returns 400 with error='Add at least one CPT or ICD-10 code to check.' ✅. Error message mentions 'code' as required ✅. All authentication (requireSession), authorization (staff session required), LLM integration (emergentintegrations + EMERGENT_LLM_KEY with openai/gpt-5), model configuration (PT_MODEL_PROVIDER=openai, PT_MODEL_ID=gpt-5, max_tokens 2000), JSON extraction from LLM response, flag structure validation (code, type, severity, issue), validation (empty codes check), and error handling working correctly. The GPT-5 AI codes check integration is PRODUCTION-READY and working correctly with NO errors."
+
+  - task: "Attorney records packet PDF (/api/pt/patients/[patientId]/packet/pdf)"
+    implemented: true
+    working: true
+    file: "src/app/api/pt/patients/[patientId]/packet/pdf/route.ts, src/lib/pt/notePdf.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW. Bundles a patient's SIGNED PI notes + latest intake into one PDF (pdf-lib). Auth required. TEST: (A) GET /api/pt/notes (session), find a note with status==='signed' and note its patientId. (B) GET /api/pt/patients/<patientId>/packet/pdf WITH session -> 200; Content-Type 'application/pdf'; first 4 bytes '%PDF'; body length > 1000. (C) GET /api/pt/patients/<patientId-with-no-signed-notes-or-bogus>/packet/pdf -> expect 400 (no signed notes) or 404 (patient not found). Use a random bogus id 'nope123' -> 404. (D) WITHOUT session -> 401 or 302."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ Comprehensive backend testing completed via backend_test_round4_pt.py. ALL 4 test cases (A-D) passed with NO critical issues. TEST A - GET SIGNED NOTE: GET /api/pt/notes with session returns 200 with 1 note ✅. Found signed note: ID=cmtjqexp50001tgt53sd77i6f, patientId=cms9hhjdf000jr7p1rhkcgpxz, status='signed' ✅. TEST B - GET PACKET PDF WITH SESSION: GET /api/pt/patients/{patientId}/packet/pdf with session returns 200 ✅. CRITICAL ASSERTIONS PASSED: Response Content-Type header === 'application/pdf' ✅. Response body starts with '%PDF' (hex: 25504446) - valid PDF magic number verified ✅. PDF size: 3,589 bytes (> 1000 bytes requirement) ✅. Binary PDF verification successful (first 4 bytes are 0x25 0x50 0x44 0x46) ✅. TEST C - BOGUS PATIENT ID: GET /api/pt/patients/nope123/packet/pdf with session correctly returns 404 ✅. TEST D - NO AUTH: GET /api/pt/patients/{patientId}/packet/pdf WITHOUT session correctly returns 401 Unauthorized ✅. All authentication (requireSession), authorization (staff session required), PDF generation (pdf-lib bundling SIGNED PI notes + latest intake into attorney/insurer packet), binary PDF format (magic bytes verification), Content-Type header (application/pdf), error handling (404 for invalid patient ID, 401 for no auth), and file size (> 1000 bytes) working correctly. The attorney records packet PDF generation is PRODUCTION-READY."
+
+  - task: "Single-note PDF still works after refactor (/api/pt/notes/[id]/pdf)"
+    implemented: true
+    working: true
+    file: "src/app/api/pt/notes/[id]/pdf/route.ts, src/lib/pt/notePdf.ts"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "REFACTORED to use shared src/lib/pt/notePdf.ts. Re-verify: GET /api/pt/notes/<id>/pdf (session) -> 200, Content-Type application/pdf, first 4 bytes '%PDF'. Bogus id -> 404. No session -> 401/302."
+        -working: true
+        -agent: "testing"
+        -comment: "✅ Comprehensive backend testing completed via backend_test_round4_pt.py. ALL 3 test cases (A-C) passed with NO critical issues. TEST A - GET SINGLE NOTE PDF WITH SESSION: GET /api/pt/notes/{id}/pdf with session returns 200 ✅. CRITICAL ASSERTIONS PASSED: Response Content-Type header === 'application/pdf' ✅. Response body starts with '%PDF' (hex: 25504446) - valid PDF magic number verified ✅. PDF size: 2,367 bytes (> 1000 bytes requirement) ✅. Binary PDF verification successful (first 4 bytes are 0x25 0x50 0x44 0x46) ✅. TEST B - BOGUS NOTE ID: GET /api/pt/notes/bogus123/pdf with session correctly returns 404 ✅. TEST C - NO AUTH: GET /api/pt/notes/{id}/pdf WITHOUT session correctly returns 401 Unauthorized ✅. All authentication (requireSession), authorization (staff session required), PDF generation (pdf-lib with shared src/lib/pt/notePdf.ts refactored code), binary PDF format (magic bytes verification), Content-Type header (application/pdf), error handling (404 for invalid note ID, 401 for no auth), and file size (> 1000 bytes) working correctly. The refactored single-note PDF generation is PRODUCTION-READY and working correctly after refactor."
+
+
   - task: "PT fee schedule charge master (/api/pt/fees)"
     implemented: true
     working: true
@@ -3817,7 +3863,10 @@ agent_communication:
 
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "AI codes check (/api/pt/ai-codes)"
+    - "Attorney records packet PDF (/api/pt/patients/[patientId]/packet/pdf)"
+    - "Single-note PDF still works after refactor (/api/pt/notes/[id]/pdf)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -3843,3 +3892,8 @@ agent_communication:
     -message: "Round 3 (4 items): (1) /api/pt/fees charge master (new PtCptFee model) + auto-fills PT claim dollars. (2) /api/pt/ai-cleanup proofreads an existing note (gpt-5) without adding facts. (3) /api/pt/notes/[id]/pdf letterhead PDF with signature block (pdf-lib). (4) Preload payers = user chose SKIP (use search/picker already built). Please test the 3 backend tasks in current_focus with admin@proactiveclinic.com/apex123. For the PDF, verify %PDF magic bytes + application/pdf content-type."
     -agent: "testing"
     -message: "✅ Round 3 backend testing completed successfully. ALL 3 HIGH priority backend tasks passed with NO critical issues. Created /app/backend_test_round3_pt.py with comprehensive test coverage. TASK 1 - PT FEE SCHEDULE (/api/pt/fees): ALL 6 test cases (A-F) passed ✅. (A) POST without session correctly returns 401 ✅. (B) POST with chargeDollars:120 creates fee with code='97110' and chargeCents=12000 ✅. (C) POST same code with chargeCents:9999 updates (not duplicates) - upsert logic working correctly ✅. (D) Batch POST with fees array creates 2 fees (97140, 97530) ✅. (E) GET returns fees list with map, map['97110']===9999 and map['97140']===8500 verified ✅. (F) DELETE 97110 returns 200, subsequent GET confirms 97110 gone, cleanup successful ✅. TASK 2 - AI CLEANUP (/api/pt/ai-cleanup): ALL 3 test cases (A-C) passed ✅. (A) POST without session correctly returns 401 ✅. (B) POST with typos ('pian', 'cant turn head good') returns 200 with cleaned note in 15.0s ✅. All 7 required fields present (mechanism, subjective, objective, assessment, plan, goals, causation) ✅. Typo 'pian' corrected to 'pain' ✅. Cleaned subjective reads as professional English ✅. GPT-5 integration working correctly, NO 500/502 errors ✅. (C) POST with empty note correctly returns 400 with error mentioning 'content' and 'proofread' ✅. TASK 3 - SIGNED PI NOTE PDF (/api/pt/notes/[id]/pdf): ALL 4 test cases (A-D) passed ✅. (A) GET /api/pt/notes found signed note ID ✅. (B) GET PDF with session returns 200 with Content-Type='application/pdf' ✅, first 4 bytes are '%PDF' (hex: 25504446) - valid PDF magic number verified ✅, PDF size 2,597,033 bytes (> 1000) ✅. (C) GET with bogus ID correctly returns 404 ✅. (D) GET without session correctly returns 401 ✅. MINOR FIX: Had to run 'npx prisma generate' and restart Next.js to pick up PtCptFee model after it was added to schema - this was a one-time setup issue. All 3 backend features are PRODUCTION-READY with NO critical issues."
+    -agent: "main"
+    -message: "Round 4: /api/pt/ai-codes (gpt-5 CPT/ICD audit), /api/pt/patients/[patientId]/packet/pdf (attorney packet), /api/pt/notes/[id]/pdf refactored onto shared lib. Test with admin@proactiveclinic.com/apex123; verify %PDF magic bytes."
+
+    -agent: "testing"
+    -message: "✅ Round 4 backend testing completed successfully. ALL 3 backend tasks (10 individual test cases) passed with NO critical issues. Created /app/backend_test_round4_pt.py with comprehensive test coverage. TASK 1 - AI CODES CHECK (/api/pt/ai-codes) [HIGH]: ALL 3 test cases (A-C) passed ✅. (A) POST without session correctly returns 401 ✅. (B) POST with session and deliberate mismatch returns 200 {ok:true, flags:[...], summary} in 16.9s (within acceptable range for GPT-5) ✅. Response has all required fields (ok, flags array, summary) ✅. Each flag has all required keys (code, type, severity, issue) ✅. AI correctly flagged BOTH expected unsupported codes: 97535 (self-care, not documented) and E11.9 (diabetes, unrelated) ✅. AI also flagged 97110 and 97140 (plan vs performed) - total 4 flags ✅. Summary: 'Neck pain diagnosis is supported, but no interventions were documented as performed and the diabetes ICD-10 code is unsupported.' ✅. NO 500/502 errors - GPT-5 integration working correctly ✅. (C) POST with empty codes correctly returns 400 with error mentioning 'code' ✅. TASK 2 - ATTORNEY RECORDS PACKET PDF (/api/pt/patients/[patientId]/packet/pdf) [HIGH]: ALL 4 test cases (A-D) passed ✅. (A) GET /api/pt/notes found signed note (ID=cmtjqexp50001tgt53sd77i6f, patientId=cms9hhjdf000jr7p1rhkcgpxz, status='signed') ✅. (B) GET packet PDF with session returns 200 ✅. Content-Type='application/pdf' ✅. First 4 bytes are '%PDF' (hex: 25504446) - valid PDF magic number verified ✅. PDF size: 3,589 bytes (> 1000) ✅. (C) GET with bogus patient ID 'nope123' correctly returns 404 ✅. (D) GET without session correctly returns 401 ✅. TASK 3 - SINGLE-NOTE PDF AFTER REFACTOR (/api/pt/notes/[id]/pdf) [MEDIUM]: ALL 3 test cases (A-C) passed ✅. (A) GET single note PDF with session returns 200 ✅. Content-Type='application/pdf' ✅. First 4 bytes are '%PDF' (hex: 25504446) - valid PDF magic number verified ✅. PDF size: 2,367 bytes (> 1000) ✅. (B) GET with bogus note ID 'bogus123' correctly returns 404 ✅. (C) GET without session correctly returns 401 ✅. All authentication (requireSession), authorization (staff session required), LLM integration (emergentintegrations + EMERGENT_LLM_KEY with openai/gpt-5), model configuration (PT_MODEL_PROVIDER=openai, PT_MODEL_ID=gpt-5, max_tokens 2000), JSON extraction from LLM response, flag structure validation (code, type, severity, issue), PDF generation (pdf-lib bundling SIGNED PI notes + latest intake into attorney/insurer packet, and single-note PDF with shared src/lib/pt/notePdf.ts refactored code), binary PDF format (magic bytes verification), Content-Type header (application/pdf), validation (empty codes check), error handling (404 for invalid patient/note ID, 401 for no auth, 400 for empty codes), and file size (> 1000 bytes) working correctly. All 3 backend features are PRODUCTION-READY with NO critical issues."

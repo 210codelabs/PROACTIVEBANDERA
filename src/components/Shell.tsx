@@ -388,20 +388,15 @@ export default function Shell({
               href="https://www.proactivemtech.com"
               target="_blank"
               rel="noreferrer"
-              className="group block rounded-md p-0 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 hover:ring-brand-300/40 transition overflow-hidden"
-              title="Powered by ProActive UMS"
+              className="group block rounded-lg px-1 py-1 opacity-90 hover:opacity-100 transition"
+              title="Powered by ProactiveCore — Member of PUMS Ecosystem"
             >
-              <div className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-100/90 group-hover:text-white">
-                {t("shell.poweredBy")}
-              </div>
-              <div className="px-1 pb-2">
-                <img
-                  src="/powered-by-proactiveums-attached.png"
-                  alt="ProActive UMS Unified MedTech Systems"
-                  className="mt-1 block w-full h-auto object-contain object-center"
-                  loading="lazy"
-                />
-              </div>
+              <img
+                src="/powered-by-proactivecore.png"
+                alt="Powered by ProactiveCore — Member of PUMS Ecosystem"
+                className="block w-full h-auto object-contain object-center"
+                loading="lazy"
+              />
             </a>
           </div>
           )}
@@ -426,20 +421,15 @@ export default function Shell({
               href="https://www.proactivemtech.com"
               target="_blank"
               rel="noreferrer"
-              className="group block rounded-md p-0 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 hover:ring-brand-300/40 transition overflow-hidden"
-              title="Powered by ProActive UMS"
+              className="group block rounded-lg px-1 py-1 opacity-90 hover:opacity-100 transition"
+              title="Powered by ProactiveCore — Member of PUMS Ecosystem"
             >
-              <div className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-100/90 group-hover:text-white">
-                {t("shell.poweredBy")}
-              </div>
-              <div className="px-1 pb-2">
-                <img
-                  src="/powered-by-proactiveums-attached.png"
-                  alt="ProActive UMS Unified MedTech Systems"
-                  className="mt-1 block w-full h-auto object-contain object-center"
-                  loading="lazy"
-                />
-              </div>
+              <img
+                src="/powered-by-proactivecore.png"
+                alt="Powered by ProactiveCore — Member of PUMS Ecosystem"
+                className="block w-full h-auto object-contain object-center"
+                loading="lazy"
+              />
             </a>
           </div>
         </aside>

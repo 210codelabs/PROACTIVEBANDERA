@@ -28,6 +28,8 @@ export default function PtEncounters({ user }: { user: QUser }) {
   const [aiMsg, setAiMsg] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const recogRef = useRef<any>(null);
+  const [codesResult, setCodesResult] = useState<null | { flags: Array<{ code: string; type: string; severity: string; issue: string }>; summary: string }>(null);
+  const [codesBusy, setCodesBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -260,9 +262,29 @@ export default function PtEncounters({ user }: { user: QUser }) {
   useEffect(() => {
     if (!editing) {
       try { recogRef.current?.stop(); } catch { /* ignore */ }
-      setListening(false); setDictation(""); setAiMsg(null);
+      setListening(false); setDictation(""); setAiMsg(null); setCodesResult(null);
     }
   }, [editing]);
+
+  async function runCodesCheck() {
+    if (!editing) return;
+    setCodesBusy(true); setCodesResult(null); setAiMsg(null);
+    const f = editing.form;
+    try {
+      const r = await fetch(`/api/pt/ai-codes`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note: { mechanism: f.mechanism, subjective: f.subjective, objective: f.objective, assessment: f.assessment, plan: f.plan, goals: f.goals, causation: f.causation },
+          cptCodes: f.cpt.split(",").map((s: string) => s.trim()).filter(Boolean),
+          icdCodes: f.icd.split(",").map((s: string) => s.trim()).filter(Boolean),
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setAiMsg(d.error || "Could not check codes."); setCodesBusy(false); return; }
+      setCodesResult({ flags: d.flags || [], summary: d.summary || "" });
+    } catch { setAiMsg("Code check failed. Please try again."); }
+    finally { setCodesBusy(false); }
+  }
 
   function startNoteForPatient(p: { id: string; firstName: string; lastName: string; mrn: string; dob?: string }) {
     setErr(null);
@@ -298,6 +320,7 @@ export default function PtEncounters({ user }: { user: QUser }) {
                     <div className="text-[11px] text-slate-500 truncate">{c.legalCase ? `${c.legalCase.caseType?.replace(/_/g, " ")}${c.legalCase.defendantInsurer ? ` · ${c.legalCase.defendantInsurer}` : ""}${c.legalCase.claimNumber ? ` · Claim ${c.legalCase.claimNumber}` : ""}` : "No legal case on file"}</div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <a href={`/api/pt/patients/${c.patient.id}/packet/pdf`} target="_blank" rel="noopener noreferrer" className="btn-secondary" title="Bundle this patient's signed PI notes + intake into one attorney/insurer PDF">Packet</a>
                     <button onClick={() => openIntake(c)} className="btn-secondary">Intake</button>
                     <button onClick={() => newNote(c)} className="btn-secondary">+ PI note</button>
                   </div>
@@ -398,6 +421,26 @@ export default function PtEncounters({ user }: { user: QUser }) {
                   <input value={editing.form.icd} onChange={(e) => set("icd", e.target.value)} placeholder="S13.4XXA, M54.2" className="input w-full" />
                   <div className="mt-1"><CodeLookup kind="icd" placeholder="Search ICD-10 diagnosis…" compact onPick={(it) => appendField("icd", it.code)} /></div>
                 </label>
+              </div>
+              <div className="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pre-sign code check</span>
+                  <button type="button" disabled={codesBusy} onClick={runCodesCheck} className="rounded-lg bg-white ring-1 ring-slate-300 text-slate-700 px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 disabled:opacity-50">
+                    {codesBusy ? "Checking…" : "🔎 Check codes vs note"}
+                  </button>
+                </div>
+                {codesResult && (
+                  <div className="space-y-1.5">
+                    <div className={`text-xs font-medium ${codesResult.flags.length ? "text-amber-700" : "text-emerald-700"}`}>{codesResult.summary}</div>
+                    {codesResult.flags.map((fl, i) => (
+                      <div key={i} className="flex items-start gap-2 text-[11px] rounded-md bg-amber-50 ring-1 ring-amber-200 px-2 py-1.5">
+                        <span className={`shrink-0 inline-flex items-center rounded px-1.5 py-0.5 font-mono font-bold ${fl.severity === "warning" ? "bg-amber-200 text-amber-900" : "bg-slate-200 text-slate-700"}`}>{fl.type.toUpperCase()} {fl.code}</span>
+                        <span className="text-amber-800">{fl.issue}</span>
+                      </div>
+                    ))}
+                    {codesResult.flags.length === 0 && <div className="text-[11px] text-emerald-600">No unsupported codes detected. (Decision-support only — you make the final call.)</div>}
+                  </div>
+                )}
               </div>
 
               {/* Signature block */}
