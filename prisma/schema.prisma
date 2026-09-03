@@ -243,6 +243,7 @@ model Patient {
   // preferred pharmacy (NCPDP IDs) used to pre-fill Weno EZ ComposeRx e-prescribing
   primaryPharmacyNcpdp     String?  // 7-digit NCPDP ID of the patient's primary pharmacy
   alternativePharmacyNcpdp String?  // 7-digit NCPDP ID of an alternative pharmacy
+  pharmacyCheckinFlag      Boolean  @default(false) // flag: needs a WENO-connected alternative pharmacy at next encounter
 
   // emergency contact
   ecName         String?

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import PatientChart, { loadPatientCtx } from "@/components/PatientChart";
 import MedEnrichment from "@/components/enrichment/MedEnrichment";
 import BlueButtonConnect from "@/components/cms/BlueButtonConnect";
+import WenoRxSyncButton from "@/components/erx/WenoRxSyncButton";
 import { bbConfig } from "@/lib/cms/bluebutton";
 import { fmtDate } from "@/lib/utils";
 
@@ -34,7 +35,10 @@ export default async function MedsPage({ params }: { params: Promise<{ id: strin
           <div className="font-semibold">Medication List ({meds.length})</div>
           <div className="flex items-center gap-2">
             {(user.role === "provider" || user.role === "admin") && (
-              <Link href={`/erx/prescribe/${id}`} className="btn-secondary">e-Prescribe (Weno)</Link>
+              <>
+                <WenoRxSyncButton patientId={id} />
+                <Link href={`/erx/prescribe/${id}`} className="btn-secondary">e-Prescribe (Weno)</Link>
+              </>
             )}
             <Link href={`/patients/${id}/orders/new?type=rx`} className="btn-primary">+ Prescribe</Link>
           </div>

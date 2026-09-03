@@ -524,6 +524,184 @@ export class WenoIntegrationService {
     u.searchParams.set("data", data); // URLSearchParams applies the required encoding
     return { iframeUrl: u.toString(), environment };
   }
+
+  /**
+   * fetchRxSyncReport(fromDate, toDate)
+   *
+   * Pulls Weno's "NewRx Sync Report" (signed/sent prescriptions) so ComposeRx
+   * prescriptions can be imported into the EHR medication history. Per the EZ
+   * guide: GET /en/EPCS/DownloadNewRxSyncDataVal with an encrypted JSON of
+   * { UserEmail, MD5Password, FromDate, ToDate, ResponseFormat }. Max 7-day
+   * window. Response is JSON (preferred) or CSV; we parse both defensively.
+   * Row.PatientID corresponds to our OrgPatientID (patient.id).
+   */
+  async fetchRxSyncReport(
+    fromDate: string,
+    toDate: string,
+  ): Promise<{ rows: RxSyncRow[]; environment: "test" | "production" }> {
+    const cfg = await this.getConfig();
+    const creds = this.resolveCredentials(cfg);
+    if (!cfg.ehrEncryptionKey || !creds.userEmail || !creds.md5Password) {
+      throw new WenoOnlineError(
+        "Weno EZ Integration is not configured (encryption key, prescriber email and password are required).",
+        400,
+      );
+    }
+
+    const reqObj = {
+      UserEmail: creds.userEmail,
+      MD5Password: creds.md5Password,
+      FromDate: fromDate,
+      ToDate: toDate,
+      ResponseFormat: "JSON",
+    };
+    const data = encryptWenoData(JSON.stringify(reqObj), cfg.ehrEncryptionKey);
+
+    const composeBase =
+      (process.env.WENO_COMPOSE_URL || "").trim() || "https://online.wenoexchange.com/en/NewRx/ComposeRx";
+    const origin = new URL(composeBase).origin;
+    const syncBase = (process.env.WENO_SYNC_URL || "").trim() || `${origin}/en/EPCS/DownloadNewRxSyncDataVal`;
+    const u = new URL(syncBase);
+    u.searchParams.set("useremail", creds.userEmail);
+    u.searchParams.set("data", data);
+
+    const resp = await fetch(u.toString(), { method: "GET", cache: "no-store" });
+    const text = await resp.text();
+    if (!resp.ok) {
+      throw new WenoOnlineError(`Weno sync report request failed (HTTP ${resp.status}).`, 502);
+    }
+    return { rows: parseRxSync(text), environment: cfg.environment };
+  }
+
+  /**
+   * buildRxLogUrl() — the Weno RxLog page URL to embed in an iFrame so users can
+   * view their Rx log on demand inside the EHR. Encrypted JSON {UserEmail,
+   * MD5Password} per the EZ guide -> GET /en/EPCS/RxLog?useremail=&data=.
+   */
+  async buildRxLogUrl(): Promise<{ iframeUrl: string; environment: "test" | "production" }> {
+    const cfg = await this.getConfig();
+    const creds = this.resolveCredentials(cfg);
+    if (!cfg.ehrEncryptionKey || !creds.userEmail || !creds.md5Password) {
+      throw new WenoOnlineError(
+        "Weno EZ Integration is not configured (encryption key, prescriber email and password are required).",
+        400,
+      );
+    }
+    const data = encryptWenoData(
+      JSON.stringify({ UserEmail: creds.userEmail, MD5Password: creds.md5Password }),
+      cfg.ehrEncryptionKey,
+    );
+    const composeBase =
+      (process.env.WENO_COMPOSE_URL || "").trim() || "https://online.wenoexchange.com/en/NewRx/ComposeRx";
+    const origin = new URL(composeBase).origin;
+    const base = (process.env.WENO_RXLOG_URL || "").trim() || `${origin}/en/EPCS/RxLog`;
+    const u = new URL(base);
+    u.searchParams.set("useremail", creds.userEmail);
+    u.searchParams.set("data", data);
+    return { iframeUrl: u.toString(), environment: cfg.environment };
+  }
+}
+
+// A normalized row of the Weno NewRx Sync Report.
+export type RxSyncRow = {
+  dateUtc: string;
+  patientId: string; // == our OrgPatientID (patient.id)
+  prescriberWenoId: string;
+  synchType: string;
+  relatesToMsgId: string;
+  deliveryMethod: string;
+  deliveryStatus: string;
+  drug: string; // "Prescribe" column, e.g. "Lipitor 20 MG Oral Tablet"
+};
+
+const RX_SYNC_ALIASES: Record<keyof RxSyncRow, string[]> = {
+  dateUtc: ["datetimeofactioninutc", "datetimeofaction", "dateissuedutc", "dateissued", "date"],
+  patientId: ["patientid", "orgpatientid"],
+  prescriberWenoId: ["prescriberwenoid", "prescriberid", "prescriber"],
+  synchType: ["synchtype", "synctype", "type"],
+  relatesToMsgId: ["relatestonewrxmsgid", "relatestomsgid", "newrxmsgid", "messageid", "msgid"],
+  deliveryMethod: ["deliverymethod", "method"],
+  deliveryStatus: ["deliverystatus", "status", "rxstatus"],
+  drug: ["prescribe", "drug", "drugname", "medication", "medicationname", "drugdescription"],
+};
+
+const norm = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+function rowFromObject(obj: Record<string, unknown>): RxSyncRow {
+  const map: Record<string, unknown> = {};
+  for (const k of Object.keys(obj)) map[norm(k)] = obj[k];
+  const get = (aliases: string[]) => {
+    for (const a of aliases) if (map[a] != null && String(map[a]).trim() !== "") return String(map[a]).trim();
+    return "";
+  };
+  return {
+    dateUtc: get(RX_SYNC_ALIASES.dateUtc),
+    patientId: get(RX_SYNC_ALIASES.patientId),
+    prescriberWenoId: get(RX_SYNC_ALIASES.prescriberWenoId),
+    synchType: get(RX_SYNC_ALIASES.synchType),
+    relatesToMsgId: get(RX_SYNC_ALIASES.relatesToMsgId),
+    deliveryMethod: get(RX_SYNC_ALIASES.deliveryMethod),
+    deliveryStatus: get(RX_SYNC_ALIASES.deliveryStatus),
+    drug: get(RX_SYNC_ALIASES.drug),
+  };
+}
+
+// Split a single CSV line honoring double-quoted fields (which may contain commas).
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === "," && !inQ) {
+      out.push(cur); cur = "";
+    } else cur += c;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+
+// Parse the Weno sync response as JSON (array/obj) or CSV into normalized rows.
+export function parseRxSync(text: string): RxSyncRow[] {
+  const t = (text || "").trim();
+  if (!t) return [];
+  // JSON
+  if (t.startsWith("[") || t.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(t);
+      const arr = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray((parsed as any).data)
+          ? (parsed as any).data
+          : Array.isArray((parsed as any).rows)
+            ? (parsed as any).rows
+            : Array.isArray((parsed as any).Report)
+              ? (parsed as any).Report
+              : [];
+      return arr
+        .filter((o: unknown) => o && typeof o === "object")
+        .map((o: Record<string, unknown>) => rowFromObject(o))
+        .filter((r: RxSyncRow) => r.patientId || r.drug);
+    } catch {
+      /* fall through to CSV */
+    }
+  }
+  // CSV
+  const lines = t.split(/\r?\n/).filter((l) => l.trim() !== "");
+  if (lines.length < 2) return [];
+  const header = splitCsvLine(lines[0]).map(norm);
+  const rows: RxSyncRow[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = splitCsvLine(lines[i]);
+    const obj: Record<string, string> = {};
+    header.forEach((h, idx) => { obj[h] = cells[idx] ?? ""; });
+    const row = rowFromObject(obj);
+    if (row.patientId || row.drug) rows.push(row);
+  }
+  return rows;
 }
 
 export { WenoOnlineError };

@@ -7,6 +7,7 @@ import EligibilityChecker from "@/components/billing/EligibilityChecker";
 import PatientLedger from "@/components/billing/PatientLedger";
 import InsuranceCard from "@/components/billing/InsuranceCard";
 import CoverageHistory from "@/components/billing/CoverageHistory";
+import PatientPharmacyCard from "@/components/erx/PatientPharmacyCard";
 
 export default async function DemoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -41,18 +42,17 @@ export default async function DemoPage({ params }: { params: Promise<{ id: strin
             </> : "—"}
           </Row>
           <Row k="Emergency">{p.ecName ? `${p.ecName} (${p.ecRelation || "—"}) · ${fmtPhone(p.ecPhone)}` : "—"}</Row>
-          <Row k="Pharmacy (NCPDP)">
-            {(p as any).primaryPharmacyNcpdp || (p as any).alternativePharmacyNcpdp ? (
-              <>
-                {(p as any).primaryPharmacyNcpdp ? <>Primary: {(p as any).primaryPharmacyNcpdp}</> : null}
-                {(p as any).alternativePharmacyNcpdp ? <><br />Alt: {(p as any).alternativePharmacyNcpdp}</> : null}
-              </>
-            ) : "—"}
-          </Row>
         </Card>
         <InsuranceCard
           patient={{ id: p.id, insurerName: p.insurerName, insurerPlan: p.insurerPlan, memberId: p.memberId, groupNumber: p.groupNumber, payerId: (p as any).payerId }}
           role={user.role}
+        />
+        <PatientPharmacyCard
+          patientId={p.id}
+          primary={(p as any).primaryPharmacyNcpdp || null}
+          alternative={(p as any).alternativePharmacyNcpdp || null}
+          checkinFlag={Boolean((p as any).pharmacyCheckinFlag)}
+          canEdit={["admin", "provider", "nurse", "frontdesk"].includes(user.role)}
         />
       </div>
       {stedi.enabled && stedi.apiKey && (

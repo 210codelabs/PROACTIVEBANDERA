@@ -673,3 +673,14 @@ New end-to-end module for corporate clients (drug tests, DOT/non-DOT physicals, 
 - NEW admin/prescriber-only GET /api/weno/ez/sample-payload[?patientId=&download=1]. Emits the EXACT Weno EZ ComposeRx schema (26 keys, incl. Weno's "PrimaryPharmacyNCPCP"/"AlternativePharmacyNCPCP" spelling) populated with clinic config (UserEmail, MD5Password=md5(prescriber pw) 32-char hex, LocationID from WenoIntegrationService.getConfig()) + a real patient (?patientId=) or the Weno sample patient by default. Returns {environment, missing[], payload} or a JSON file download (download=1, ComposeRx_<id>.json). TestPatient Y in test env, N in production.
 - Backend agent: all 5 steps passed, NO 500 (401 no session, 403 nurse, 200 admin all keys + MD5 hex + missing=[], real patient hydration, download attachment). Secrets masked in test output.
 - Access (authenticated admin/provider in browser): {NEXT_PUBLIC_BASE_URL}/api/weno/ez/sample-payload?download=1 (sample) or ?patientId=<id>&download=1 (real). Never print the credential fields in chat.
+
+---
+
+## Weno EZ Integration — Test Plan Submission Package (Sep 2026)
+Deliverable: submission-ready PDF mapping all 18 Weno EZ Integration Test Plan sections to the EHR, with real preview screenshots and the real facility data (CLÍNICA FAMILIAR BANDERA LLC, NPI 1457273203, Location L14887, San Antonio TX).
+- New backend routes (backend-tested, no 500s): `GET /api/weno/rxlog-url` (RxLog view-on-demand URL), `POST /api/weno/rx-sync` (NewRx Sync import into medication history; live Weno TEST endpoint reachable, 0 rows until a NewRx exists).
+- New UI: patient check-in flag `pharmacyCheckinFlag` (section 6) on PatientPharmacyCard; `/erx/guide` page (sections 8/9); `/erx/rxlog` RxLog page (section 12).
+- Facility values set via CLINIC_* env; FacilityName now CLÍNICA FAMILIAR BANDERA LLC, fax 2103689037.
+- Evidence PNGs: /app/public/weno-evidence/*.png. Report generator: /app/scripts/build_weno_pdf.py; screenshot capture: /app/scripts/weno_evidence_shots.py.
+- Download link (preview only): {NEXT_PUBLIC_BASE_URL}/ClinicaFamiliarBandera_EZTestPlan_09032026_v1.pdf  (middleware allows `.pdf` static serving).
+- Honest status: sections 5,6,7,8,9,12 PASS with screenshots; 2,4,13 implemented; 3 pending Weno IP allowlist; 11/15/16 need the prescriber's live TEST send/CancelRx screenshots; 10 practice attestation; 17/18 optional. NOT a claim of Weno production certification.

@@ -12,7 +12,7 @@ const EDITABLE = [
   "preferredLang", "ethnicity", "race", "maritalStatus",
   "insurerName", "insurerPlan", "memberId", "groupNumber", "payerId",
   "ecName", "ecRelation", "ecPhone",
-  "primaryPharmacyNcpdp", "alternativePharmacyNcpdp",
+  "primaryPharmacyNcpdp", "alternativePharmacyNcpdp", "pharmacyCheckinFlag",
 ];
 const VALID_STATUS = ["active", "inactive", "archived", "deceased"];
 
