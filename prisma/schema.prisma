@@ -240,6 +240,10 @@ model Patient {
   groupNumber    String?
   payerId        String?  // Stedi trading-partner / payer id used for eligibility & claims
 
+  // preferred pharmacy (NCPDP IDs) used to pre-fill Weno EZ ComposeRx e-prescribing
+  primaryPharmacyNcpdp     String?  // 7-digit NCPDP ID of the patient's primary pharmacy
+  alternativePharmacyNcpdp String?  // 7-digit NCPDP ID of an alternative pharmacy
+
   // emergency contact
   ecName         String?
   ecRelation     String?

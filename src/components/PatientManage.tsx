@@ -34,6 +34,8 @@ const FIELDS: { id: string; label: string; type?: string; full?: boolean }[] = [
   { id: "ecName", label: "Emergency Contact Name" },
   { id: "ecRelation", label: "Emergency Relation" },
   { id: "ecPhone", label: "Emergency Phone" },
+  { id: "primaryPharmacyNcpdp", label: "Primary Pharmacy NCPDP (7-digit)" },
+  { id: "alternativePharmacyNcpdp", label: "Alternative Pharmacy NCPDP" },
 ];
 
 function toDateInput(v: any): string {

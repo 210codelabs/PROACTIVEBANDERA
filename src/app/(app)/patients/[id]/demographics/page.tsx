@@ -41,6 +41,14 @@ export default async function DemoPage({ params }: { params: Promise<{ id: strin
             </> : "—"}
           </Row>
           <Row k="Emergency">{p.ecName ? `${p.ecName} (${p.ecRelation || "—"}) · ${fmtPhone(p.ecPhone)}` : "—"}</Row>
+          <Row k="Pharmacy (NCPDP)">
+            {(p as any).primaryPharmacyNcpdp || (p as any).alternativePharmacyNcpdp ? (
+              <>
+                {(p as any).primaryPharmacyNcpdp ? <>Primary: {(p as any).primaryPharmacyNcpdp}</> : null}
+                {(p as any).alternativePharmacyNcpdp ? <><br />Alt: {(p as any).alternativePharmacyNcpdp}</> : null}
+              </>
+            ) : "—"}
+          </Row>
         </Card>
         <InsuranceCard
           patient={{ id: p.id, insurerName: p.insurerName, insurerPlan: p.insurerPlan, memberId: p.memberId, groupNumber: p.groupNumber, payerId: (p as any).payerId }}

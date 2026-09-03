@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import {
   getWenoOnlineConfig,
   buildComposeRxUrl,
+  encryptWenoData,
   isWenoOnlineConfigured,
   WenoOnlineError,
   type WenoOnlineConfig,
@@ -445,6 +446,51 @@ export class WenoIntegrationService {
       patientId: patientId || null,
       providerId: providerId || null,
     };
+  }
+
+  /**
+   * buildLaunchUrl(patientId, providerId)
+   *
+   * Connects the sso-payload output to Weno's ComposeRx SSO: it builds the exact
+   * 45-field payload (buildPrescriptionPayload), then encrypts + encodes it per
+   * the official Weno EZ Integration guide and returns the launch/iFrame URL.
+   *
+   * Crypto (Weno EZ guide): AES-256-CBC, key = SHA-256(EZ encryption key),
+   * IV = 16 zero bytes, ciphertext -> Base64 -> URL-encoded as `data`.
+   * URL: <WENO_COMPOSE_URL>?useremail=<UserEmail>&data=<encoded>
+   * (always online.wenoexchange.com; TEST mode is account + TestPatient driven).
+   *
+   * The returned URL embeds encrypted PHI + credential-derived material and MUST
+   * NOT be logged or persisted.
+   */
+  async buildLaunchUrl(
+    patientId: string,
+    providerId?: string | null,
+  ): Promise<{ iframeUrl: string; environment: "test" | "production" }> {
+    const { payload, environment } = await this.buildPrescriptionPayload(patientId, providerId);
+    const cfg = await this.getConfig();
+
+    if (!cfg.ehrEncryptionKey) {
+      throw new WenoOnlineError(
+        "Weno EZ Integration is not configured: the EZ encryption key is missing (WENO_ONLINE_KEY / Admin \u2192 External Integrations \u2192 Weno Online).",
+        400,
+      );
+    }
+    if (!payload.UserEmail || !payload.MD5Password || !payload.LocationID) {
+      throw new WenoOnlineError(
+        "Weno EZ Integration is not configured: a prescriber email, password and Location ID are required (WENO_USER_EMAIL / WENO_PASSWORD|WENO_MD5_PASSWORD / WENO_LOCATION_ID).",
+        400,
+      );
+    }
+
+    const data = encryptWenoData(JSON.stringify(payload), cfg.ehrEncryptionKey);
+    const base =
+      (process.env.WENO_COMPOSE_URL || "").trim() ||
+      "https://online.wenoexchange.com/en/NewRx/ComposeRx";
+    const u = new URL(base);
+    u.searchParams.set("useremail", payload.UserEmail);
+    u.searchParams.set("data", data); // URLSearchParams applies the required encoding
+    return { iframeUrl: u.toString(), environment };
   }
 }
 

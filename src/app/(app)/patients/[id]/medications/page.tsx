@@ -32,7 +32,12 @@ export default async function MedsPage({ params }: { params: Promise<{ id: strin
       <section className="card">
         <header className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <div className="font-semibold">Medication List ({meds.length})</div>
-          <Link href={`/patients/${id}/orders/new?type=rx`} className="btn-primary">+ Prescribe</Link>
+          <div className="flex items-center gap-2">
+            {(user.role === "provider" || user.role === "admin") && (
+              <Link href={`/erx/prescribe/${id}`} className="btn-secondary">e-Prescribe (Weno)</Link>
+            )}
+            <Link href={`/patients/${id}/orders/new?type=rx`} className="btn-primary">+ Prescribe</Link>
+          </div>
         </header>
         {meds.length === 0 ? (
           <div className="p-6 text-sm text-slate-500">No medications on file.</div>
