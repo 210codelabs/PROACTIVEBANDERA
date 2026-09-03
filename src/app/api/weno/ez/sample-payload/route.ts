@@ -34,56 +34,78 @@ export async function GET(req: Request) {
   if (patientId) p = await db.patient.findUnique({ where: { id: patientId } }).catch(() => null);
   if (patientId && !p) return NextResponse.json({ error: "Patient not found" }, { status: 404 });
 
-  const sample = {
-    LastName: "Satterfield", FirstName: "Ryan", MiddleName: "J", Prefix: "Mr", Suffix: "",
-    Gender: "F", DateOfBirth: "1994-06-18",
-    AddressLine1: "224", AddressLine2: "Richmond Ranch Rd", City: "Texarkana", State: "TX", PostalCode: "75503",
-    PrimaryPhone: "8776543210", PatientEmail: "qa.patient@yopmail.com", OrgPatientID: "12537",
-    PrimaryPharmacyNCPCP: "", AlternativePharmacyNCPCP: "",
-  };
-
-  const patient = p ? {
+  // Patient-derived values (blank string for anything our chart doesn't store).
+  const pt = p ? {
+    OrgPatientID: String(p.id || ""),
     LastName: p.lastName || "", FirstName: p.firstName || "", MiddleName: p.middleName || "",
     Prefix: p.prefix || "", Suffix: p.suffix || "",
     Gender: (p.sex || "U").slice(0, 1).toUpperCase(),
     DateOfBirth: p.dob ? new Date(p.dob).toISOString().slice(0, 10) : "",
     AddressLine1: p.addressLine1 || "", AddressLine2: p.addressLine2 || "",
     City: p.city || "", State: p.state || "", PostalCode: p.postalCode || "",
-    PrimaryPhone: digits(p.phone), PatientEmail: p.email || "", OrgPatientID: String(p.id || ""),
+    PrimaryPhone: digits(p.phone), PatientEmail: p.email || "",
     PrimaryPharmacyNCPCP: p.primaryPharmacyNcpdp || "", AlternativePharmacyNCPCP: "",
-  } : sample;
+  } : {
+    // Weno's own sample patient (used when no patientId is supplied).
+    OrgPatientID: "12537", LastName: "Satterfield", FirstName: "Ryan", MiddleName: "J",
+    Prefix: "Mr", Suffix: "MS", Gender: "F", DateOfBirth: "1994-06-18",
+    AddressLine1: "224", AddressLine2: "Richmond Ranch Rd", City: "Texarkana", State: "TX", PostalCode: "75503",
+    PrimaryPhone: "8776543210", PatientEmail: "qa.patient@yopmail.com",
+    PrimaryPharmacyNCPCP: "1234567", AlternativePharmacyNCPCP: "1234567",
+  };
 
-  // ComposeRx payload — exact Weno EZ key names/order (incl. Weno's NCPCP spelling).
+  // ComposeRx payload — EXACTLY the 44 Weno EZ fields, in order. No fields added
+  // or removed. Responsible-party / facility values are blank because our chart
+  // does not track them (the patient is the responsible party, seen at Home).
   const payload: Record<string, string> = {
     UserEmail: cfg.providerEmail || "",
     MD5Password: cfg.providerPassword ? md5(cfg.providerPassword) : "",
     LocationID: cfg.locationId || "",
     TestPatient: cfg.environment === "production" ? "N" : "Y",
     PatientType: "Human",
-    OrgPatientID: patient.OrgPatientID,
-    LastName: patient.LastName,
-    FirstName: patient.FirstName,
-    MiddleName: patient.MiddleName,
-    Prefix: patient.Prefix,
-    Suffix: patient.Suffix,
-    Gender: patient.Gender,
-    DateOfBirth: patient.DateOfBirth,
-    AddressLine1: patient.AddressLine1,
-    AddressLine2: patient.AddressLine2,
-    City: patient.City,
-    State: patient.State,
-    PostalCode: patient.PostalCode,
+    OrgPatientID: pt.OrgPatientID,
+    LastName: pt.LastName,
+    FirstName: pt.FirstName,
+    MiddleName: pt.MiddleName,
+    Prefix: pt.Prefix,
+    Suffix: pt.Suffix,
+    Gender: pt.Gender,
+    DateOfBirth: pt.DateOfBirth,
+    AddressLine1: pt.AddressLine1,
+    AddressLine2: pt.AddressLine2,
+    City: pt.City,
+    State: pt.State,
+    PostalCode: pt.PostalCode,
     CountryCode: "US",
-    PrimaryPhone: patient.PrimaryPhone,
+    PrimaryPhone: pt.PrimaryPhone,
     SupportsSMS: "N",
-    PatientEmail: patient.PatientEmail,
+    PatientEmail: pt.PatientEmail,
     ResponsiblePartySameAsPatient: "Y",
+    ResponsiblePartyLastName: "",
+    ResponsiblePartyFirstName: "",
+    ResponsiblePartyAddressLine1: "",
+    ResponsiblePartyAddressLine2: "",
+    ResponsiblePartyCity: "",
+    ResponsiblePartyState: "",
+    ResponsiblePartyPostalCode: "",
+    ResponsiblePartyCountryCode: "US",
+    ResponsiblePartyPrimaryPhone: "",
     PatientLocation: "Home",
-    PrimaryPharmacyNCPCP: patient.PrimaryPharmacyNCPCP,
-    AlternativePharmacyNCPCP: patient.AlternativePharmacyNCPCP,
+    FacilityName: "",
+    FacilityAddressLine1: "",
+    FacilityAddressLine2: "",
+    FacilityCity: "",
+    FacilityState: "",
+    FacilityPostalCode: "",
+    FacilityCountryCode: "US",
+    FacilityPrimaryPhone: "",
+    FacilityEmail: "",
+    FacilityFax: "",
+    PrimaryPharmacyNCPCP: pt.PrimaryPharmacyNCPCP,
+    AlternativePharmacyNCPCP: pt.AlternativePharmacyNCPCP,
   };
 
-  // Which required fields are still blank (helps validate before pasting).
+  // Which core required fields are still blank (helps validate before pasting).
   const requiredKeys = ["UserEmail", "MD5Password", "LocationID", "OrgPatientID", "LastName", "FirstName", "Gender", "DateOfBirth", "AddressLine1", "City", "State", "PostalCode"];
   const missing = requiredKeys.filter((k) => !String(payload[k] || "").trim());
 
