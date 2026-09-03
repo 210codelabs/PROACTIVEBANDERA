@@ -41,6 +41,8 @@ export async function POST(req: Request) {
 
     const created: { id: string; day: string; time: string; shifted: boolean }[] = [];
     const skipped: { day: string; reason: string }[] = [];
+    // Shared id so the whole series can be rescheduled/cancelled together later.
+    const seriesId = `srs_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
 
     for (let i = 0; i < occurrences; i++) {
       const occ = freq === "monthly" ? addMonths(base, i) : addWeeks(base, freq === "biweekly" ? i * 2 : i);
@@ -76,6 +78,7 @@ export async function POST(req: Request) {
           location: b.location || "in-office",
           reason: b.reason || null,
           status: "scheduled",
+          seriesId,
         },
       });
       created.push({ id: appt.id, day: dayStr, time: `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`, shifted });
@@ -83,6 +86,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
+      seriesId,
       createdCount: created.length,
       shiftedCount: created.filter((c) => c.shifted).length,
       skippedCount: skipped.length,

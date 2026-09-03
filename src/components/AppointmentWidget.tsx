@@ -35,6 +35,12 @@ export default function AppointmentWidget() {
   const [services, setServices] = useState<Service[]>([]);
   const refsLoaded = useRef(false);
 
+  // Recurring-series editing (edit mode).
+  const [seriesId, setSeriesId] = useState<string | null>(null);
+  const [seriesCount, setSeriesCount] = useState(0);
+  const [applyToSeries, setApplyToSeries] = useState(false);
+  const [origDay, setOrigDay] = useState("");
+
   const [patientId, setPatientId] = useState("");
   const [patientLabel, setPatientLabel] = useState("");
   const [providerId, setProviderId] = useState("");
@@ -82,6 +88,10 @@ export default function AppointmentWidget() {
       await loadRefs();
       setMode(detail.mode || "new");
       setApptId(detail.appointmentId || null);
+      setSeriesId(detail.seriesId || null);
+      setSeriesCount(0);
+      setApplyToSeries(false);
+      setOrigDay(detail.day || todayStr());
       setDay(detail.day || todayStr());
       setTime(detail.time || "09:00");
       setReason(detail.reason || "");
@@ -113,6 +123,19 @@ export default function AppointmentWidget() {
   useEffect(() => {
     if (open && !providerId && providers[0]) setProviderId(providers[0].id);
   }, [open, providerId, providers]);
+
+  // Load how many upcoming visits the series has (edit mode).
+  useEffect(() => {
+    if (!open || mode !== "edit" || !seriesId) return;
+    let cancel = false;
+    (async () => {
+      try {
+        const d = await (await fetch(`/api/appointments/series/${seriesId}`)).json();
+        if (!cancel) setSeriesCount(d.upcomingCount || 0);
+      } catch { /* ignore */ }
+    })();
+    return () => { cancel = true; };
+  }, [open, mode, seriesId]);
 
   const duration = (() => {
     const s = services.find((x) => x.id === serviceTypeId);
@@ -190,10 +213,31 @@ export default function AppointmentWidget() {
       return;
     }
 
-    if (timeIsTaken && !allowDouble) {
+    if (timeIsTaken && !allowDouble && !(mode === "edit" && seriesId && applyToSeries)) {
       setError("That time is already booked. Pick a suggested time, or tick “Allow double-book” to keep it.");
       return;
     }
+
+    // Edit whole recurring series at once.
+    if (mode === "edit" && seriesId && applyToSeries) {
+      setBusy(true);
+      try {
+        const shiftDays = Math.round((new Date(`${day}T00:00:00`).getTime() - new Date(`${(origDay || day)}T00:00:00`).getTime()) / 86400000);
+        const res = await fetch(`/api/appointments/series/${seriesId}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ time, providerId, shiftDays, autoShift: true, allowDoubleBook: allowDouble }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok || d.error) { setError(d.error || "Could not update the series."); setBusy(false); return; }
+        setOkMsg(`Updated ${d.updated} upcoming visit${d.updated === 1 ? "" : "s"}${d.shiftedCount ? `, ${d.shiftedCount} auto-shifted` : ""}${d.skippedCount ? `, ${d.skippedCount} skipped` : ""}.`);
+        notifyApptChanged();
+        router.refresh();
+        setTimeout(() => setOpen(false), 1100);
+      } catch { setError("Scheduling is temporarily unavailable."); }
+      setBusy(false);
+      return;
+    }
+
     setBusy(true);
     try {
       const body: any = { providerId, serviceTypeId: serviceTypeId || null, day, time, reason, location };
@@ -217,6 +261,22 @@ export default function AppointmentWidget() {
     setBusy(false);
   }
 
+  async function cancelSeries() {
+    if (!seriesId) return;
+    if (!window.confirm(`Cancel ALL ${seriesCount} upcoming visit${seriesCount === 1 ? "" : "s"} in this recurring series?`)) return;
+    setBusy(true); setError(""); setOkMsg("");
+    try {
+      const res = await fetch(`/api/appointments/series/${seriesId}`, { method: "DELETE" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d.error) { setError(d.error || "Could not cancel the series."); setBusy(false); return; }
+      setOkMsg(`Cancelled ${d.cancelled} upcoming visit${d.cancelled === 1 ? "" : "s"}.`);
+      notifyApptChanged();
+      router.refresh();
+      setTimeout(() => setOpen(false), 1000);
+    } catch { setError("Scheduling is temporarily unavailable."); }
+    setBusy(false);
+  }
+
   if (!open) return null;
 
   return (
@@ -237,6 +297,19 @@ export default function AppointmentWidget() {
         <div className="max-h-[64vh] overflow-y-auto p-4 space-y-3">
           {error && <div className="rounded-md bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-3 py-2 text-sm">{error}</div>}
           {okMsg && <div className="rounded-md bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 px-3 py-2 text-sm">{okMsg}</div>}
+
+          {mode === "edit" && seriesId && (
+            <div className="rounded-md bg-violet-50 ring-1 ring-violet-200 px-3 py-2 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-violet-800">Part of a recurring series{seriesCount ? ` · ${seriesCount} upcoming` : ""}</span>
+                <button type="button" onClick={cancelSeries} disabled={busy} className="text-[11px] font-semibold text-rose-600 hover:underline">Cancel whole series</button>
+              </div>
+              <label className="flex items-center gap-2 text-xs text-violet-900">
+                <input type="checkbox" checked={applyToSeries} onChange={(e) => setApplyToSeries(e.target.checked)} />
+                Apply my time / provider change to this and all upcoming visits
+              </label>
+            </div>
+          )}
 
           {/* Patient */}
           <div>
@@ -372,7 +445,7 @@ export default function AppointmentWidget() {
 
         <footer className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
           <button onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
-          <button onClick={save} disabled={busy || (mode === "new" && !patientId)} className="btn-primary">{busy ? "Saving…" : mode === "edit" ? "Save changes" : repeatFreq !== "none" ? "Schedule series" : "Schedule"}</button>
+          <button onClick={save} disabled={busy || (mode === "new" && !patientId)} className="btn-primary">{busy ? "Saving…" : mode === "edit" ? (seriesId && applyToSeries ? "Update series" : "Save changes") : repeatFreq !== "none" ? "Schedule series" : "Schedule"}</button>
         </footer>
       </div>
     </div>

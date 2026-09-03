@@ -397,10 +397,13 @@ model Appointment {
   status         String      @default("scheduled") // scheduled | checked-in | in-room | completed | no-show | cancelled
   reason         String?
   notes          String?
+  seriesId       String?     // links appointments created as one recurring series
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
   encounter      Encounter[]
+
+  @@index([seriesId])
 }
 
 // -------------------------------------------------------------

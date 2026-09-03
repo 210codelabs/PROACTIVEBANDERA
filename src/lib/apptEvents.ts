@@ -14,6 +14,7 @@ export type ApptOpenDetail = {
   patientId?: string;
   patientName?: string;
   appointmentId?: string; // edit mode
+  seriesId?: string;      // set when the appointment is part of a recurring series
   reason?: string;
   location?: string;
   durationMin?: number;

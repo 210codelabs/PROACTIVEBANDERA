@@ -103,6 +103,18 @@
 #====================================================================================================user_problem_statement: "Proactive Clinic EHR (imported ApexCare, rebranded). New backend features: AI assistant (OpenAI GPT-4o via Emergent LLM key) for patient FAQs, and patient-portal appointment request that saves to MongoDB via Prisma."
 
 backend:
+  - task: "Recurring series management (bulk reschedule/cancel) + seriesId linkage"
+    implemented: true
+    working: "NA"
+    file: "src/app/api/appointments/series/route.ts, src/app/api/appointments/series/[seriesId]/route.ts, src/app/api/appointments/route.ts, prisma/schema.prisma"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "NEW: recurring series can now be managed together. Auth admin@proactiveclinic.com/apex123. Get providerId (GET /api/appointments?from=2100-01-01&to=2100-01-01) + patientId (GET /api/patients/search?q=a&limit=1). Appointment now has seriesId; POST /api/appointments/series returns {seriesId, createdCount, created[...]}. NEW GET/PATCH/DELETE /api/appointments/series/[seriesId]. TESTS (MUST NOT 500): \n(1) CREATE SERIES: POST /api/appointments/series {patientId, providerId, day:'2026-10-05', time:'09:00', freq:'weekly', occurrences:4, autoShift:true} -> 200 {ok:true, seriesId, createdCount:4}. Capture seriesId S1 and the 4 appt ids. \n(2) SERIES SUMMARY: GET /api/appointments/series/<S1> -> 200 {seriesId, total:4, upcomingCount:4, occurrences:[{id,startsAt,status}]}. (All 4 dates are in 2026 future so upcomingCount should be 4.) \n(3) BULK RESCHEDULE TIME: PATCH /api/appointments/series/<S1> {time:'11:00', autoShift:true} -> 200 {ok:true, updated:4, shiftedCount, skippedCount:0}. Then GET the series and verify each occurrence startsAt is now 11:00 local (hour 11). \n(4) BULK SHIFT DAYS: PATCH /api/appointments/series/<S1> {shiftDays:1, autoShift:true} -> 200 {ok:true, updated:4}. Verify each occurrence moved +1 day (e.g., 2026-10-06 etc). \n(5) BULK CHANGE PROVIDER: get a SECOND providerId (providers[1].id). PATCH {providerId:<pid2>, autoShift:true} -> 200 updated:4; verify occurrences now have providerId==pid2 (GET a single appt via /api/appointments?patientId=... or trust updated count). \n(6) NOTHING TO CHANGE: PATCH /api/appointments/series/<S1> {} -> 400. \n(7) AUTH: PATCH without session -> 401. \n(8) CANCEL WHOLE SERIES: DELETE /api/appointments/series/<S1> -> 200 {ok:true, cancelled:4}. Then GET /api/appointments/series/<S1> -> upcomingCount:0 (all cancelled). \n(9) seriesId LINKAGE: confirm the appointments created in step 1 carry the same seriesId (GET /api/appointments?patientId=<pid_patient> and check the created appt objects include seriesId===S1). \nNo residue cleanup needed beyond step 8 (series already cancelled). Report each step status+body."
+        -working: "NA"
   - task: "Working hours editor API (GET/PUT /api/providers/hours) + recurring series + waitlist"
     implemented: true
     working: true
@@ -3951,7 +3963,9 @@ agent_communication:
 
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Recurring series management (bulk reschedule/cancel) + seriesId linkage"
+  # active: "Recurring series management (bulk reschedule/cancel) + seriesId linkage"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"

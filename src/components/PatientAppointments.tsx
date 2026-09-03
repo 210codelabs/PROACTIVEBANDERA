@@ -7,7 +7,7 @@ import { openApptWidget, APPT_CHANGED } from "@/lib/apptEvents";
 type Appt = {
   id: string; startsAt: string; endsAt: string; status: string;
   providerId: string; serviceTypeId: string | null; providerName?: string | null;
-  serviceName?: string | null; reason?: string | null; location?: string | null;
+  serviceName?: string | null; reason?: string | null; location?: string | null; seriesId?: string | null;
 };
 
 const CAN_MANAGE = ["admin", "provider", "nurse", "frontdesk"];
@@ -59,7 +59,7 @@ export default function PatientAppointments({ patientId, role, patientName }: { 
   function openEdit(a: Appt) {
     setMsg(null);
     openApptWidget({
-      mode: "edit", appointmentId: a.id, patientId, patientName,
+      mode: "edit", appointmentId: a.id, seriesId: a.seriesId || undefined, patientId, patientName,
       providerId: a.providerId, serviceTypeId: a.serviceTypeId || undefined,
       day: toDay(a.startsAt), time: toTime(a.startsAt),
       reason: a.reason || "", location: a.location || "in-office",
@@ -169,7 +169,7 @@ function Row({ a, canManage, onEdit, onCancel, busy, past }: { a: Appt; canManag
   return (
     <li className="py-2 flex flex-wrap items-center gap-2 text-sm">
       <span className="w-48 text-slate-700">{fmt(a.startsAt)}</span>
-      <span className="flex-1 min-w-[120px] text-slate-800">{a.serviceName || a.reason || "Office visit"}</span>
+      <span className="flex-1 min-w-[120px] text-slate-800">{a.serviceName || a.reason || "Office visit"}{a.seriesId ? <span className="ml-1.5 chip bg-violet-100 text-violet-800 ring-violet-200 align-middle">Series</span> : null}</span>
       <span className="text-xs text-slate-500">{a.providerName || ""}</span>
       <span className={`chip ring-1 ${STATUS_STYLE[a.status] || STATUS_STYLE.scheduled}`}>{a.status}</span>
       {canManage && !past && a.status !== "cancelled" && (

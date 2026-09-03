@@ -48,6 +48,7 @@ export async function GET(req: Request) {
         reason: r.reason,
         notes: r.notes,
         location: r.location,
+        seriesId: r.seriesId,
         patientName: p ? `${p.lastName}, ${p.firstName}` : null,
         providerName: u ? `${u.firstName} ${u.lastName}` : null,
         serviceName: s?.name || null,

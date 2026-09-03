@@ -636,3 +636,10 @@ New end-to-end module for corporate clients (drug tests, DOT/non-DOT physicals, 
 - DRAG AUTO-SHIFT + UNDO: Month/Week/Day/Staff drops now send autoShift:true (nearest open slot on clash) and show a toast with a one-click Undo (patches back to original day/time/provider with allowDoubleBook). "moved to X (nearest open)" text when shifted.
 - WAITING-ROOM UNDO (QueuePanel): setStatus + apptNoShow now show an "Updated" toast (10s) with Undo that reverts to the previous status / back to scheduled.
 - Screenshot verified: widget renders with all sections and live slot data. Preview-only; NOT user-confirmed. Frontend test agent NOT yet run (awaiting user permission).
+
+## Recurring series management (bulk reschedule/cancel) — DONE (preview; backend agent-tested)
+- USER: "Let staff reschedule or cancel a whole recurring series at once, not just single visits."
+- SCHEMA: Appointment.seriesId String? (+ index). POST /api/appointments/series now stamps a shared seriesId on every occurrence and returns it. GET /api/appointments includes seriesId.
+- NEW GET/PATCH/DELETE /api/appointments/series/[seriesId]: GET summary {total, upcomingCount, occurrences}; PATCH bulk-reschedules all UPCOMING (status scheduled, startsAt>=now) occurrences by {time?, providerId?, shiftDays?} with autoShift/allowDoubleBook + working-hours guard (returns {updated, shiftedCount, skipped[]}); DELETE cancels all upcoming occurrences.
+- UI (AppointmentWidget edit mode): when the appointment has a seriesId it shows a violet "Part of a recurring series · N upcoming" banner with (a) a checkbox "Apply my time/provider change to this and all upcoming visits" (computes shiftDays from the date change) and (b) a "Cancel whole series" button. PatientAppointments rows show a "Series" chip and pass seriesId into the widget.
+- Backend agent: ALL 9 steps passed (create->seriesId, summary, bulk time 11:00, bulk +1 day, bulk provider change, empty-body 400, 401 no-session, DELETE cancels 4 -> upcomingCount 0, seriesId linkage). NO 500s. Preview-only; frontend test agent NOT run.
