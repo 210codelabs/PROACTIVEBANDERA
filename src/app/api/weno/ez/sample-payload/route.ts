@@ -190,21 +190,39 @@ export async function buildWenoPrescriptionPayload(
       }
     : { ...SAMPLE_PATIENT, CountryCode: "US", ecName: "", ecPhone: "" };
 
-  // Responsible party: if our chart has a distinct emergency contact, map it and
-  // set SameAsPatient = "N"; otherwise the patient is their own responsible party.
-  const rp = pt.ecName
-    ? (() => {
-        const parts = pt.ecName.split(/\s+/);
-        const rpFirst = parts.length > 1 ? parts.slice(0, -1).join(" ") : parts[0] || "";
-        const rpLast = parts.length > 1 ? parts[parts.length - 1] : "";
-        return {
-          same: "N",
-          last: rpLast,
-          first: rpFirst,
-          phone: pt.ecPhone,
-        };
-      })()
-    : { same: "Y", last: "", first: "", phone: "" };
+  // Responsible party. Weno's validator requires every ResponsibleParty* field
+  // to be NON-EMPTY (datatypes an1..N / Integer reject ""). Our chart does not
+  // store a full responsible-party address, so the patient is their own
+  // responsible party (SameAsPatient="Y") and we mirror the patient's own
+  // demographics into the RP fields to satisfy the datatype constraints.
+  const rp = {
+    same: "Y",
+    last: pt.LastName,
+    first: pt.FirstName,
+    addr1: pt.AddressLine1,
+    addr2: pt.AddressLine2 || pt.AddressLine1,
+    city: pt.City,
+    state: pt.State,
+    postal: pt.PostalCode,
+    country: pt.CountryCode || "US",
+    phone: pt.PrimaryPhone,
+  };
+
+  // Facility. Weno also requires Facility* fields to be non-empty. We do not
+  // track a facility on the chart, so we fall back to clinic demo values (can
+  // be overridden later from a clinic-settings record).
+  const fac = {
+    name: s(process.env.CLINIC_NAME) || "Proactive Clinic",
+    addr1: s(process.env.CLINIC_ADDRESS1) || "100 Main St",
+    addr2: s(process.env.CLINIC_ADDRESS2) || "Suite 200",
+    city: s(process.env.CLINIC_CITY) || "Dallas",
+    state: s(process.env.CLINIC_STATE) || "TX",
+    postal: s(process.env.CLINIC_POSTAL) || "75201",
+    country: s(process.env.CLINIC_COUNTRY) || "US",
+    phone: digits(process.env.CLINIC_PHONE) || "2145550100",
+    email: s(process.env.CLINIC_EMAIL) || "clinic@proactiveclinic.com",
+    fax: digits(process.env.CLINIC_FAX) || "1212121212",
+  };
 
   // --- 3) Build the exact 45-key object, in the exact contract order --------
   const values: WenoPayload = {
@@ -233,24 +251,24 @@ export async function buildWenoPrescriptionPayload(
     ResponsiblePartySameAsPatient: rp.same,
     ResponsiblePartyLastName: rp.last,
     ResponsiblePartyFirstName: rp.first,
-    ResponsiblePartyAddressLine1: "",
-    ResponsiblePartyAddressLine2: "",
-    ResponsiblePartyCity: "",
-    ResponsiblePartyState: "",
-    ResponsiblePartyPostalCode: "",
-    ResponsiblePartyCountryCode: rp.same === "N" ? "US" : "US",
+    ResponsiblePartyAddressLine1: rp.addr1,
+    ResponsiblePartyAddressLine2: rp.addr2,
+    ResponsiblePartyCity: rp.city,
+    ResponsiblePartyState: rp.state,
+    ResponsiblePartyPostalCode: rp.postal,
+    ResponsiblePartyCountryCode: rp.country,
     ResponsiblePartyPrimaryPhone: rp.phone,
     PatientLocation: "Home",
-    FacilityName: "",
-    FacilityAddressLine1: "",
-    FacilityAddressLine2: "",
-    FacilityCity: "",
-    FacilityState: "",
-    FacilityPostalCode: "",
-    FacilityCountryCode: "US",
-    FacilityPrimaryPhone: "",
-    FacilityEmail: "",
-    FacilityFax: "",
+    FacilityName: fac.name,
+    FacilityAddressLine1: fac.addr1,
+    FacilityAddressLine2: fac.addr2,
+    FacilityCity: fac.city,
+    FacilityState: fac.state,
+    FacilityPostalCode: fac.postal,
+    FacilityCountryCode: fac.country,
+    FacilityPrimaryPhone: fac.phone,
+    FacilityEmail: fac.email,
+    FacilityFax: fac.fax,
     PrimaryPharmacyNCPCP: pt.PrimaryPharmacyNCPCP,
     AlternativePharmacyNCPCP: pt.AlternativePharmacyNCPCP,
   };
