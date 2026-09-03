@@ -130,12 +130,20 @@ export default function PatientAppointments({ patientId, role, patientName }: { 
       <div className="p-4 space-y-4">
         {msg && <div className="rounded-md bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 px-3 py-2 text-sm">{msg}</div>}
         {offer && (
-          <div className="rounded-lg bg-amber-50 ring-1 ring-amber-200 px-3 py-2.5 flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-amber-900"><b>{offer.time}</b> just opened on {offer.day}. Offer it to <b>{offer.patientName}</b> (next on the waitlist)?</span>
-            <span className="ml-auto flex items-center gap-2">
-              <button onClick={bookOffer} disabled={busy} className="btn-primary py-1 px-3 text-xs">Book them</button>
-              <button onClick={() => setOffer(null)} className="text-xs font-semibold text-slate-500 hover:underline">Dismiss</button>
-            </span>
+          <div className="rounded-lg bg-amber-50 ring-1 ring-amber-200 px-3 py-2.5 space-y-1.5 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-amber-900"><b>{offer.time}</b> opened on {offer.day} — offered to <b>{offer.patientName}</b> (next on the waitlist).</span>
+              <span className="ml-auto flex items-center gap-2">
+                <button onClick={bookOffer} disabled={busy} className="btn-primary py-1 px-3 text-xs">Book now</button>
+                <button onClick={() => setOffer(null)} className="text-xs font-semibold text-slate-500 hover:underline">Dismiss</button>
+              </span>
+            </div>
+            <div className="text-[11px] text-amber-800">
+              {offer.smsStatus === "sent" || offer.emailStatus === "sent"
+                ? `Self-confirm link sent (SMS: ${offer.smsStatus}, email: ${offer.emailStatus}). They can claim it themselves.`
+                : `SMS/email not sent (${offer.smsStatus}/${offer.emailStatus}) — configure Twilio/Resend keys, or share this link:`}
+              {offer.confirmLink && <a href={offer.confirmLink} target="_blank" rel="noreferrer" className="ml-1 underline break-all">{offer.confirmLink}</a>}
+            </div>
           </div>
         )}
         {loading ? (

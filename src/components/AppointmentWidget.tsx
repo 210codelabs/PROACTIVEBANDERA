@@ -38,6 +38,7 @@ export default function AppointmentWidget() {
   // Recurring-series editing (edit mode).
   const [seriesId, setSeriesId] = useState<string | null>(null);
   const [seriesCount, setSeriesCount] = useState(0);
+  const [seriesOccurrences, setSeriesOccurrences] = useState<{ id: string; startsAt: string; status: string }[]>([]);
   const [applyToSeries, setApplyToSeries] = useState(false);
   const [origDay, setOrigDay] = useState("");
 
@@ -124,14 +125,17 @@ export default function AppointmentWidget() {
     if (open && !providerId && providers[0]) setProviderId(providers[0].id);
   }, [open, providerId, providers]);
 
-  // Load how many upcoming visits the series has (edit mode).
+  // Load how many upcoming visits the series has + their dates (edit mode).
   useEffect(() => {
-    if (!open || mode !== "edit" || !seriesId) return;
+    if (!open || mode !== "edit" || !seriesId) { setSeriesOccurrences([]); return; }
     let cancel = false;
     (async () => {
       try {
         const d = await (await fetch(`/api/appointments/series/${seriesId}`)).json();
-        if (!cancel) setSeriesCount(d.upcomingCount || 0);
+        if (!cancel) {
+          setSeriesCount(d.upcomingCount || 0);
+          setSeriesOccurrences(d.occurrences || []);
+        }
       } catch { /* ignore */ }
     })();
     return () => { cancel = true; };
@@ -277,6 +281,23 @@ export default function AppointmentWidget() {
     setBusy(false);
   }
 
+  // Skip just this one occurrence (cancel it) without touching the rest of the series.
+  async function skipVisit() {
+    if (!apptId) return;
+    if (!window.confirm("Skip only this visit? The rest of the series stays as scheduled.")) return;
+    setBusy(true); setError(""); setOkMsg("");
+    try {
+      const res = await fetch("/api/appointments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: apptId, status: "cancelled" }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d.error) { setError(d.error || "Could not skip this visit."); setBusy(false); return; }
+      setOkMsg("This visit was skipped. The rest of the series is unchanged.");
+      notifyApptChanged();
+      router.refresh();
+      setTimeout(() => setOpen(false), 1000);
+    } catch { setError("Scheduling is temporarily unavailable."); }
+    setBusy(false);
+  }
+
   if (!open) return null;
 
   return (
@@ -298,18 +319,43 @@ export default function AppointmentWidget() {
           {error && <div className="rounded-md bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-3 py-2 text-sm">{error}</div>}
           {okMsg && <div className="rounded-md bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 px-3 py-2 text-sm">{okMsg}</div>}
 
-          {mode === "edit" && seriesId && (
-            <div className="rounded-md bg-violet-50 ring-1 ring-violet-200 px-3 py-2 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-violet-800">Part of a recurring series{seriesCount ? ` · ${seriesCount} upcoming` : ""}</span>
-                <button type="button" onClick={cancelSeries} disabled={busy} className="text-[11px] font-semibold text-rose-600 hover:underline">Cancel whole series</button>
+          {mode === "edit" && seriesId && (() => {
+            const shiftDays = origDay && day ? Math.round((new Date(`${day}T00:00:00`).getTime() - new Date(`${origDay}T00:00:00`).getTime()) / 86400000) : 0;
+            const upcoming = seriesOccurrences.filter((o) => o.status === "scheduled" && new Date(o.startsAt) >= new Date());
+            const fmtD = (d: Date) => d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+            return (
+              <div className="rounded-md bg-violet-50 ring-1 ring-violet-200 px-3 py-2 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-violet-800">Part of a recurring series{seriesCount ? ` · ${seriesCount} upcoming` : ""}</span>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={skipVisit} disabled={busy} className="text-[11px] font-semibold text-slate-600 hover:underline">Skip this visit</button>
+                    <button type="button" onClick={cancelSeries} disabled={busy} className="text-[11px] font-semibold text-rose-600 hover:underline">Cancel whole series</button>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-violet-900">
+                  <input type="checkbox" checked={applyToSeries} onChange={(e) => setApplyToSeries(e.target.checked)} />
+                  Apply my time / provider change to this and all upcoming visits
+                </label>
+                {upcoming.length > 0 && (
+                  <div className="max-h-28 overflow-y-auto rounded bg-white/70 ring-1 ring-violet-100 p-1.5 space-y-0.5">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-violet-400 px-1">Upcoming visits{applyToSeries ? " · preview after change" : ""}</div>
+                    {upcoming.map((o) => {
+                      const cur = new Date(o.startsAt);
+                      const nd = new Date(cur.getTime() + shiftDays * 86400000);
+                      return (
+                        <div key={o.id} className="flex items-center gap-2 text-[11px] px-1">
+                          <span className="text-slate-600">{fmtD(cur)} {cur.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+                          {applyToSeries && (
+                            <span className="text-violet-700 font-medium">→ {fmtD(nd)} {labelFor(time)}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <label className="flex items-center gap-2 text-xs text-violet-900">
-                <input type="checkbox" checked={applyToSeries} onChange={(e) => setApplyToSeries(e.target.checked)} />
-                Apply my time / provider change to this and all upcoming visits
-              </label>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Patient */}
           <div>

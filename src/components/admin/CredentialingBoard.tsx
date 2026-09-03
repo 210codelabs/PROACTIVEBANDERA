@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useCredentialingAccess } from "@/components/admin/CredentialingGate";
 
 type Provider = { id: string; npi: string; firstName: string; lastName: string; credential?: string; taxonomy?: string; status: string; nppesVerified: boolean; oigClear: boolean | null; samClear: boolean | null; hasPortalPassword?: boolean; validationResult?: any; portalUsername?: string | null; excluded?: boolean; excludedReason?: string | null; lastRecheckAt?: string | null };
 type Job = { id: string; providerName: string; npi: string; status: string; webhookToken: string; error?: string | null; logs?: any[]; mfaReceivedAt?: string | null };
@@ -13,6 +14,7 @@ const STATUS_TONE: Record<string, string> = {
 function Chip({ s }: { s: string }) { return <span className={`chip ${STATUS_TONE[s] || "bg-slate-100 text-slate-600"}`}>{s.replace(/_/g, " ")}</span>; }
 
 export default function CredentialingBoard() {
+  const { verify } = useCredentialingAccess();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,9 @@ export default function CredentialingBoard() {
   useEffect(() => { load(); setOrigin(window.location.origin); }, []);
 
   async function addProvider(e: React.FormEvent) {
-    e.preventDefault(); setBusy("add"); setMsg(null);
+    e.preventDefault();
+    if (!(await verify())) { setMsg("Administrative password required to save."); return; }
+    setBusy("add"); setMsg(null);
     try {
       const r = await fetch("/api/credentialing/providers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const d = await r.json();
@@ -59,6 +63,7 @@ export default function CredentialingBoard() {
 
   async function removeProvider(id: string) {
     if (!confirm("Remove this provider and its jobs?")) return;
+    if (!(await verify())) { setMsg("Administrative password required."); return; }
     setBusy(id);
     try { await fetch(`/api/credentialing/providers/${id}`, { method: "DELETE" }); await load(); } finally { setBusy(null); }
   }

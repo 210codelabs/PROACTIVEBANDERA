@@ -5,6 +5,7 @@ import { mapByIds } from "@/lib/safe-relations";
 import { clinicHoursError, minutesOfDay } from "@/lib/clinic";
 import { findConflict } from "@/lib/appointments";
 import { providerHoursError, nextAvailableSlot } from "@/lib/scheduling";
+import { createAndSendOffer } from "@/lib/waitlist/notify";
 
 // GET /api/appointments?patientId=&from=&to=&providerId=&refs=1
 // Returns appointments (optionally filtered) plus provider/service reference lists.
@@ -205,24 +206,32 @@ export async function PATCH(req: Request) {
       const freedTime = `${String(freedStart.getHours()).padStart(2, "0")}:${String(freedStart.getMinutes()).padStart(2, "0")}`;
       const cand = await db.waitlist.findFirst({
         where: {
-          status: "waiting",
-          OR: [{ providerId: existing.providerId }, { providerId: null }],
-          AND: [{ OR: [{ preferredFrom: null }, { preferredFrom: { lte: freedDay } }] }],
+          AND: [
+            { OR: [{ status: "waiting" }, { AND: [{ status: "offered" }, { offerExpiresAt: { lt: new Date() } }] }] },
+            { OR: [{ providerId: existing.providerId }, { providerId: null }] },
+            { OR: [{ preferredFrom: null }, { preferredFrom: { lte: freedDay } }] },
+          ],
         },
         orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
       }).catch(() => null);
       if (cand) {
         const p = await db.patient.findUnique({ where: { id: cand.patientId }, select: { firstName: true, lastName: true, mrn: true } }).catch(() => null);
+        // Auto-offer: generate a self-confirm link + notify the patient (SMS + email, env-gated).
+        const svcForOffer = cand.serviceTypeId || existing.serviceTypeId || null;
+        const sent = await createAndSendOffer(cand.id, { day: freedDay, time: freedTime, providerId: existing.providerId, serviceTypeId: svcForOffer }).catch(() => null);
         waitlistOffer = {
           entryId: cand.id,
           patientId: cand.patientId,
           patientName: p ? `${p.lastName}, ${p.firstName}` : "Waitlisted patient",
           mrn: p?.mrn || "",
           providerId: existing.providerId,
-          serviceTypeId: cand.serviceTypeId || existing.serviceTypeId || null,
+          serviceTypeId: svcForOffer,
           reason: cand.reason || existing.reason || null,
           day: freedDay,
           time: freedTime,
+          confirmLink: sent?.link || null,
+          smsStatus: sent?.sms || "skipped",
+          emailStatus: sent?.email || "skipped",
         };
       }
     }

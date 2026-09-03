@@ -1650,8 +1650,17 @@ model Waitlist {
   createdAt     DateTime  @default(now())
   filledAt      DateTime?
   filledApptId  String?
+  offerToken    String?   // active auto-offer token for the patient self-confirm link
+  offerExpiresAt DateTime?
+  offerDay      String?   // yyyy-MM-dd of the freed slot being offered
+  offerTime     String?   // HH:mm of the freed slot
+  offerProviderId String?
+  offerServiceTypeId String?
+  offerSmsStatus String?
+  offerEmailStatus String?
 
   @@index([status])
   @@index([providerId])
   @@index([patientId])
+  @@index([offerToken])
 }

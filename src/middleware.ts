@@ -24,6 +24,8 @@ const PUBLIC_PREFIX = [
   "/api/weno/callback",
   "/api/weno/online-callback",
   "/api/credentialing/twilio",
+  "/waitlist/confirm",
+  "/api/waitlist/confirm",
   "/enterprise/dot/kiosk",
   "/api/enterprise/dot/kiosk",
   "/api/internal/weno-autosync",
