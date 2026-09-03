@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { colorForApptStatus, colorForCategory } from "@/lib/utils";
+import { openApptWidget } from "@/lib/apptEvents";
 import CheckInButton from "@/components/billing/CheckInButton";
 import CopayButton from "@/components/billing/CopayButton";
 import {
@@ -11,6 +12,8 @@ import {
 } from "./reschedule";
 
 function money(c: number) { return "$" + (c / 100).toFixed(2); }
+
+type Toast = { kind: "ok" | "err"; text: string; undo?: () => void };
 
 // Rich single-day view: a 9AM–8PM Central time-slot grid where appointments can
 // be dragged to a different time (reschedule) and empty slots clicked to create.
@@ -24,7 +27,7 @@ export default function DayCalendar({ dayKey, appts: initial, copay, balance }: 
   const [rows, setRows] = useState<CalAppt[]>(initial);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overSlot, setOverSlot] = useState<number | null>(null);
-  const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
 
   useEffect(() => setRows(initial), [initial]);
   useEffect(() => {
@@ -63,18 +66,19 @@ export default function DayCalendar({ dayKey, appts: initial, copay, balance }: 
     const slot = slots[idx];
     const appt = rows.find((a) => a.id === id);
     if (!appt || appt.timeHHmm === slot.hhmm) return;
-    if (!slotFreeAt(idx)) {
-      setToast({ kind: "err", text: `That time would double-book ${appt.provLast || "the provider"} — pick an open (green) slot.` });
-      return;
-    }
     const prev = rows;
+    const origTime = appt.timeHHmm;
     // optimistic move
     setRows((rs) => rs.map((r) => r.id === id
       ? { ...r, timeHHmm: slot.hhmm, top: idx * SLOT_PX, startLabel: slot.label }
       : r));
-    const res = await patchAppointment({ id, day: dayKey, time: slot.hhmm });
+    // autoShift: if the target clashes/out-of-hours, the server snaps to the
+    // closest open slot that day instead of failing the drop.
+    const res = await patchAppointment({ id, day: dayKey, time: slot.hhmm, autoShift: true });
     if (res.ok) {
-      setToast({ kind: "ok", text: `Moved ${appt.pLast || "appointment"} to ${slot.label}` });
+      const undo = () => { patchAppointment({ id, day: dayKey, time: origTime, allowDoubleBook: true }).then(() => router.refresh()); setToast(null); };
+      const landed = res.time ? slots.find((s) => s.hhmm === res.time)?.label || slot.label : slot.label;
+      setToast({ kind: "ok", text: res.shifted ? `${appt.pLast || "Appointment"} moved to ${landed} (nearest open)` : `Moved ${appt.pLast || "appointment"} to ${landed}`, undo });
       router.refresh();
     } else {
       setRows(prev);
@@ -83,7 +87,7 @@ export default function DayCalendar({ dayKey, appts: initial, copay, balance }: 
   }
 
   function newAt(hhmm: string) {
-    window.dispatchEvent(new CustomEvent("schedule:new-appt", { detail: { time: hhmm } }));
+    openApptWidget({ mode: "new", day: dayKey, time: hhmm });
   }
 
   return (
@@ -142,8 +146,9 @@ export default function DayCalendar({ dayKey, appts: initial, copay, balance }: 
       </div>
 
       {toast && (
-        <div className={`fixed bottom-5 right-5 z-[100] rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ring-1 ${toast.kind === "ok" ? "bg-white text-emerald-800 ring-emerald-200" : "bg-white text-rose-800 ring-rose-200"}`}>
-          {toast.kind === "ok" ? "✓ " : "⚠ "}{toast.text}
+        <div className={`fixed bottom-5 right-5 z-[100] flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ring-1 ${toast.kind === "ok" ? "bg-white text-emerald-800 ring-emerald-200" : "bg-white text-rose-800 ring-rose-200"}`}>
+          <span>{toast.kind === "ok" ? "✓ " : "⚠ "}{toast.text}</span>
+          {toast.undo && <button onClick={toast.undo} className="text-brand-600 font-semibold hover:underline">Undo</button>}
         </div>
       )}
     </div>

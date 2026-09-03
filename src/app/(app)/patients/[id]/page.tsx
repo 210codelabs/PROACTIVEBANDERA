@@ -150,7 +150,7 @@ export default async function PatientSummary({ params }: { params: Promise<{ id:
         </Card>
 
         <div className="lg:col-span-2">
-          <PatientAppointments patientId={id} role={user.role} />
+          <PatientAppointments patientId={id} role={user.role} patientName={`${patient.lastName}, ${patient.firstName}`} />
         </div>
 
         <Card title="Recent Encounters" href={`/patients/${id}/encounters`} cta="All">

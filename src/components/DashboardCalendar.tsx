@@ -73,6 +73,13 @@ export default function DashboardCalendar({
     fetchAppts();
   }, [fetchAppts]);
 
+  // Refresh when an appointment is created/edited anywhere (widget, drag).
+  useEffect(() => {
+    const h = () => fetchAppts();
+    window.addEventListener("appt:changed", h);
+    return () => window.removeEventListener("appt:changed", h);
+  }, [fetchAppts]);
+
   const monthISO = month.toISOString();
   const startISO = range.s.toISOString();
   const endISO = range.e.toISOString();

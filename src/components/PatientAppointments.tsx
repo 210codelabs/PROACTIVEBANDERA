@@ -2,9 +2,8 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { openApptWidget, APPT_CHANGED } from "@/lib/apptEvents";
 
-type Provider = { id: string; firstName: string; lastName: string; credential: string | null };
-type Service = { id: string; name: string; durationMin: number; category: string };
 type Appt = {
   id: string; startsAt: string; endsAt: string; status: string;
   providerId: string; serviceTypeId: string | null; providerName?: string | null;
@@ -25,64 +24,45 @@ function fmt(dt: string) {
   const d = new Date(dt);
   return d.toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
-function toDay(dt?: string) { return dt ? new Date(dt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10); }
+function toDay(dt?: string) { const d = dt ? new Date(dt) : new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
 function toTime(dt?: string) { const d = dt ? new Date(dt) : new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
 
-export default function PatientAppointments({ patientId, role }: { patientId: string; role: string }) {
+export default function PatientAppointments({ patientId, role, patientName }: { patientId: string; role: string; patientName?: string }) {
   const router = useRouter();
   const canManage = CAN_MANAGE.includes(role);
   const [appts, setAppts] = useState<Appt[]>([]);
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const [form, setForm] = useState<{ id?: string; providerId: string; serviceTypeId: string; day: string; time: string; reason: string; location: string } | null>(null);
-
   const load = useCallback(async () => {
     try {
       const r = await fetch(`/api/appointments?patientId=${patientId}`);
-      if (r.ok) {
-        const d = await r.json();
-        setAppts(d.appointments || []);
-        setProviders(d.providers || []);
-        setServices(d.services || []);
-      }
+      if (r.ok) { const d = await r.json(); setAppts(d.appointments || []); }
     } catch { /* ignore */ } finally { setLoading(false); }
   }, [patientId]);
   useEffect(() => { load(); }, [load]);
 
+  // Reload the list whenever the shared widget saves an appointment.
+  useEffect(() => {
+    const h = () => load();
+    window.addEventListener(APPT_CHANGED, h);
+    return () => window.removeEventListener(APPT_CHANGED, h);
+  }, [load]);
+
+  // Book / Modify both open the same global draggable widget.
   function openNew() {
     setMsg(null);
-    setForm({ providerId: providers[0]?.id || "", serviceTypeId: services[0]?.id || "", day: toDay(), time: "09:00", reason: "", location: "in-office" });
+    openApptWidget({ mode: "new", patientId, patientName, day: toDay(), time: "09:00" });
   }
   function openEdit(a: Appt) {
     setMsg(null);
-    setForm({ id: a.id, providerId: a.providerId, serviceTypeId: a.serviceTypeId || (services[0]?.id || ""), day: toDay(a.startsAt), time: toTime(a.startsAt), reason: a.reason || "", location: a.location || "in-office" });
-  }
-
-  async function save() {
-    if (!form) return;
-    setBusy(true); setMsg(null);
-    try {
-      const isEdit = Boolean(form.id);
-      const r = await fetch("/api/appointments", {
-        method: isEdit ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(isEdit ? { id: form.id } : { patientId }),
-          providerId: form.providerId,
-          serviceTypeId: form.serviceTypeId || null,
-          day: form.day, time: form.time,
-          reason: form.reason, location: form.location,
-        }),
-      });
-      const d = await r.json();
-      if (!r.ok) { setMsg(d.error || "Could not save appointment."); return; }
-      setForm(null); await load(); router.refresh();
-    } catch { setMsg("Network error."); }
-    finally { setBusy(false); }
+    openApptWidget({
+      mode: "edit", appointmentId: a.id, patientId, patientName,
+      providerId: a.providerId, serviceTypeId: a.serviceTypeId || undefined,
+      day: toDay(a.startsAt), time: toTime(a.startsAt),
+      reason: a.reason || "", location: a.location || "in-office",
+    });
   }
 
   async function cancel(a: Appt) {
@@ -134,55 +114,6 @@ export default function PatientAppointments({ patientId, role }: { patientId: st
           </>
         )}
       </div>
-
-      {form && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setForm(null)}>
-          <div className="card w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-            <header className="px-4 py-3 border-b border-slate-200 font-semibold flex items-center justify-between">
-              <span>{form.id ? "Reschedule / modify appointment" : "Book appointment"}</span>
-              <button onClick={() => setForm(null)} className="text-slate-500">✕</button>
-            </header>
-            <div className="p-4 grid grid-cols-2 gap-3">
-              <label className="block">
-                <span className="label">Provider</span>
-                <select className="input" value={form.providerId} onChange={(e) => setForm({ ...form, providerId: e.target.value })}>
-                  {providers.map((p) => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}{p.credential ? `, ${p.credential}` : ""}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <span className="label">Service</span>
-                <select className="input" value={form.serviceTypeId} onChange={(e) => setForm({ ...form, serviceTypeId: e.target.value })}>
-                  {services.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.durationMin}m)</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <span className="label">Date</span>
-                <input type="date" className="input" value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
-              </label>
-              <label className="block">
-                <span className="label">Time</span>
-                <input type="time" min="09:00" max="20:00" step={900} className="input" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
-              </label>
-              <label className="block">
-                <span className="label">Location</span>
-                <select className="input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}>
-                  <option value="in-office">In office</option>
-                  <option value="home-visit">Home visit</option>
-                  <option value="telehealth">Telehealth</option>
-                </select>
-              </label>
-              <label className="block col-span-2">
-                <span className="label">Reason / chief complaint</span>
-                <input className="input" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
-              </label>
-            </div>
-            <footer className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
-              <button onClick={() => setForm(null)} className="btn-secondary">Cancel</button>
-              <button onClick={save} disabled={busy || !form.providerId} className="btn-primary">{busy ? "Saving…" : (form.id ? "Save changes" : "Book")}</button>
-            </footer>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

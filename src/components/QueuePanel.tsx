@@ -128,7 +128,7 @@ export default function QueuePanel({ user }: { user?: QUser }) {
   // long-wait sound + toast alerts
   const [muted, setMuted] = useState(false);
   const [threshMin, setThreshMin] = useState(15); // configurable long-wait alert threshold
-  const [toasts, setToasts] = useState<{ id: string; text: string }[]>([]);
+  const [toasts, setToasts] = useState<{ id: string; text: string; undo?: () => void; tone?: "warn" | "info" }[]>([]);
   const alertedRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<any>(null);
   const dayKey = todayStr();
@@ -178,11 +178,12 @@ export default function QueuePanel({ user }: { user?: QUser }) {
       play(1174, 0.18, 0.4);
     } catch { /* ignore */ }
   }
-  function pushToast(text: string) {
+  function pushToast(text: string, undo?: () => void, tone: "warn" | "info" = "warn") {
     const id = Math.random().toString(36).slice(2);
-    setToasts((t) => [...t, { id, text }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 8000);
+    setToasts((t) => [...t, { id, text, undo, tone }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), undo ? 10000 : 8000);
   }
+  const STATUS_LABEL: Record<string, string> = { "in-room": "In room", "checked-out": "Checked out", "checked-in": "Checked in", "no-show": "No-show", waiting: "Waiting", rescheduled: "Rescheduled" };
 
   const load = useCallback(async () => {
     try {
@@ -254,11 +255,15 @@ export default function QueuePanel({ user }: { user?: QUser }) {
       await load();
     } finally { setBusy(null); }
   }
-  async function setStatus(id: string, status: string) {
+  async function setStatus(id: string, status: string, isUndo = false) {
+    const prev = entries.find((e) => e.id === id)?.status;
     setBusy(id); setErr(null);
     try {
       await fetch(`/api/queue/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
       await load();
+      if (!isUndo && prev && prev !== status) {
+        pushToast(`Marked ${STATUS_LABEL[status] || status}`, () => setStatus(id, prev, true), "info");
+      }
     } finally { setBusy(null); }
   }
   async function saveRoom(id: string) {
@@ -274,6 +279,10 @@ export default function QueuePanel({ user }: { user?: QUser }) {
     try {
       await fetch("/api/appointments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: appointmentId, status: "no-show" }) });
       await load();
+      pushToast("Marked no-show", async () => {
+        await fetch("/api/appointments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: appointmentId, status: "scheduled", allowDoubleBook: true }) });
+        await load();
+      }, "info");
     } finally { setBusy(null); }
   }
 
@@ -660,14 +669,19 @@ export default function QueuePanel({ user }: { user?: QUser }) {
       {toasts.length > 0 && (
         <div className="fixed top-16 right-4 z-[60] flex flex-col gap-2 w-[300px] max-w-[90vw]">
           {toasts.map((t) => (
-            <div key={t.id} className="flex items-start gap-2 rounded-xl bg-white ring-1 ring-amber-200 shadow-lg px-3 py-2.5">
-              <span className="mt-0.5 h-6 w-6 shrink-0 grid place-items-center rounded-full bg-amber-100 text-amber-600">
-                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M10.29 3.86l-8.48 14.7A1.5 1.5 0 003.11 21h17.78a1.5 1.5 0 001.3-2.44l-8.48-14.7a1.5 1.5 0 00-2.62 0z" /></svg>
+            <div key={t.id} className={`flex items-start gap-2 rounded-xl bg-white ring-1 shadow-lg px-3 py-2.5 ${t.tone === "info" ? "ring-brand-200" : "ring-amber-200"}`}>
+              <span className={`mt-0.5 h-6 w-6 shrink-0 grid place-items-center rounded-full ${t.tone === "info" ? "bg-brand-100 text-brand-600" : "bg-amber-100 text-amber-600"}`}>
+                {t.tone === "info"
+                  ? <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  : <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M10.29 3.86l-8.48 14.7A1.5 1.5 0 003.11 21h17.78a1.5 1.5 0 001.3-2.44l-8.48-14.7a1.5 1.5 0 00-2.62 0z" /></svg>}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-slate-800">Long wait</div>
+                <div className="text-xs font-bold text-slate-800">{t.tone === "info" ? "Updated" : "Long wait"}</div>
                 <div className="text-[11px] text-slate-600">{t.text}</div>
               </div>
+              {t.undo && (
+                <button onClick={() => { t.undo!(); setToasts((x) => x.filter((y) => y.id !== t.id)); }} className="text-[11px] font-semibold text-brand-600 hover:underline shrink-0">Undo</button>
+              )}
               <button onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))} className="text-slate-400 hover:text-slate-600 text-sm leading-none">×</button>
             </div>
           ))}

@@ -3,12 +3,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { colorForApptStatus } from "@/lib/utils";
+import { openApptWidget } from "@/lib/apptEvents";
 import {
   patchAppointment, buildSlotList, slotIsFree, toMin, GRID_START_HOUR, GRID_SLOTS, SLOT_PX, STATUS_DOT,
   type CalAppt,
 } from "./reschedule";
 
 type Provider = { id: string; firstName: string; lastName: string; credential: string | null };
+type Toast = { kind: "ok" | "err"; text: string; undo?: () => void };
 
 // Staff (resource) view: one time-grid column per provider for a single day.
 // Drag an appointment vertically to change its time, or across columns to
@@ -22,7 +24,7 @@ export default function StaffDayCalendar({ dayKey, providers, appts: initial }: 
   const [rows, setRows] = useState<CalAppt[]>(initial);
   const [dragId, setDragId] = useState<string | null>(null);
   const [over, setOver] = useState<{ prov: string; slot: number } | null>(null);
-  const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
 
   useEffect(() => setRows(initial), [initial]);
   useEffect(() => {
@@ -62,20 +64,19 @@ export default function StaffDayCalendar({ dayKey, providers, appts: initial }: 
     const appt = rows.find((a) => a.id === id);
     if (!appt) return;
     if (appt.providerId === provId && appt.timeHHmm === slot.hhmm) return;
-    if (!slotFreeForAppt(appt, provId, idx)) {
-      const p = providers.find((x) => x.id === provId);
-      setToast({ kind: "err", text: `That slot would double-book ${p ? p.firstName + " " + p.lastName : "the provider"} — pick an open (green) slot.` });
-      return;
-    }
     const prev = rows;
+    const origProv = appt.providerId, origTime = appt.timeHHmm;
     setRows((rs) => rs.map((r) => r.id === id
       ? { ...r, providerId: provId, timeHHmm: slot.hhmm, top: idx * SLOT_PX, startLabel: slot.label }
       : r));
     const changedProv = appt.providerId !== provId;
-    const res = await patchAppointment({ id, day: dayKey, time: slot.hhmm, ...(changedProv ? { providerId: provId } : {}) });
+    // autoShift snaps to the nearest open slot in the target column on a clash.
+    const res = await patchAppointment({ id, day: dayKey, time: slot.hhmm, autoShift: true, ...(changedProv ? { providerId: provId } : {}) });
     if (res.ok) {
       const p = providers.find((x) => x.id === provId);
-      setToast({ kind: "ok", text: `Moved ${appt.pLast || "appointment"} to ${slot.label}${changedProv && p ? ` · ${p.firstName} ${p.lastName}` : ""}` });
+      const landed = res.time ? slots.find((s) => s.hhmm === res.time)?.label || slot.label : slot.label;
+      const undo = () => { patchAppointment({ id, day: dayKey, time: origTime, providerId: origProv, allowDoubleBook: true }).then(() => router.refresh()); setToast(null); };
+      setToast({ kind: "ok", text: `${res.shifted ? "Nudged" : "Moved"} ${appt.pLast || "appointment"} to ${landed}${changedProv && p ? ` · ${p.firstName} ${p.lastName}` : ""}`, undo });
       router.refresh();
     } else {
       setRows(prev);
@@ -104,7 +105,7 @@ export default function StaffDayCalendar({ dayKey, providers, appts: initial }: 
                 onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver((o) => (o && o.prov === prov.id ? null : o)); }}
                 onDrop={(e) => { e.preventDefault(); const rect = e.currentTarget.getBoundingClientRect(); doDrop(prov.id, e.clientY, rect.top); }}
               >
-                {slots.map((s) => <div key={s.hhmm} className={`h-16 border-b border-slate-100 ${dragId ? (slotTintFree(prov.id, s.i) ? "bg-emerald-50/50" : "bg-rose-50/40") : ""}`} />)}
+                {slots.map((s) => <div key={s.hhmm} onClick={() => openApptWidget({ mode: "new", day: dayKey, time: s.hhmm, providerId: prov.id })} className={`h-16 border-b border-slate-100 cursor-pointer ${dragId ? (slotTintFree(prov.id, s.i) ? "bg-emerald-50/50" : "bg-rose-50/40") : "hover:bg-brand-50/40"}`} title={`New appointment at ${s.label}`} />)}
                 {over && over.prov === prov.id && dragId && (
                   <div className={`pointer-events-none absolute left-0 right-0 h-16 ring-2 ring-inset ${slotTintFree(prov.id, over.slot) ? "ring-emerald-500 bg-emerald-50/70" : "ring-rose-500 bg-rose-50/70"}`} style={{ top: over.slot * SLOT_PX }} />
                 )}
@@ -138,8 +139,9 @@ export default function StaffDayCalendar({ dayKey, providers, appts: initial }: 
       </div>
 
       {toast && (
-        <div className={`fixed bottom-5 right-5 z-[100] rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ring-1 ${toast.kind === "ok" ? "bg-white text-emerald-800 ring-emerald-200" : "bg-white text-rose-800 ring-rose-200"}`}>
-          {toast.kind === "ok" ? "✓ " : "⚠ "}{toast.text}
+        <div className={`fixed bottom-5 right-5 z-[100] flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ring-1 ${toast.kind === "ok" ? "bg-white text-emerald-800 ring-emerald-200" : "bg-white text-rose-800 ring-rose-200"}`}>
+          <span>{toast.kind === "ok" ? "✓ " : "⚠ "}{toast.text}</span>
+          {toast.undo && <button onClick={toast.undo} className="text-brand-600 font-semibold hover:underline">Undo</button>}
         </div>
       )}
     </div>

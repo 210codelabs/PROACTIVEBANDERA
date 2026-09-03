@@ -197,6 +197,7 @@ model User {
   credential     String?  // MD, DO, NP, PA, RN, DPT, etc.
   specialty      String?
   active         Boolean  @default(true)
+  workingHours   Json?    // optional per-provider hours/days: { "0":{open,close,closed}, ... "6":{} } minutes-of-day
   createdAt      DateTime @default(now())
 
   appointments   Appointment[]   @relation("ProviderAppts")

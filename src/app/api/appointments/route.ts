@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { mapByIds } from "@/lib/safe-relations";
-import { clinicHoursError } from "@/lib/clinic";
+import { clinicHoursError, minutesOfDay } from "@/lib/clinic";
 import { findConflict } from "@/lib/appointments";
+import { providerHoursError, nextAvailableSlot } from "@/lib/scheduling";
 
 // GET /api/appointments?patientId=&from=&to=&providerId=&refs=1
 // Returns appointments (optionally filtered) plus provider/service reference lists.
@@ -71,17 +72,38 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "missing fields" }, { status: 400 });
   }
   try {
-    const start = new Date(`${b.day}T${b.time}:00`);
+    let start = new Date(`${b.day}T${b.time}:00`);
     let durationMin = 30;
     if (b.serviceTypeId) {
       const s = await db.serviceType.findUnique({ where: { id: b.serviceTypeId } });
       if (s) durationMin = s.durationMin;
     }
-    const end = new Date(start.getTime() + durationMin * 60000);
-    const hoursErr = clinicHoursError(start, end);
+    let end = new Date(start.getTime() + durationMin * 60000);
+
+    const provider = await db.user.findUnique({ where: { id: b.providerId }, select: { workingHours: true } });
+
+    // Clinic + provider working-hours guard, and conflict check. When the caller
+    // opts into autoShift, an out-of-hours / double-booked time is nudged to the
+    // closest open slot that day instead of failing.
+    let shifted = false;
+    const hoursBad = () => clinicHoursError(start, end) || providerHoursError(provider?.workingHours, start, end);
+    let conflict = await findConflict(b.providerId, start, end);
+
+    if (b.autoShift && (hoursBad() || (conflict && !b.allowDoubleBook))) {
+      const alt = await nextAvailableSlot(b.providerId, b.day, durationMin, minutesOfDay(start), provider?.workingHours);
+      if (alt) {
+        start = new Date(`${b.day}T${alt}:00`);
+        end = new Date(start.getTime() + durationMin * 60000);
+        shifted = true;
+        conflict = await findConflict(b.providerId, start, end);
+      }
+    }
+
+    const hoursErr = hoursBad();
     if (hoursErr) return NextResponse.json({ error: hoursErr }, { status: 400 });
-    const clash = await findConflict(b.providerId, start, end);
-    if (clash) return NextResponse.json({ error: "Double-booking — the provider already has an appointment in that time.", conflict: true }, { status: 409 });
+    if (conflict && !b.allowDoubleBook) {
+      return NextResponse.json({ error: "Double-booking — the provider already has an appointment in that time.", conflict: true }, { status: 409 });
+    }
     const appt = await db.appointment.create({
       data: {
         patientId: b.patientId,
@@ -95,7 +117,7 @@ export async function POST(req: Request) {
         status: "scheduled",
       },
     });
-    return NextResponse.json({ ok: true, appointment: appt });
+    return NextResponse.json({ ok: true, appointment: appt, shifted, day: b.day, time: `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}` });
   } catch {
     return NextResponse.json({ error: "Scheduling is temporarily unavailable" }, { status: 503 });
   }
@@ -124,6 +146,7 @@ export async function PATCH(req: Request) {
     if (b.startsAt) newStart = new Date(b.startsAt);
     else if (b.day && b.time) newStart = new Date(`${b.day}T${b.time}:00`);
 
+    let shifted = false;
     if (newStart && !isNaN(newStart.getTime())) {
       // duration: from the (new or existing) service type, else preserve current length
       let durationMin = Math.max(15, Math.round((existing.endsAt.getTime() - existing.startsAt.getTime()) / 60000));
@@ -132,27 +155,46 @@ export async function PATCH(req: Request) {
         const s = await db.serviceType.findUnique({ where: { id: svcId } });
         if (s) durationMin = s.durationMin;
       }
+      const effProviderId = (data.providerId as string) || existing.providerId;
+      const provider = await db.user.findUnique({ where: { id: effProviderId }, select: { workingHours: true } });
+      const dayStr = `${newStart.getFullYear()}-${String(newStart.getMonth() + 1).padStart(2, "0")}-${String(newStart.getDate()).padStart(2, "0")}`;
+
+      let endAt = new Date(newStart.getTime() + durationMin * 60000);
+      const hoursBad = () => clinicHoursError(newStart as Date, endAt) || providerHoursError(provider?.workingHours, newStart as Date, endAt);
+      let clash = await findConflict(effProviderId, newStart, endAt, existing.id);
+
+      // Drag auto-shift: if the target time is out of hours or clashes, snap to
+      // the closest open slot that day (unless the caller intends to double-book).
+      if (b.autoShift && (hoursBad() || (clash && !b.allowDoubleBook))) {
+        const alt = await nextAvailableSlot(effProviderId, dayStr, durationMin, minutesOfDay(newStart), provider?.workingHours, existing.id);
+        if (alt) {
+          newStart = new Date(`${dayStr}T${alt}:00`);
+          endAt = new Date(newStart.getTime() + durationMin * 60000);
+          shifted = true;
+          clash = await findConflict(effProviderId, newStart, endAt, existing.id);
+        }
+      }
+
       data.startsAt = newStart;
-      data.endsAt = new Date(newStart.getTime() + durationMin * 60000);
-      const hoursErr = clinicHoursError(data.startsAt, data.endsAt);
+      data.endsAt = endAt;
+      const hoursErr = hoursBad();
       if (hoursErr) return NextResponse.json({ error: hoursErr }, { status: 400 });
+      if (clash && !b.allowDoubleBook) {
+        return NextResponse.json({ error: "Double-booking — the provider already has an appointment in that time.", conflict: true }, { status: 409 });
+      }
     }
 
     if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 
-    // Prevent double-booking when the appointment is moved to a new time or
-    // reassigned to a different provider.
-    const movedOrReassigned = Boolean(data.startsAt) || Boolean(data.providerId);
-    if (movedOrReassigned) {
-      const effProvider = (data.providerId as string) || existing.providerId;
-      const effStart = (data.startsAt as Date) || existing.startsAt;
-      const effEnd = (data.endsAt as Date) || existing.endsAt;
-      const clash = await findConflict(effProvider, effStart, effEnd, existing.id);
-      if (clash) return NextResponse.json({ error: "Double-booking — the provider already has an appointment in that time.", conflict: true }, { status: 409 });
+    // Guard double-booking when only the provider changed (no time move).
+    if (!data.startsAt && data.providerId) {
+      const clash = await findConflict(data.providerId as string, existing.startsAt, existing.endsAt, existing.id);
+      if (clash && !b.allowDoubleBook) return NextResponse.json({ error: "Double-booking — the provider already has an appointment in that time.", conflict: true }, { status: 409 });
     }
 
     const updated = await db.appointment.update({ where: { id: b.id }, data });
-    return NextResponse.json({ ok: true, appointment: updated });
+    const st = updated.startsAt;
+    return NextResponse.json({ ok: true, appointment: updated, shifted, day: `${st.getFullYear()}-${String(st.getMonth() + 1).padStart(2, "0")}-${String(st.getDate()).padStart(2, "0")}`, time: `${String(st.getHours()).padStart(2, "0")}:${String(st.getMinutes()).padStart(2, "0")}` });
   } catch {
     return NextResponse.json({ error: "Appointment updates are temporarily unavailable" }, { status: 503 });
   }

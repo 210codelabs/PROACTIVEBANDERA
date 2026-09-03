@@ -6,6 +6,7 @@ import {
   eachDayOfInterval, format, isSameDay, isSameMonth, parseISO,
 } from "date-fns";
 import { PROVIDER_PALETTE } from "./palette";
+import { openApptWidget } from "@/lib/apptEvents";
 
 export type MAppt = {
   id: string; patientId: string; providerId: string;
@@ -39,11 +40,12 @@ export default function MonthCalendar({
 }) {
   const router = useRouter();
   const dayHref = (iso: string) => `/schedule?view=day&d=${iso}${providerQuery}`;
+  const providerId = decodeURIComponent(providerQuery.match(/providerId=([^&]+)/)?.[1] || "") || undefined;
   const month = parseISO(monthISO);
   const [appts, setAppts] = useState<MAppt[]>(initial);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overDay, setOverDay] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string; undo?: () => void } | null>(null);
 
   useEffect(() => setAppts(initial), [initial]);
   useEffect(() => {
@@ -82,11 +84,12 @@ export default function MonthCalendar({
       const res = await fetch("/api/appointments", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, day: targetKey, time }),
+        body: JSON.stringify({ id, day: targetKey, time, autoShift: true }),
       });
       const d = await res.json();
       if (!res.ok || d.error) throw new Error(d.error || "Reschedule failed");
-      setToast({ kind: "ok", text: `Moved ${appt.pLast || "appointment"} to ${format(newStart, "EEE, MMM d")}` });
+      const undo = () => { fetch("/api/appointments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, day: currentKey, time, allowDoubleBook: true }) }).then(() => router.refresh()); setToast(null); };
+      setToast({ kind: "ok", text: d.shifted ? `${appt.pLast || "Appointment"} moved to ${format(newStart, "EEE, MMM d")} at ${d.time || ""} (nearest open)` : `Moved ${appt.pLast || "appointment"} to ${format(newStart, "EEE, MMM d")}`, undo });
       router.refresh();
     } catch (e: any) {
       setAppts(prev); // revert
@@ -113,10 +116,12 @@ export default function MonthCalendar({
               onDragOver={(e) => { e.preventDefault(); if (overDay !== key) setOverDay(key); }}
               onDragLeave={() => { if (overDay === key) setOverDay(null); }}
               onDrop={() => onDrop(key)}
-              className={`min-h-[116px] border-b border-r border-slate-100 p-1 transition-colors ${inMonth ? "bg-white" : "bg-slate-50/60"} ${isOver ? "ring-2 ring-inset ring-brand-400 bg-brand-50/60" : ""}`}
+              onClick={() => openApptWidget({ mode: "new", day: key, providerId })}
+              title={`Click to add an appointment on ${format(d, "EEE, MMM d")}`}
+              className={`min-h-[116px] border-b border-r border-slate-100 p-1 cursor-pointer transition-colors ${inMonth ? "bg-white" : "bg-slate-50/60"} ${isOver ? "ring-2 ring-inset ring-brand-400 bg-brand-50/60" : ""}`}
             >
               <div className="flex items-center justify-between px-1">
-                <a href={dayHref(key)} className="hover:underline">
+                <a href={dayHref(key)} onClick={(e) => e.stopPropagation()} className="hover:underline">
                   <span className={`text-xs font-semibold ${today ? "grid place-items-center h-6 w-6 rounded-full bg-brand-600 text-white" : inMonth ? "text-slate-700" : "text-slate-300"}`}>{format(d, "d")}</span>
                 </a>
                 {list.length > 0 && <span className="text-[10px] text-slate-400">{list.length}</span>}
@@ -130,7 +135,7 @@ export default function MonthCalendar({
                       draggable
                       onDragStart={() => setDragId(a.id)}
                       onDragEnd={() => { setDragId(null); setOverDay(null); }}
-                      onClick={() => router.push(`/patients/${a.patientId}`)}
+                      onClick={(e) => { e.stopPropagation(); router.push(`/patients/${a.patientId}`); }}
                       title={`${a.pLast}, ${a.pFirst} · ${a.svcName || "Visit"} · ${a.provLast} — drag to another day to reschedule`}
                       className={`group flex items-center gap-1 rounded px-1 py-0.5 border-l-2 cursor-grab active:cursor-grabbing hover:brightness-95 ${c.bg} ${c.border} ${dragId === a.id ? "opacity-50" : ""}`}
                     >
@@ -142,7 +147,7 @@ export default function MonthCalendar({
                     </div>
                   );
                 })}
-                {list.length > 4 && <a href={dayHref(key)} className="block text-[10px] text-brand-600 px-1 hover:underline">+{list.length - 4} more</a>}
+                {list.length > 4 && <a href={dayHref(key)} onClick={(e) => e.stopPropagation()} className="block text-[10px] text-brand-600 px-1 hover:underline">+{list.length - 4} more</a>}
               </div>
             </div>
           );
@@ -150,8 +155,9 @@ export default function MonthCalendar({
       </div>
 
       {toast && (
-        <div className={`fixed bottom-5 right-5 z-[100] rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ring-1 ${toast.kind === "ok" ? "bg-white text-emerald-800 ring-emerald-200" : "bg-white text-rose-800 ring-rose-200"}`}>
-          {toast.kind === "ok" ? "✓ " : "⚠ "}{toast.text}
+        <div className={`fixed bottom-5 right-5 z-[100] flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ring-1 ${toast.kind === "ok" ? "bg-white text-emerald-800 ring-emerald-200" : "bg-white text-rose-800 ring-rose-200"}`}>
+          <span>{toast.kind === "ok" ? "✓ " : "⚠ "}{toast.text}</span>
+          {toast.undo && <button onClick={toast.undo} className="text-brand-600 font-semibold hover:underline">Undo</button>}
         </div>
       )}
     </div>

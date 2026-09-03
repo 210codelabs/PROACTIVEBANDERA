@@ -184,7 +184,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
           </form>
           <div className="ml-auto flex items-center gap-3">
             <ClinicTZBadge showHours />
-            <NewApptButton providers={providers} services={services} day={format(day, "yyyy-MM-dd")} />
+            <NewApptButton providers={providers} services={services} day={format(day, "yyyy-MM-dd")} providerId={providerId || undefined} />
           </div>
         </header>
 

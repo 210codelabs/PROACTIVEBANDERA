@@ -13,6 +13,7 @@ import { useI18n } from "@/components/i18n/I18nProvider";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import RecordRequestBell from "@/components/RecordRequestBell";
 import QueuePanel from "@/components/QueuePanel";
+import AppointmentWidget from "@/components/AppointmentWidget";
 
 type NavItem = {
   label: string;
@@ -466,6 +467,7 @@ export default function Shell({
           <div className="p-3 sm:p-6 sm:pt-3 animate-fade-in-up">{children}</div>
         </main>
       </div>
+      <AppointmentWidget />
     </div>
   );
 }

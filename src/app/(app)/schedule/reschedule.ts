@@ -56,11 +56,12 @@ export function slotIsFree(startMin: number, durationMin: number, busy: Busy[]):
   return !hasOverlap(startMin, durationMin, busy);
 }
 
-export type PatchArgs = { id: string; day?: string; time?: string; providerId?: string };
+export type PatchArgs = { id: string; day?: string; time?: string; providerId?: string; autoShift?: boolean; allowDoubleBook?: boolean; status?: string };
 
 // Single reschedule/move helper used by every draggable view. Hits the already
-// tested PATCH /api/appointments (preserves duration, enforces clinic hours).
-export async function patchAppointment(args: PatchArgs): Promise<{ ok: boolean; error?: string }> {
+// tested PATCH /api/appointments (preserves duration, enforces working hours).
+// Returns the server's shift info so callers can show "moved to <time>" + undo.
+export async function patchAppointment(args: PatchArgs): Promise<{ ok: boolean; error?: string; conflict?: boolean; shifted?: boolean; day?: string; time?: string }> {
   try {
     const res = await fetch("/api/appointments", {
       method: "PATCH",
@@ -68,8 +69,8 @@ export async function patchAppointment(args: PatchArgs): Promise<{ ok: boolean; 
       body: JSON.stringify(args),
     });
     const d = await res.json().catch(() => ({}));
-    if (!res.ok || d?.error) return { ok: false, error: d?.error || "Reschedule failed" };
-    return { ok: true };
+    if (!res.ok || d?.error) return { ok: false, error: d?.error || "Reschedule failed", conflict: Boolean(d?.conflict) };
+    return { ok: true, shifted: Boolean(d?.shifted), day: d?.day, time: d?.time };
   } catch (e: unknown) {
     return { ok: false, error: e instanceof Error ? e.message : "Network error" };
   }
