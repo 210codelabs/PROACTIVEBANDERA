@@ -667,3 +667,9 @@ New end-to-end module for corporate clients (drug tests, DOT/non-DOT physicals, 
 - WIRING: NEW src/components/erx/WenoEzFrame.tsx (fetches the endpoint, renders the iframe, shows Sandbox/Live badge, surfaces missing fields) + page /erx/prescribe/[patientId].
 - Backend agent: ALL 5 steps passed, NO 500s. In preview Weno IS configured via WENO_ONLINE_* -> returned 200 with a real encrypted ComposeRx URL to https://test.wenoexchange.com (SANDBOX/TEST). 
 - CAUTION: SANDBOX/test only; crypto contract reverse-engineered from OpenEMR; NOT live/production, NOT EPCS/DEA certified. Production requires a real Weno EZ account, registered prescriber+location, IP allowlist and Weno certification. Frontend iframe page NOT run through frontend test agent.
+
+## Weno EZ ComposeRx sample-payload generator — DONE (preview; backend agent-tested)
+- USER uploaded official ComposeRxSampleJson.json and asked to fill it with our data to validate in the Weno EZ Developer tool.
+- NEW admin/prescriber-only GET /api/weno/ez/sample-payload[?patientId=&download=1]. Emits the EXACT Weno EZ ComposeRx schema (26 keys, incl. Weno's "PrimaryPharmacyNCPCP"/"AlternativePharmacyNCPCP" spelling) populated with clinic config (UserEmail, MD5Password=md5(prescriber pw) 32-char hex, LocationID from WenoIntegrationService.getConfig()) + a real patient (?patientId=) or the Weno sample patient by default. Returns {environment, missing[], payload} or a JSON file download (download=1, ComposeRx_<id>.json). TestPatient Y in test env, N in production.
+- Backend agent: all 5 steps passed, NO 500 (401 no session, 403 nurse, 200 admin all keys + MD5 hex + missing=[], real patient hydration, download attachment). Secrets masked in test output.
+- Access (authenticated admin/provider in browser): {NEXT_PUBLIC_BASE_URL}/api/weno/ez/sample-payload?download=1 (sample) or ?patientId=<id>&download=1 (real). Never print the credential fields in chat.
