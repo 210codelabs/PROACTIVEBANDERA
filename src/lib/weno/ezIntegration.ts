@@ -86,7 +86,7 @@ export type WenoPayload = Record<WenoPayloadKey, string>;
 
 export type WenoBuildResult = {
   environment: "test" | "production";
-  payload: WenoPayload;
+  payload: Record<string, string>;
   missing: string[]; // non-fatal: config/credential keys still blank
   patientId: string | null;
   providerId: string | null;
@@ -119,6 +119,33 @@ const CRITICAL_PATIENT_FIELDS: ReadonlyArray<readonly [WenoPayloadKey, string]> 
   ["State", "el estado (State)"],
   ["PostalCode", "el c\u00f3digo postal (Postal Code)"],
 ];
+
+// Weno "Required 1..1" fields — ALWAYS included even if blank (a valid patient
+// never has these blank because buildPrescriptionPayload pre-validates them).
+// Every OTHER field is OPTIONAL/CONDITIONAL: per the EZ guide's datatypes
+// (an1..N / MailAddressType) an empty string is INVALID, so optional fields are
+// OMITTED when we have no value (rather than sent as "").
+const REQUIRED_ALWAYS_KEYS = new Set<WenoPayloadKey>([
+  "UserEmail",
+  "MD5Password",
+  "LocationID",
+  "TestPatient",
+  "PatientType",
+  "OrgPatientID",
+  "LastName",
+  "FirstName",
+  "Gender",
+  "DateOfBirth",
+  "AddressLine1",
+  "City",
+  "State",
+  "PostalCode",
+  "CountryCode",
+  "PrimaryPhone",
+  "SupportsSMS",
+  "ResponsiblePartySameAsPatient",
+  "PatientLocation",
+]);
 
 // Weno's own sample patient — used only when no patientId is supplied so an
 // admin can still generate a complete payload for the Weno EZ validator.
@@ -419,20 +446,25 @@ export class WenoIntegrationService {
       AlternativePharmacyNCPCP: pt.AlternativePharmacyNCPCP,
     };
 
-    // Re-assemble strictly in contract order so Object.keys(payload) === WENO_PAYLOAD_KEYS.
-    const payload = {} as WenoPayload;
-    for (const k of WENO_PAYLOAD_KEYS) payload[k] = values[k] ?? "";
-
     // --- 4) Pre-validation (only for a real patient) ------------------------
     if (p) {
       const missingCritical = CRITICAL_PATIENT_FIELDS.filter(
-        ([k]) => !String(payload[k] || "").trim(),
+        ([k]) => !String(values[k] || "").trim(),
       ).map(([, label]) => label);
       if (missingCritical.length) {
         throw new WenoPayloadError(
           `Error: el paciente requiere ${missingCritical.join(", ")} para la receta electr\u00f3nica (Weno EZ).`,
         );
       }
+    }
+
+    // Re-assemble in contract order. Include a field when it is REQUIRED (always)
+    // or when it has a non-empty value; OMIT empty optional/conditional fields so
+    // Weno's datatype validation (an1..N / MailAddressType) does not reject "".
+    const payload: Record<string, string> = {};
+    for (const k of WENO_PAYLOAD_KEYS) {
+      const v = String(values[k] ?? "");
+      if (REQUIRED_ALWAYS_KEYS.has(k) || v.trim() !== "") payload[k] = v;
     }
 
     // Non-fatal: which credential keys are still blank (helps admins configure).
