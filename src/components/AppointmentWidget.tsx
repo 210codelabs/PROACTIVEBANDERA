@@ -56,6 +56,10 @@ export default function AppointmentWidget() {
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
 
+  // Recurring series (new appointments only).
+  const [repeatFreq, setRepeatFreq] = useState<"none" | "weekly" | "biweekly" | "monthly">("none");
+  const [occurrences, setOccurrences] = useState(4);
+
   // Floating window position (draggable by the header).
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const drag = useRef<{ dx: number; dy: number } | null>(null);
@@ -89,6 +93,8 @@ export default function AppointmentWidget() {
       setQ("");
       setHits([]);
       setAllowDouble(false);
+      setRepeatFreq("none");
+      setOccurrences(4);
       setError("");
       setOkMsg("");
       // Center the window on open.
@@ -164,6 +170,26 @@ export default function AppointmentWidget() {
     setError(""); setOkMsg("");
     if (mode === "new" && !patientId) { setError("Choose a patient first."); return; }
     if (!providerId) { setError("Choose a provider."); return; }
+
+    // Recurring series (new only): auto-shift each occurrence; no double-book block here.
+    if (mode === "new" && repeatFreq !== "none") {
+      setBusy(true);
+      try {
+        const res = await fetch("/api/appointments/series", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patientId, providerId, serviceTypeId: serviceTypeId || null, day, time, reason, location, freq: repeatFreq, occurrences, autoShift: true, allowDoubleBook: allowDouble }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok || d.error) { setError(d.error || "Could not create the series."); setBusy(false); return; }
+        setOkMsg(`Scheduled ${d.createdCount} visit${d.createdCount === 1 ? "" : "s"}${d.shiftedCount ? `, ${d.shiftedCount} auto-shifted` : ""}${d.skippedCount ? `, ${d.skippedCount} skipped` : ""}.`);
+        notifyApptChanged();
+        router.refresh();
+        setTimeout(() => setOpen(false), 1100);
+      } catch { setError("Scheduling is temporarily unavailable."); }
+      setBusy(false);
+      return;
+    }
+
     if (timeIsTaken && !allowDouble) {
       setError("That time is already booked. Pick a suggested time, or tick “Allow double-book” to keep it.");
       return;
@@ -321,11 +347,32 @@ export default function AppointmentWidget() {
             <span className="label">Reason / chief complaint</span>
             <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Office visit" />
           </label>
+
+          {mode === "new" && (
+            <div className="rounded-md ring-1 ring-slate-200 p-2.5">
+              <span className="label">Repeat</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <select className="input w-auto" value={repeatFreq} onChange={(e) => setRepeatFreq(e.target.value as any)}>
+                  <option value="none">Does not repeat</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Every 2 weeks</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                {repeatFreq !== "none" && (
+                  <label className="inline-flex items-center gap-1.5 text-sm text-slate-600">
+                    <input type="number" min={2} max={26} value={occurrences} onChange={(e) => setOccurrences(Math.max(2, Math.min(26, Number(e.target.value) || 2)))} className="input w-16 py-1" />
+                    visits
+                  </label>
+                )}
+              </div>
+              {repeatFreq !== "none" && <p className="mt-1 text-[11px] text-slate-400">Books {occurrences} visits; any clashing date auto-shifts to the nearest open time that day.</p>}
+            </div>
+          )}
         </div>
 
         <footer className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
           <button onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
-          <button onClick={save} disabled={busy || (mode === "new" && !patientId)} className="btn-primary">{busy ? "Saving…" : mode === "edit" ? "Save changes" : "Schedule"}</button>
+          <button onClick={save} disabled={busy || (mode === "new" && !patientId)} className="btn-primary">{busy ? "Saving…" : mode === "edit" ? "Save changes" : repeatFreq !== "none" ? "Schedule series" : "Schedule"}</button>
         </footer>
       </div>
     </div>

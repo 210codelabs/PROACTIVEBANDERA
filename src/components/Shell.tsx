@@ -145,7 +145,7 @@ export default function Shell({
     {
       label: "Physical Rehab",
       href: "/pt",
-      icon: <Icon.Sparkle />,
+      icon: <Icon.Dumbbell />,
       alwaysOpen: true,
       children: [
         { label: "Overview", href: "/pt" },
@@ -162,9 +162,9 @@ export default function Shell({
   if (user.role === "admin") {
     const settingsIndex = NAV.findIndex((item) => item.href === "/settings");
     NAV.splice(settingsIndex, 0, { label: t("nav.admin"), href: "/admin", icon: <Icon.Shield /> });
-    NAV.splice(settingsIndex, 0, { label: "Database & Security", href: "/admin/database", icon: <Icon.Cog /> });
+    NAV.splice(settingsIndex, 0, { label: "Database & Security", href: "/admin/database", icon: <Icon.Database /> });
     NAV.splice(settingsIndex, 0, { label: "Connection Health", href: "/admin/connections", icon: <Icon.Chart /> });
-    NAV.splice(settingsIndex, 0, { label: "Enterprise Clients", href: "/admin/enterprise", icon: <Icon.Shield /> });
+    NAV.splice(settingsIndex, 0, { label: "Enterprise Clients", href: "/admin/enterprise", icon: <Icon.Building /> });
     NAV.splice(settingsIndex, 0, { label: "Credentialing", href: "/admin/credentialing", icon: <Icon.Clipboard /> });
   }
 
@@ -243,7 +243,7 @@ export default function Shell({
                   title={iconOnly ? item.label : undefined}
                   className={`relative flex items-center rounded-md text-sm font-medium transition border-l-2 ${iconOnly ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"} ${active ? `${theme.activeBg} text-white ${theme.activeBar}` : "border-transparent text-slate-100 hover:bg-white/10 hover:text-white"}`}
                 >
-                  <span className="text-slate-200 relative">
+                  <span className={`text-slate-200 relative ${iconOnly ? "[&>svg]:h-9 [&>svg]:w-9" : ""}`}>
                     {item.icon}
                     {iconOnly && showBadge && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[var(--navy-900)]" />}
                   </span>
@@ -491,6 +491,9 @@ const Icon = {
   Inbox: () => svgPath("M4 13l2.5-8h11L20 13M4 13v6h16v-6M4 13h5l1 2h4l1-2h5"),
   Menu: () => svgPath("M3 6h18M3 12h18M3 18h18"),
   Chart: () => svgPath("M4 4v16h16M8 16v-4M12 16V8M16 16v-6"),
+  Building: () => svgPath("M3 21h18M5 21V7l7-4 7 4v14M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1"),
+  Dumbbell: () => svgPath("M6 8v8M3.5 9.5v5M18 8v8M20.5 9.5v5M6 12h12"),
+  Database: () => svgPath("M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zM4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"),
   X: () => svgPath("M18 6L6 18M6 6l12 12"),
 };
 

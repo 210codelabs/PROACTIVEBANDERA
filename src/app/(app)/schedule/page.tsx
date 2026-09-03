@@ -184,6 +184,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
           </form>
           <div className="ml-auto flex items-center gap-3">
             <ClinicTZBadge showHours />
+            <Link href="/schedule/waitlist" className="btn-secondary whitespace-nowrap">Waitlist</Link>
             <NewApptButton providers={providers} services={services} day={format(day, "yyyy-MM-dd")} providerId={providerId || undefined} />
           </div>
         </header>

@@ -64,6 +64,13 @@ export default async function Settings() {
         </div>
         <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Open →</span>
       </Link>
+      <Link href="/settings/working-hours" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
+        <div>
+          <div className="font-semibold text-slate-900">Working Hours &amp; Days</div>
+          <div className="text-sm text-slate-500">Set the days and hours you are available for appointments. The scheduler keeps click-to-create, drag auto-shift and slot suggestions within these hours.</div>
+        </div>
+        <span className="chip bg-brand-100 text-brand-800 ring-brand-200 group-hover:bg-brand-200">Open →</span>
+      </Link>
       {user.role === "admin" && (
         <Link href="/admin/installer" className="card card-pad mb-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-200 transition group">
           <div>

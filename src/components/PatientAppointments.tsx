@@ -34,6 +34,7 @@ export default function PatientAppointments({ patientId, role, patientName }: { 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [offer, setOffer] = useState<any | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -73,8 +74,40 @@ export default function PatientAppointments({ patientId, role, patientName }: { 
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: a.id, status: "cancelled" }),
       });
-      if (!r.ok) { const d = await r.json(); setMsg(d.error || "Could not cancel."); return; }
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { setMsg(d.error || "Could not cancel."); return; }
       await load(); router.refresh();
+      // Waitlist fill: if a waiting patient matches the freed slot, offer it.
+      if (d.waitlistOffer) setOffer(d.waitlistOffer);
+    } catch { setMsg("Network error."); }
+    finally { setBusy(false); }
+  }
+
+  // Book the freed slot for the offered waitlist patient (one click).
+  async function bookOffer() {
+    if (!offer) return;
+    setBusy(true); setMsg(null);
+    try {
+      const r = await fetch("/api/appointments", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patientId: offer.patientId, providerId: offer.providerId, serviceTypeId: offer.serviceTypeId || null, day: offer.day, time: offer.time, reason: offer.reason || null, allowDoubleBook: true }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || d.error) { setMsg(d.error || "Could not book the waitlisted patient."); setBusy(false); return; }
+      await fetch(`/api/waitlist/${offer.entryId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "filled", filledApptId: d.appointment?.id }) });
+      setMsg(`Booked ${offer.patientName} into the freed ${offer.time} slot.`);
+      setOffer(null);
+      await load(); router.refresh();
+    } catch { setMsg("Network error."); }
+    finally { setBusy(false); }
+  }
+
+  async function addToWaitlist() {
+    setBusy(true); setMsg(null);
+    try {
+      const r = await fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patientId }) });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); setMsg(d.error || "Could not add to waitlist."); return; }
+      setMsg("Added to the waitlist — they'll be offered the next freed slot.");
     } catch { setMsg("Network error."); }
     finally { setBusy(false); }
   }
@@ -87,10 +120,24 @@ export default function PatientAppointments({ patientId, role, patientName }: { 
     <section className="card">
       <header className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
         <h2 className="font-semibold text-slate-900">Appointments</h2>
-        {canManage && <button onClick={openNew} className="btn-primary py-1 px-3 text-sm">+ Book appointment</button>}
+        {canManage && (
+          <div className="flex items-center gap-2">
+            <button onClick={addToWaitlist} disabled={busy} className="btn-secondary py-1 px-3 text-sm">+ Waitlist</button>
+            <button onClick={openNew} className="btn-primary py-1 px-3 text-sm">+ Book appointment</button>
+          </div>
+        )}
       </header>
       <div className="p-4 space-y-4">
-        {msg && <div className="rounded-md bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-3 py-2 text-sm">{msg}</div>}
+        {msg && <div className="rounded-md bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 px-3 py-2 text-sm">{msg}</div>}
+        {offer && (
+          <div className="rounded-lg bg-amber-50 ring-1 ring-amber-200 px-3 py-2.5 flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-amber-900"><b>{offer.time}</b> just opened on {offer.day}. Offer it to <b>{offer.patientName}</b> (next on the waitlist)?</span>
+            <span className="ml-auto flex items-center gap-2">
+              <button onClick={bookOffer} disabled={busy} className="btn-primary py-1 px-3 text-xs">Book them</button>
+              <button onClick={() => setOffer(null)} className="text-xs font-semibold text-slate-500 hover:underline">Dismiss</button>
+            </span>
+          </div>
+        )}
         {loading ? (
           <p className="text-sm text-slate-400">Loading…</p>
         ) : (

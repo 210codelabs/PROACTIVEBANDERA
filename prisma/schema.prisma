@@ -1632,3 +1632,23 @@ model PiIntake {
   @@index([patientId])
   @@index([legalCaseId])
 }
+
+model Waitlist {
+  id            String    @id @default(cuid()) @map("_id")
+  patientId     String
+  providerId    String?   // preferred provider (null = any)
+  serviceTypeId String?
+  reason        String?
+  preferredFrom String?   // yyyy-MM-dd earliest acceptable date (optional)
+  note          String?
+  priority      Int       @default(0) // higher = offered first
+  status        String    @default("waiting") // waiting, filled, removed
+  createdByName String?
+  createdAt     DateTime  @default(now())
+  filledAt      DateTime?
+  filledApptId  String?
+
+  @@index([status])
+  @@index([providerId])
+  @@index([patientId])
+}

@@ -1,401 +1,672 @@
 #!/usr/bin/env python3
 """
-Backend test for TWO new features:
-1. GET /api/drugs/recall?ndc= (openFDA drug enforcement/recall lookup)
-2. PATCH/DELETE /api/patients/:id/medications/:medId (medication discontinue)
-
-Base URL: HTTPS preview base (process.env.NEXT_PUBLIC_BASE_URL)
-Staff login: admin@proactiveclinic.com / apex123
-Seed patient: Eleanor Adams MRN PC-100000
+Backend test for: Working hours editor API (GET/PUT /api/providers/hours) + recurring series + waitlist
+Tests A/B/C steps as specified in test_result.md
 """
-
-import asyncio
+import requests
 import json
-import sys
-from pymongo import MongoClient
+import time
+from datetime import datetime
 
 # Base URL from .env
-BASE_URL = "https://nextjs-ssr-stack.preview.emergentagent.com"
+BASE_URL = "https://nextjs-ssr-stack.preview.emergentagent.com/api"
 
-async def main():
-    print("=" * 80)
-    print("BACKEND TEST: Recall Alerts + Med Discontinue")
-    print("=" * 80)
-    
-    # MongoDB connection to resolve patient ID
+# Test data storage
+test_data = {
+    "session_cookie": None,
+    "provider_id": None,
+    "service_type_id": None,
+    "patient_id": None,
+    "created_appointments": [],
+    "waitlist_entries": []
+}
+
+def log(msg):
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+
+def login():
+    """Authenticate and get session cookie"""
+    log("=== AUTHENTICATION ===")
     try:
-        mongo_client = MongoClient("mongodb://localhost:27017")
-        db = mongo_client["proactive_clinic"]
-        patient_collection = db["Patient"]
-        
-        # Find Eleanor Adams (MRN PC-100000)
-        adams = patient_collection.find_one({"mrn": "PC-100000"})
-        if not adams:
-            print("❌ ERROR: Could not find Eleanor Adams (MRN PC-100000) in database")
-            return
-        
-        patient_id = adams["_id"]
-        print(f"✅ Found Eleanor Adams: ID={patient_id}, MRN={adams['mrn']}")
-        print()
+        resp = requests.post(
+            f"{BASE_URL}/auth/login",
+            json={"email": "admin@proactiveclinic.com", "password": "apex123"},
+            timeout=10
+        )
+        log(f"POST /api/auth/login -> {resp.status_code}")
+        if resp.status_code == 200:
+            # Get session cookie
+            cookies = resp.cookies
+            if cookies:
+                test_data["session_cookie"] = cookies
+                log(f"✅ Authentication successful, session cookie obtained")
+                return True
+        log(f"❌ Authentication failed: {resp.status_code} {resp.text[:200]}")
+        return False
     except Exception as e:
-        print(f"❌ ERROR: MongoDB connection failed: {e}")
+        log(f"❌ Authentication error: {e}")
+        return False
+
+def setup_test_data():
+    """Get providerId, serviceTypeId, and patientId for tests"""
+    log("\n=== SETUP: Getting test data ===")
+    
+    # Get providerId and serviceTypeId from appointments endpoint
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/appointments?from=2100-01-01&to=2100-01-01",
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"GET /api/appointments?from=2100-01-01&to=2100-01-01 -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("providers") and len(data["providers"]) > 0:
+                test_data["provider_id"] = data["providers"][0]["id"]
+                log(f"✅ Provider ID: {test_data['provider_id']}")
+            if data.get("services") and len(data["services"]) > 0:
+                test_data["service_type_id"] = data["services"][0]["id"]
+                log(f"✅ Service Type ID: {test_data['service_type_id']}")
+        else:
+            log(f"❌ Failed to get appointments data: {resp.status_code}")
+            return False
+    except Exception as e:
+        log(f"❌ Error getting appointments data: {e}")
+        return False
+    
+    # Get patientId from patients search
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/patients/search?q=a&limit=1",
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"GET /api/patients/search?q=a&limit=1 -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("results") and len(data["results"]) > 0:
+                test_data["patient_id"] = data["results"][0]["id"]
+                log(f"✅ Patient ID: {test_data['patient_id']}")
+            else:
+                log(f"❌ No patients found in search results")
+                return False
+        else:
+            log(f"❌ Failed to get patient data: {resp.status_code}")
+            return False
+    except Exception as e:
+        log(f"❌ Error getting patient data: {e}")
+        return False
+    
+    return True
+
+def test_working_hours():
+    """Test A: Working hours editor API"""
+    log("\n=== TEST A: WORKING HOURS ===")
+    
+    # A1: GET /api/providers/hours -> 200 with workingHours null initially, clinicDefault
+    log("\nA1: GET /api/providers/hours (initial state)")
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/providers/hours",
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"GET /api/providers/hours -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"Response: {json.dumps(data, indent=2)}")
+            # Check structure
+            if "clinicDefault" in data and data["clinicDefault"].get("open") == 540 and data["clinicDefault"].get("close") == 1200:
+                log(f"✅ A1 PASS: clinicDefault correct (open:540, close:1200)")
+            else:
+                log(f"❌ A1 FAIL: clinicDefault incorrect: {data.get('clinicDefault')}")
+            # workingHours can be null or an object
+            log(f"   workingHours: {data.get('workingHours')}")
+        else:
+            log(f"❌ A1 FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ A1 ERROR: {e}")
+    
+    # A2: GET without session -> 401
+    log("\nA2: GET /api/providers/hours without session")
+    try:
+        resp = requests.get(f"{BASE_URL}/providers/hours", timeout=10)
+        log(f"GET /api/providers/hours (no auth) -> {resp.status_code}")
+        if resp.status_code == 401:
+            log(f"✅ A2 PASS: 401 Unauthorized without session")
+        else:
+            log(f"❌ A2 FAIL: Expected 401, got {resp.status_code}")
+    except Exception as e:
+        log(f"❌ A2 ERROR: {e}")
+    
+    # A3: PUT /api/providers/hours with custom Monday hours
+    log("\nA3: PUT /api/providers/hours with custom Monday hours (open:600/10:00, close:900/15:00)")
+    try:
+        resp = requests.put(
+            f"{BASE_URL}/providers/hours",
+            json={
+                "providerId": test_data["provider_id"],
+                "workingHours": {
+                    "1": {"open": 600, "close": 900, "closed": False}
+                }
+            },
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"PUT /api/providers/hours -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"Response: {json.dumps(data, indent=2)}")
+            if data.get("ok") and data.get("workingHours", {}).get("1", {}).get("open") == 600:
+                log(f"✅ A3 PASS: Custom Monday hours set (open:600, close:900)")
+            else:
+                log(f"❌ A3 FAIL: workingHours not set correctly: {data}")
+        else:
+            log(f"❌ A3 FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ A3 ERROR: {e}")
+    
+    # A4: GET /api/providers/hours?providerId= reflects custom hours
+    log("\nA4: GET /api/providers/hours?providerId= (verify custom hours)")
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/providers/hours?providerId={test_data['provider_id']}",
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"GET /api/providers/hours?providerId={test_data['provider_id']} -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"Response workingHours: {json.dumps(data.get('workingHours'), indent=2)}")
+            if data.get("workingHours", {}).get("1", {}).get("open") == 600 and data.get("workingHours", {}).get("1", {}).get("close") == 900:
+                log(f"✅ A4 PASS: Custom Monday hours reflected (open:600, close:900)")
+            else:
+                log(f"❌ A4 FAIL: Custom hours not reflected: {data.get('workingHours')}")
+        else:
+            log(f"❌ A4 FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ A4 ERROR: {e}")
+    
+    # A5: Verify appointment guard honors custom hours
+    log("\nA5: Verify appointment guard honors custom Monday hours")
+    
+    # Try to book at 15:30 (outside Monday hours 10:00-15:00) -> should be 400
+    log("A5a: POST appointment on Monday 2026-07-20 at 15:30 (outside hours)")
+    try:
+        resp = requests.post(
+            f"{BASE_URL}/appointments",
+            json={
+                "patientId": test_data["patient_id"],
+                "providerId": test_data["provider_id"],
+                "day": "2026-07-20",  # Monday
+                "time": "15:30"
+            },
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"POST /api/appointments (15:30) -> {resp.status_code}")
+        log(f"Response: {resp.text[:300]}")
+        if resp.status_code == 400:
+            log(f"✅ A5a PASS: 400 for time outside working hours (15:30)")
+        else:
+            log(f"❌ A5a FAIL: Expected 400, got {resp.status_code}")
+    except Exception as e:
+        log(f"❌ A5a ERROR: {e}")
+    
+    # Try to book at 10:00 (within Monday hours 10:00-15:00) -> should be 200
+    log("A5b: POST appointment on Monday 2026-07-20 at 10:00 (within hours)")
+    try:
+        resp = requests.post(
+            f"{BASE_URL}/appointments",
+            json={
+                "patientId": test_data["patient_id"],
+                "providerId": test_data["provider_id"],
+                "day": "2026-07-20",  # Monday
+                "time": "10:00"
+            },
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"POST /api/appointments (10:00) -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"Response: {json.dumps(data, indent=2)}")
+            if data.get("ok") and data.get("appointment", {}).get("id"):
+                appt_id = data["appointment"]["id"]
+                test_data["created_appointments"].append(appt_id)
+                log(f"✅ A5b PASS: 200 for time within working hours (10:00), appointment ID: {appt_id}")
+            else:
+                log(f"❌ A5b FAIL: Response missing ok/appointment.id: {data}")
+        else:
+            log(f"❌ A5b FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ A5b ERROR: {e}")
+    
+    # A6: PUT workingHours:null to reset to clinic default
+    log("\nA6: PUT /api/providers/hours with workingHours:null (reset to clinic default)")
+    try:
+        resp = requests.put(
+            f"{BASE_URL}/providers/hours",
+            json={
+                "providerId": test_data["provider_id"],
+                "workingHours": None
+            },
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"PUT /api/providers/hours (reset) -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"Response: {json.dumps(data, indent=2)}")
+            if data.get("ok") and data.get("workingHours") is None:
+                log(f"✅ A6 PASS: workingHours reset to null (clinic default)")
+            else:
+                log(f"❌ A6 FAIL: workingHours not null: {data}")
+        else:
+            log(f"❌ A6 FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ A6 ERROR: {e}")
+
+def test_recurring_series():
+    """Test B: Recurring series"""
+    log("\n=== TEST B: RECURRING SERIES ===")
+    
+    # B1: POST /api/appointments/series with freq:'weekly', occurrences:4
+    log("\nB1: POST /api/appointments/series (weekly, 4 occurrences)")
+    try:
+        resp = requests.post(
+            f"{BASE_URL}/appointments/series",
+            json={
+                "patientId": test_data["patient_id"],
+                "providerId": test_data["provider_id"],
+                "day": "2026-08-03",
+                "time": "09:00",
+                "freq": "weekly",
+                "occurrences": 4,
+                "autoShift": True
+            },
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"POST /api/appointments/series -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"Response: {json.dumps(data, indent=2)}")
+            if data.get("ok") and data.get("createdCount") == 4:
+                log(f"✅ B1 PASS: createdCount=4")
+                # Check days are 7 apart
+                created = data.get("created", [])
+                if len(created) == 4:
+                    days = [c["day"] for c in created]
+                    log(f"   Created days: {days}")
+                    # Expected: 2026-08-03, 08-10, 08-17, 08-24
+                    expected_days = ["2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24"]
+                    if days == expected_days:
+                        log(f"✅ B1 PASS: Days are 7 apart (weekly): {days}")
+                    else:
+                        log(f"⚠️ B1 WARNING: Days don't match expected weekly pattern. Expected: {expected_days}, Got: {days}")
+                    # Store IDs for cleanup
+                    for c in created:
+                        test_data["created_appointments"].append(c["id"])
+                else:
+                    log(f"❌ B1 FAIL: Expected 4 created appointments, got {len(created)}")
+            else:
+                log(f"❌ B1 FAIL: Expected ok:true and createdCount:4, got: {data}")
+        else:
+            log(f"❌ B1 FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ B1 ERROR: {e}")
+    
+    # B2: POST /api/appointments/series with freq:'biweekly', occurrences:3
+    log("\nB2: POST /api/appointments/series (biweekly, 3 occurrences)")
+    try:
+        resp = requests.post(
+            f"{BASE_URL}/appointments/series",
+            json={
+                "patientId": test_data["patient_id"],
+                "providerId": test_data["provider_id"],
+                "day": "2026-09-07",
+                "time": "11:00",
+                "freq": "biweekly",
+                "occurrences": 3,
+                "autoShift": True
+            },
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"POST /api/appointments/series -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"Response: {json.dumps(data, indent=2)}")
+            if data.get("ok") and data.get("createdCount") == 3:
+                log(f"✅ B2 PASS: createdCount=3")
+                # Check days are 14 apart
+                created = data.get("created", [])
+                if len(created) == 3:
+                    days = [c["day"] for c in created]
+                    log(f"   Created days: {days}")
+                    # Expected: 2026-09-07, 09-21, 10-05 (14 days apart)
+                    expected_days = ["2026-09-07", "2026-09-21", "2026-10-05"]
+                    if days == expected_days:
+                        log(f"✅ B2 PASS: Days are 14 apart (biweekly): {days}")
+                    else:
+                        log(f"⚠️ B2 WARNING: Days don't match expected biweekly pattern. Expected: {expected_days}, Got: {days}")
+                    # Store IDs for cleanup
+                    for c in created:
+                        test_data["created_appointments"].append(c["id"])
+                else:
+                    log(f"❌ B2 FAIL: Expected 3 created appointments, got {len(created)}")
+            else:
+                log(f"❌ B2 FAIL: Expected ok:true and createdCount:3, got: {data}")
+        else:
+            log(f"❌ B2 FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ B2 ERROR: {e}")
+    
+    # B3: POST /api/appointments/series missing providerId -> 400
+    log("\nB3: POST /api/appointments/series missing providerId (validation)")
+    try:
+        resp = requests.post(
+            f"{BASE_URL}/appointments/series",
+            json={
+                "patientId": test_data["patient_id"],
+                # Missing providerId
+                "day": "2026-10-01",
+                "time": "14:00",
+                "freq": "weekly",
+                "occurrences": 2
+            },
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"POST /api/appointments/series (missing providerId) -> {resp.status_code}")
+        if resp.status_code == 400:
+            log(f"✅ B3 PASS: 400 for missing providerId")
+        else:
+            log(f"❌ B3 FAIL: Expected 400, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ B3 ERROR: {e}")
+
+def test_waitlist():
+    """Test C: Waitlist + cancel-offer"""
+    log("\n=== TEST C: WAITLIST + CANCEL-OFFER ===")
+    
+    # C1: POST /api/waitlist
+    log("\nC1: POST /api/waitlist (create waitlist entry)")
+    waitlist_id = None
+    try:
+        resp = requests.post(
+            f"{BASE_URL}/waitlist",
+            json={
+                "patientId": test_data["patient_id"],
+                "providerId": test_data["provider_id"],
+                "reason": "wants earlier PT"
+            },
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"POST /api/waitlist -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"Response: {json.dumps(data, indent=2)}")
+            if data.get("ok") and data.get("id"):
+                waitlist_id = data["id"]
+                test_data["waitlist_entries"].append(waitlist_id)
+                log(f"✅ C1 PASS: Waitlist entry created, ID: {waitlist_id}")
+            else:
+                log(f"❌ C1 FAIL: Response missing ok/id: {data}")
+        else:
+            log(f"❌ C1 FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ C1 ERROR: {e}")
+    
+    if not waitlist_id:
+        log("⚠️ Skipping C2-C6 because waitlist entry was not created")
         return
     
-    # Import playwright after MongoDB check
-    from playwright.async_api import async_playwright
+    # C2: GET /api/waitlist -> includes entry with names
+    log("\nC2: GET /api/waitlist (verify entry with names)")
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/waitlist",
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"GET /api/waitlist -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            entries = data.get("entries", [])
+            log(f"Response: {len(entries)} entries")
+            # Find our entry
+            our_entry = next((e for e in entries if e["id"] == waitlist_id), None)
+            if our_entry:
+                log(f"✅ C2 PASS: Waitlist entry found")
+                log(f"   Entry: {json.dumps(our_entry, indent=2)}")
+                if our_entry.get("patientName") and our_entry.get("providerName"):
+                    log(f"✅ C2 PASS: Entry has patientName and providerName")
+                else:
+                    log(f"❌ C2 FAIL: Entry missing patientName or providerName")
+            else:
+                log(f"❌ C2 FAIL: Waitlist entry {waitlist_id} not found in list")
+        else:
+            log(f"❌ C2 FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ C2 ERROR: {e}")
     
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(ignore_https_errors=True)
-        page = await context.new_page()
-        
+    # C3: Create appointment then cancel -> waitlistOffer
+    log("\nC3: Create appointment then cancel (verify waitlistOffer)")
+    appt_id = None
+    
+    # Create appointment
+    log("C3a: Create appointment for 2026-08-05 at 13:00")
+    try:
+        resp = requests.post(
+            f"{BASE_URL}/appointments",
+            json={
+                "patientId": test_data["patient_id"],
+                "providerId": test_data["provider_id"],
+                "day": "2026-08-05",
+                "time": "13:00"
+            },
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"POST /api/appointments -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("ok") and data.get("appointment", {}).get("id"):
+                appt_id = data["appointment"]["id"]
+                test_data["created_appointments"].append(appt_id)
+                log(f"✅ C3a PASS: Appointment created, ID: {appt_id}")
+            else:
+                log(f"❌ C3a FAIL: Response missing ok/appointment.id: {data}")
+        else:
+            log(f"❌ C3a FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ C3a ERROR: {e}")
+    
+    if not appt_id:
+        log("⚠️ Skipping C3b-C6 because appointment was not created")
+        return
+    
+    # Cancel appointment
+    log("C3b: Cancel appointment (verify waitlistOffer)")
+    try:
+        resp = requests.patch(
+            f"{BASE_URL}/appointments",
+            json={
+                "id": appt_id,
+                "status": "cancelled"
+            },
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"PATCH /api/appointments (cancel) -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"Response: {json.dumps(data, indent=2)}")
+            if data.get("ok"):
+                log(f"✅ C3b PASS: Appointment cancelled")
+                # Check waitlistOffer
+                waitlist_offer = data.get("waitlistOffer")
+                if waitlist_offer:
+                    log(f"✅ C3b PASS: waitlistOffer is non-null")
+                    log(f"   waitlistOffer: {json.dumps(waitlist_offer, indent=2)}")
+                    if waitlist_offer.get("entryId") == waitlist_id:
+                        log(f"✅ C3b PASS: waitlistOffer.entryId matches our waitlist entry ({waitlist_id})")
+                    else:
+                        log(f"❌ C3b FAIL: waitlistOffer.entryId ({waitlist_offer.get('entryId')}) doesn't match our entry ({waitlist_id})")
+                    if waitlist_offer.get("day") == "2026-08-05" and waitlist_offer.get("time") == "13:00":
+                        log(f"✅ C3b PASS: waitlistOffer day/time match cancelled appointment (2026-08-05/13:00)")
+                    else:
+                        log(f"❌ C3b FAIL: waitlistOffer day/time don't match: {waitlist_offer.get('day')}/{waitlist_offer.get('time')}")
+                else:
+                    log(f"❌ C3b FAIL: waitlistOffer is null or missing")
+            else:
+                log(f"❌ C3b FAIL: Response missing ok: {data}")
+        else:
+            log(f"❌ C3b FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ C3b ERROR: {e}")
+    
+    # C4: PATCH /api/waitlist/{id} {status:'filled'}
+    log("\nC4: PATCH /api/waitlist/{id} (mark as filled)")
+    try:
+        resp = requests.patch(
+            f"{BASE_URL}/waitlist/{waitlist_id}",
+            json={
+                "status": "filled",
+                "filledApptId": "test"
+            },
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"PATCH /api/waitlist/{waitlist_id} -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"Response: {json.dumps(data, indent=2)}")
+            if data.get("ok"):
+                log(f"✅ C4 PASS: Waitlist entry marked as filled")
+            else:
+                log(f"❌ C4 FAIL: Response missing ok: {data}")
+        else:
+            log(f"❌ C4 FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ C4 ERROR: {e}")
+    
+    # C5: GET /api/waitlist -> entry no longer listed
+    log("\nC5: GET /api/waitlist (verify entry no longer listed)")
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/waitlist",
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"GET /api/waitlist -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            entries = data.get("entries", [])
+            log(f"Response: {len(entries)} entries")
+            # Check our entry is NOT in the list
+            our_entry = next((e for e in entries if e["id"] == waitlist_id), None)
+            if not our_entry:
+                log(f"✅ C5 PASS: Waitlist entry {waitlist_id} no longer in list (status=filled)")
+            else:
+                log(f"❌ C5 FAIL: Waitlist entry {waitlist_id} still in list: {our_entry}")
+        else:
+            log(f"❌ C5 FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ C5 ERROR: {e}")
+    
+    # C6: DELETE /api/waitlist/{id}
+    log("\nC6: DELETE /api/waitlist/{id}")
+    try:
+        resp = requests.delete(
+            f"{BASE_URL}/waitlist/{waitlist_id}",
+            cookies=test_data["session_cookie"],
+            timeout=10
+        )
+        log(f"DELETE /api/waitlist/{waitlist_id} -> {resp.status_code}")
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"Response: {json.dumps(data, indent=2)}")
+            if data.get("ok"):
+                log(f"✅ C6 PASS: Waitlist entry deleted")
+                # Remove from cleanup list
+                if waitlist_id in test_data["waitlist_entries"]:
+                    test_data["waitlist_entries"].remove(waitlist_id)
+            else:
+                log(f"❌ C6 FAIL: Response missing ok: {data}")
+        else:
+            log(f"❌ C6 FAIL: Expected 200, got {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        log(f"❌ C6 ERROR: {e}")
+
+def cleanup():
+    """Cancel all created appointments and delete waitlist entries"""
+    log("\n=== CLEANUP ===")
+    
+    # Cancel appointments
+    for appt_id in test_data["created_appointments"]:
         try:
-            # ========================================================================
-            # STAFF LOGIN
-            # ========================================================================
-            print("=" * 80)
-            print("STAFF LOGIN")
-            print("=" * 80)
-            
-            login_response = await page.request.post(
-                f"{BASE_URL}/api/auth/login",
-                data=json.dumps({"email": "admin@proactiveclinic.com", "password": "apex123"}),
-                headers={"Content-Type": "application/json"}
+            log(f"Cancelling appointment {appt_id}")
+            resp = requests.patch(
+                f"{BASE_URL}/appointments",
+                json={"id": appt_id, "status": "cancelled"},
+                cookies=test_data["session_cookie"],
+                timeout=10
             )
-            
-            if login_response.status != 200:
-                print(f"❌ Login failed: {login_response.status}")
-                print(await login_response.text())
-                return
-            
-            print(f"✅ Staff login successful (status {login_response.status})")
-            print()
-            
-            # ========================================================================
-            # FEATURE 1: GET /api/drugs/recall?ndc= (openFDA recall lookup)
-            # ========================================================================
-            print("=" * 80)
-            print("FEATURE 1: GET /api/drugs/recall?ndc= (openFDA recall lookup)")
-            print("=" * 80)
-            print()
-            
-            # TEST 1: GET without auth cookie -> 401
-            print("TEST 1: GET /api/drugs/recall?ndc=70710-1159 WITHOUT auth cookie")
-            print("-" * 80)
-            try:
-                no_auth_context = await browser.new_context(ignore_https_errors=True)
-                no_auth_page = await no_auth_context.new_page()
-                no_auth_response = await no_auth_page.request.get(f"{BASE_URL}/api/drugs/recall?ndc=70710-1159")
-                
-                if no_auth_response.status == 401:
-                    print(f"✅ PASS: Returns 401 Unauthorized (status {no_auth_response.status})")
-                else:
-                    print(f"❌ FAIL: Expected 401, got {no_auth_response.status}")
-                    print(await no_auth_response.text())
-                
-                await no_auth_context.close()
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-            print()
-            
-            # TEST 2: GET with invalid NDC format -> 400
-            print("TEST 2: GET /api/drugs/recall?ndc=not-an-ndc as admin")
-            print("-" * 80)
-            try:
-                invalid_ndc_response = await page.request.get(f"{BASE_URL}/api/drugs/recall?ndc=not-an-ndc")
-                
-                if invalid_ndc_response.status == 400:
-                    body = await invalid_ndc_response.json()
-                    if body.get("error") == "Invalid NDC format":
-                        print(f"✅ PASS: Returns 400 with error 'Invalid NDC format'")
-                        print(f"   Response: {json.dumps(body, indent=2)}")
-                    else:
-                        print(f"❌ FAIL: Expected error 'Invalid NDC format', got: {body.get('error')}")
-                else:
-                    print(f"❌ FAIL: Expected 400, got {invalid_ndc_response.status}")
-                    print(await invalid_ndc_response.text())
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-            print()
-            
-            # TEST 3: GET with valid NDC (70710-1159 - known recall at build time)
-            print("TEST 3: GET /api/drugs/recall?ndc=70710-1159 as admin")
-            print("-" * 80)
-            try:
-                recall_response = await page.request.get(f"{BASE_URL}/api/drugs/recall?ndc=70710-1159")
-                
-                if recall_response.status == 200:
-                    body = await recall_response.json()
-                    print(f"✅ PASS: Returns 200")
-                    print(f"   NDC: {body.get('ndc')}")
-                    print(f"   Open: {body.get('open')}")
-                    print(f"   Recalls count: {len(body.get('recalls', []))}")
-                    print(f"   Source: {body.get('source')}")
-                    
-                    # Verify response shape
-                    if "ndc" in body and "open" in body and "recalls" in body and "source" in body:
-                        print(f"✅ Response has required fields: ndc, open, recalls, source")
-                    else:
-                        print(f"❌ FAIL: Missing required fields in response")
-                    
-                    # Check recalls array structure (if non-empty)
-                    recalls = body.get("recalls", [])
-                    if len(recalls) > 0:
-                        print(f"   Recall data found (likely ongoing Class II recall):")
-                        first_recall = recalls[0]
-                        required_fields = ["status", "classification", "reason", "initiatedOn", "firm"]
-                        missing_fields = [f for f in required_fields if f not in first_recall]
-                        if not missing_fields:
-                            print(f"   ✅ First recall has all required fields: {', '.join(required_fields)}")
-                            print(f"      Status: {first_recall.get('status')}")
-                            print(f"      Classification: {first_recall.get('classification')}")
-                            print(f"      Reason: {first_recall.get('reason')[:80]}...")
-                            print(f"      Firm: {first_recall.get('firm')}")
-                        else:
-                            print(f"   ❌ FAIL: Missing fields in recall: {missing_fields}")
-                    else:
-                        print(f"   ⚠️  NOTE: No recalls found (FDA data may have changed)")
-                else:
-                    print(f"❌ FAIL: Expected 200, got {recall_response.status}")
-                    print(await recall_response.text())
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-            print()
-            
-            # TEST 4: GET with valid NDC format but no recall data (99999-9999)
-            print("TEST 4: GET /api/drugs/recall?ndc=99999-9999 as admin")
-            print("-" * 80)
-            try:
-                no_recall_response = await page.request.get(f"{BASE_URL}/api/drugs/recall?ndc=99999-9999")
-                
-                if no_recall_response.status == 200:
-                    body = await no_recall_response.json()
-                    if body.get("recalls") == [] and body.get("open") == False:
-                        print(f"✅ PASS: Returns 200 with empty recalls and open=false")
-                        print(f"   Response: {json.dumps(body, indent=2)}")
-                    else:
-                        print(f"❌ FAIL: Expected empty recalls and open=false")
-                        print(f"   Got: {json.dumps(body, indent=2)}")
-                else:
-                    print(f"❌ FAIL: Expected 200, got {no_recall_response.status}")
-                    print(await no_recall_response.text())
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-            print()
-            
-            # ========================================================================
-            # FEATURE 2: PATCH/DELETE /api/patients/:id/medications/:medId
-            # ========================================================================
-            print("=" * 80)
-            print("FEATURE 2: PATCH/DELETE /api/patients/:id/medications/:medId")
-            print("=" * 80)
-            print()
-            
-            # SETUP: Create a medication for Eleanor Adams
-            print("SETUP: Create medication for Eleanor Adams")
-            print("-" * 80)
-            try:
-                create_med_response = await page.request.post(
-                    f"{BASE_URL}/api/patients/{patient_id}/medications",
-                    data=json.dumps({
-                        "name": "Metformin",
-                        "strength": "500 mg",
-                        "ndc": "12345-678"
-                    }),
-                    headers={"Content-Type": "application/json"}
-                )
-                
-                if create_med_response.status == 201:
-                    med_body = await create_med_response.json()
-                    med_id = med_body.get("medication", {}).get("id")
-                    print(f"✅ Medication created: ID={med_id}")
-                    print(f"   Name: {med_body.get('medication', {}).get('name')}")
-                    print(f"   Strength: {med_body.get('medication', {}).get('strength')}")
-                    print(f"   Status: {med_body.get('medication', {}).get('status')}")
-                else:
-                    print(f"❌ FAIL: Expected 201, got {create_med_response.status}")
-                    print(await create_med_response.text())
-                    return
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-                return
-            print()
-            
-            # TEST 5: PATCH without auth cookie -> 401
-            print("TEST 5: PATCH /api/patients/:id/medications/:medId WITHOUT auth cookie")
-            print("-" * 80)
-            try:
-                no_auth_context2 = await browser.new_context(ignore_https_errors=True)
-                no_auth_page2 = await no_auth_context2.new_page()
-                no_auth_patch_response = await no_auth_page2.request.patch(
-                    f"{BASE_URL}/api/patients/{patient_id}/medications/{med_id}",
-                    data=json.dumps({"status": "discontinued"}),
-                    headers={"Content-Type": "application/json"}
-                )
-                
-                if no_auth_patch_response.status == 401:
-                    print(f"✅ PASS: Returns 401 Unauthorized (status {no_auth_patch_response.status})")
-                else:
-                    print(f"❌ FAIL: Expected 401, got {no_auth_patch_response.status}")
-                    print(await no_auth_patch_response.text())
-                
-                await no_auth_context2.close()
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-            print()
-            
-            # TEST 6: PATCH with empty body -> 400
-            print("TEST 6: PATCH /api/patients/:id/medications/:medId with empty body")
-            print("-" * 80)
-            try:
-                empty_patch_response = await page.request.patch(
-                    f"{BASE_URL}/api/patients/{patient_id}/medications/{med_id}",
-                    data=json.dumps({}),
-                    headers={"Content-Type": "application/json"}
-                )
-                
-                if empty_patch_response.status == 400:
-                    body = await empty_patch_response.json()
-                    if body.get("error") == "No changes provided":
-                        print(f"✅ PASS: Returns 400 with error 'No changes provided'")
-                    else:
-                        print(f"❌ FAIL: Expected error 'No changes provided', got: {body.get('error')}")
-                else:
-                    print(f"❌ FAIL: Expected 400, got {empty_patch_response.status}")
-                    print(await empty_patch_response.text())
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-            print()
-            
-            # TEST 7: PATCH with status='discontinued' -> 200, endDate set
-            print("TEST 7: PATCH /api/patients/:id/medications/:medId with status='discontinued'")
-            print("-" * 80)
-            try:
-                discontinue_response = await page.request.patch(
-                    f"{BASE_URL}/api/patients/{patient_id}/medications/{med_id}",
-                    data=json.dumps({"status": "discontinued"}),
-                    headers={"Content-Type": "application/json"}
-                )
-                
-                if discontinue_response.status == 200:
-                    body = await discontinue_response.json()
-                    medication = body.get("medication", {})
-                    
-                    if medication.get("status") == "discontinued":
-                        print(f"✅ PASS: Status updated to 'discontinued'")
-                    else:
-                        print(f"❌ FAIL: Expected status 'discontinued', got: {medication.get('status')}")
-                    
-                    if medication.get("endDate") is not None:
-                        print(f"✅ PASS: endDate is set: {medication.get('endDate')}")
-                    else:
-                        print(f"❌ FAIL: endDate is null (should be set)")
-                    
-                    print(f"   Full medication: {json.dumps(medication, indent=2)}")
-                else:
-                    print(f"❌ FAIL: Expected 200, got {discontinue_response.status}")
-                    print(await discontinue_response.text())
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-            print()
-            
-            # TEST 8: GET medications (should NOT include discontinued)
-            print("TEST 8: GET /api/patients/:id/medications (should NOT include discontinued)")
-            print("-" * 80)
-            try:
-                get_meds_response = await page.request.get(f"{BASE_URL}/api/patients/{patient_id}/medications")
-                
-                if get_meds_response.status == 200:
-                    body = await get_meds_response.json()
-                    medications = body.get("medications", [])
-                    
-                    # Check if our discontinued Metformin is in the list
-                    metformin_found = any(m.get("id") == med_id for m in medications)
-                    
-                    if not metformin_found:
-                        print(f"✅ PASS: Discontinued Metformin NOT in active medications list")
-                        print(f"   Total active medications: {len(medications)}")
-                    else:
-                        print(f"❌ FAIL: Discontinued Metformin still appears in active medications")
-                        print(f"   Medications: {json.dumps(medications, indent=2)}")
-                else:
-                    print(f"❌ FAIL: Expected 200, got {get_meds_response.status}")
-                    print(await get_meds_response.text())
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-            print()
-            
-            # TEST 9: PATCH with bogus medId -> 404
-            print("TEST 9: PATCH /api/patients/:id/medications/nope123 (bogus medId)")
-            print("-" * 80)
-            try:
-                bogus_patch_response = await page.request.patch(
-                    f"{BASE_URL}/api/patients/{patient_id}/medications/nope123",
-                    data=json.dumps({"status": "discontinued"}),
-                    headers={"Content-Type": "application/json"}
-                )
-                
-                if bogus_patch_response.status == 404:
-                    body = await bogus_patch_response.json()
-                    if body.get("error") == "Medication not found":
-                        print(f"✅ PASS: Returns 404 with error 'Medication not found'")
-                    else:
-                        print(f"❌ FAIL: Expected error 'Medication not found', got: {body.get('error')}")
-                else:
-                    print(f"❌ FAIL: Expected 404, got {bogus_patch_response.status}")
-                    print(await bogus_patch_response.text())
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-            print()
-            
-            # TEST 10: DELETE medication -> 200
-            print("TEST 10: DELETE /api/patients/:id/medications/:medId")
-            print("-" * 80)
-            try:
-                delete_response = await page.request.delete(f"{BASE_URL}/api/patients/{patient_id}/medications/{med_id}")
-                
-                if delete_response.status == 200:
-                    body = await delete_response.json()
-                    if body.get("ok") == True:
-                        print(f"✅ PASS: Returns 200 with ok=true")
-                    else:
-                        print(f"❌ FAIL: Expected ok=true, got: {body}")
-                else:
-                    print(f"❌ FAIL: Expected 200, got {delete_response.status}")
-                    print(await delete_response.text())
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-            print()
-            
-            # TEST 11: DELETE same medId again -> 404
-            print("TEST 11: DELETE /api/patients/:id/medications/:medId again (should be 404)")
-            print("-" * 80)
-            try:
-                delete_again_response = await page.request.delete(f"{BASE_URL}/api/patients/{patient_id}/medications/{med_id}")
-                
-                if delete_again_response.status == 404:
-                    body = await delete_again_response.json()
-                    if body.get("error") == "Medication not found":
-                        print(f"✅ PASS: Returns 404 with error 'Medication not found'")
-                    else:
-                        print(f"❌ FAIL: Expected error 'Medication not found', got: {body.get('error')}")
-                else:
-                    print(f"❌ FAIL: Expected 404, got {delete_again_response.status}")
-                    print(await delete_again_response.text())
-            except Exception as e:
-                print(f"❌ ERROR: {e}")
-            print()
-            
-            print("=" * 80)
-            print("BACKEND TEST COMPLETE")
-            print("=" * 80)
-            
+            if resp.status_code == 200:
+                log(f"✅ Cancelled appointment {appt_id}")
+            else:
+                log(f"⚠️ Failed to cancel appointment {appt_id}: {resp.status_code}")
         except Exception as e:
-            print(f"❌ CRITICAL ERROR: {e}")
-            import traceback
-            traceback.print_exc()
-        finally:
-            await browser.close()
+            log(f"⚠️ Error cancelling appointment {appt_id}: {e}")
+    
+    # Delete waitlist entries
+    for entry_id in test_data["waitlist_entries"]:
+        try:
+            log(f"Deleting waitlist entry {entry_id}")
+            resp = requests.delete(
+                f"{BASE_URL}/waitlist/{entry_id}",
+                cookies=test_data["session_cookie"],
+                timeout=10
+            )
+            if resp.status_code == 200:
+                log(f"✅ Deleted waitlist entry {entry_id}")
+            else:
+                log(f"⚠️ Failed to delete waitlist entry {entry_id}: {resp.status_code}")
+        except Exception as e:
+            log(f"⚠️ Error deleting waitlist entry {entry_id}: {e}")
+    
+    log(f"\n✅ Cleanup complete. Cancelled {len(test_data['created_appointments'])} appointments, deleted {len(test_data['waitlist_entries'])} waitlist entries.")
+
+def main():
+    log("=" * 80)
+    log("BACKEND TEST: Working hours + recurring series + waitlist")
+    log("=" * 80)
+    
+    # Step 1: Login
+    if not login():
+        log("\n❌ FATAL: Authentication failed, cannot proceed")
+        return
+    
+    # Step 2: Setup test data
+    if not setup_test_data():
+        log("\n❌ FATAL: Failed to get test data, cannot proceed")
+        return
+    
+    # Step 3: Run tests
+    test_working_hours()
+    test_recurring_series()
+    test_waitlist()
+    
+    # Step 4: Cleanup
+    cleanup()
+    
+    log("\n" + "=" * 80)
+    log("TEST COMPLETE")
+    log("=" * 80)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

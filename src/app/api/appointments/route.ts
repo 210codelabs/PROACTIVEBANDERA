@@ -194,7 +194,39 @@ export async function PATCH(req: Request) {
 
     const updated = await db.appointment.update({ where: { id: b.id }, data });
     const st = updated.startsAt;
-    return NextResponse.json({ ok: true, appointment: updated, shifted, day: `${st.getFullYear()}-${String(st.getMonth() + 1).padStart(2, "0")}-${String(st.getDate()).padStart(2, "0")}`, time: `${String(st.getHours()).padStart(2, "0")}:${String(st.getMinutes()).padStart(2, "0")}` });
+
+    // Waitlist fill: when a booked appointment is cancelled, surface the next
+    // waiting patient so staff can offer them the freed slot in one click.
+    let waitlistOffer: any = null;
+    if (data.status === "cancelled" && existing.status !== "cancelled") {
+      const freedStart = existing.startsAt;
+      const freedDay = `${freedStart.getFullYear()}-${String(freedStart.getMonth() + 1).padStart(2, "0")}-${String(freedStart.getDate()).padStart(2, "0")}`;
+      const freedTime = `${String(freedStart.getHours()).padStart(2, "0")}:${String(freedStart.getMinutes()).padStart(2, "0")}`;
+      const cand = await db.waitlist.findFirst({
+        where: {
+          status: "waiting",
+          OR: [{ providerId: existing.providerId }, { providerId: null }],
+          AND: [{ OR: [{ preferredFrom: null }, { preferredFrom: { lte: freedDay } }] }],
+        },
+        orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
+      }).catch(() => null);
+      if (cand) {
+        const p = await db.patient.findUnique({ where: { id: cand.patientId }, select: { firstName: true, lastName: true, mrn: true } }).catch(() => null);
+        waitlistOffer = {
+          entryId: cand.id,
+          patientId: cand.patientId,
+          patientName: p ? `${p.lastName}, ${p.firstName}` : "Waitlisted patient",
+          mrn: p?.mrn || "",
+          providerId: existing.providerId,
+          serviceTypeId: cand.serviceTypeId || existing.serviceTypeId || null,
+          reason: cand.reason || existing.reason || null,
+          day: freedDay,
+          time: freedTime,
+        };
+      }
+    }
+
+    return NextResponse.json({ ok: true, appointment: updated, shifted, waitlistOffer, day: `${st.getFullYear()}-${String(st.getMonth() + 1).padStart(2, "0")}-${String(st.getDate()).padStart(2, "0")}`, time: `${String(st.getHours()).padStart(2, "0")}:${String(st.getMinutes()).padStart(2, "0")}` });
   } catch {
     return NextResponse.json({ error: "Appointment updates are temporarily unavailable" }, { status: 503 });
   }
