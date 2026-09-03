@@ -684,3 +684,10 @@ Deliverable: submission-ready PDF mapping all 18 Weno EZ Integration Test Plan s
 - Evidence PNGs: /app/public/weno-evidence/*.png. Report generator: /app/scripts/build_weno_pdf.py; screenshot capture: /app/scripts/weno_evidence_shots.py.
 - Download link (preview only): {NEXT_PUBLIC_BASE_URL}/ClinicaFamiliarBandera_EZTestPlan_09032026_v1.pdf  (middleware allows `.pdf` static serving).
 - Honest status: sections 5,6,7,8,9,12 PASS with screenshots; 2,4,13 implemented; 3 pending Weno IP allowlist; 11/15/16 need the prescriber's live TEST send/CancelRx screenshots; 10 practice attestation; 17/18 optional. NOT a claim of Weno production certification.
+
+### Update — v2 (registered prescriber + ComposeRx compose evidence)
+- Registered TEST prescriber Yosvani Soto (NPI 1780459438, Tax ID 825387756) as DEFAULT in EHR Weno prescriber directory (POST /api/admin/weno/prescribers).
+- New evidence PNGs: 08-prescriber-registered.png, 09-composerx-compose.png (ComposeRx compose form populated SIG/refills/days — non-destructive, not signed/sent).
+- Key finding: official EZ Integration Guide (07-25-2025) documents NewRx(ComposeRx)/Sync(DownloadNewRxSyncDataVal)/RxLog/PharmacyDirectory but has **NO CancelRx API** — sections 15/16 CancelRx are Weno-Online-side actions reflected via the Sync Report. Section 11 signed Send + sections 15/16 require a prescriber registered in the WENO ONLINE dashboard (not just EHR) to complete live.
+- Deliverable: /app/public/ClinicaFamiliarBandera_EZTestPlan_09032026_v2.pdf (27 pages). Link: {NEXT_PUBLIC_BASE_URL}/ClinicaFamiliarBandera_EZTestPlan_09032026_v2.pdf
+- Scripts: weno_composerx_probe.py (DOM discovery), weno_composerx_capture.py (evidence), build_weno_pdf.py (report).

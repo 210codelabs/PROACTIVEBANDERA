@@ -7,7 +7,7 @@ downloadable from the preview URL. Nothing is sent to production.
 import base64, os, subprocess, mimetypes, html
 
 EVID = "/app/public/weno-evidence"
-OUT_PDF = "/app/public/ClinicaFamiliarBandera_EZTestPlan_09032026_v1.pdf"
+OUT_PDF = "/app/public/ClinicaFamiliarBandera_EZTestPlan_09032026_v2.pdf"
 HTML_PATH = os.path.join(EVID, "report.html")
 CHROME = "/root/bin/chromium"
 
@@ -23,6 +23,7 @@ def data_uri(fname):
 IMG = {n: data_uri(n) for n in [
     "01-demographics.png", "02-pharmacy-search.png", "03-medications.png",
     "04-composerx.png", "05-rxlog.png", "06-guide.png", "07-admin-connections.png",
+    "08-prescriber-registered.png", "09-composerx-compose.png",
 ]}
 
 def fig(fname, caption):
@@ -53,6 +54,7 @@ sections.append(("1", "REQUIRED — Enter Your Account Details", pill("done"), "
 <tr><th>Account Name</th><td>CLÍNICA FAMILIAR BANDERA LLC</td></tr>
 <tr><th>EHR product / integrator</th><td>ProactiveClinics (ProactiveCore EHR) — integration built in-house</td></tr>
 <tr><th>Do you outsource this integration?</th><td>No — developed and maintained by the ProactiveClinics engineering team.</td></tr>
+<tr><th>Registered TEST prescriber</th><td>Yosvani Soto — NPI 1780459438, Tax ID 825387756 (set as default prescriber in the EHR eRx module)</td></tr>
 <tr><th>Prescribers planned after go-live</th><td>1&ndash;3 initially (to be confirmed by the practice)</td></tr>
 <tr><th>Facility NPI</th><td>1457273203</td></tr>
 <tr><th>Weno Location ID</th><td>L14887</td></tr>
@@ -72,7 +74,8 @@ The EHR also surfaces the registered prescriber(s) and Location ID inside
 <li>&#9745; Dashboards on Weno Online (primary method for add/remove users &amp; locations).</li>
 <li>&#9744; Weno Online Manage APIs (not required for go-live; may be adopted later).</li>
 </ul>
-""" + fig("07-admin-connections.png", "Figure 2 — Admin &rarr; Connection Health: Weno Online (EZ Integration) configuration, registered prescriber and Location ID (secrets masked).")))
+""" + fig("07-admin-connections.png", "Figure 2a — Admin &rarr; Connection Health: Weno Online (EZ Integration) configuration, registered prescriber and Location ID (secrets masked).")
+   + fig("08-prescriber-registered.png", "Figure 2b — Weno-registered prescribers: Yosvani Soto (NPI 1780459438) set as the default TEST prescriber for the eRx module.")))
 
 sections.append(("3", "REQUIRED — Domains and Registered Location IPs", pill("coord"), """
 <p><strong>Pass/Fail notes:</strong> The ComposeRx and RxLog iFrames are launched from the EHR domain shown below.
@@ -139,18 +142,19 @@ sections.append(("10", "REQUIRED — HIPAA / HITECH Attestation", pill("attest")
 """))
 
 sections.append(("11", "REQUIRED — ComposeRx iFrame", pill("live"), """
-<p><strong>Pass/Fail notes — Evidence (1) is complete; Evidence (2) and (3) are the prescriber's live TEST step.</strong></p>
+<p><strong>Pass/Fail notes — the ComposeRx compose flow is demonstrated end-to-end up to the signature; the final Sign &amp; Send and the sync/chart confirmation are the registered prescriber's live TEST step.</strong></p>
 <p><em>Evidence (1):</em> The Weno ComposeRx screen launches inside the EHR via the encrypted iFrame, pre-populated with
 the real facility (<strong>CLÍNICA FAMILIAR BANDERA LLC</strong>) and the selected patient (Eleanor Adams, DOB 1958-04-12).
 This confirms the AES-256-CBC payload, <code>useremail</code> and Location ID are accepted by Weno in TEST mode.</p>
 """ + fig("04-composerx.png", "Figure 11a — ComposeRx iFrame launched from within the EHR (Practice Location = CLÍNICA FAMILIAR BANDERA LLC; TEST mode).")
-   + fig("03-medications.png", "Figure 11b — Patient Medications tab with &ldquo;e-Prescribe (Weno)&rdquo; launch and &ldquo;Sync from Weno&rdquo; to record the sent NewRx.")
+   + fig("09-composerx-compose.png", "Figure 11b — ComposeRx compose form populated inside the EHR (SIG, Refills, Days Supply) and ready for the prescriber to sign &amp; send.")
+   + fig("03-medications.png", "Figure 11c — Patient Medications tab with &ldquo;e-Prescribe (Weno)&rdquo; launch and &ldquo;Sync from Weno&rdquo; to record the sent NewRx.")
    + """
-<p class="note"><strong>Evidence (2) &amp; (3) — prescriber live TEST step:</strong> a registered prescriber selects a drug in the
-ComposeRx screen above and clicks Send; then clicks <em>&ldquo;Sync from Weno&rdquo;</em> on the Medications tab. The same NewRx
-then appears on the NewRx Sync Report and is recorded in the patient's Medication List (mechanism verified — the on-demand
-sync endpoint returns the report for the patient/date window; see Section 13). Screenshots of the completed send will be
-attached by the prescriber after the live TEST send.</p>
+<p class="note"><strong>Evidence (2) &amp; (3) — registered-prescriber live TEST step:</strong> Yosvani Soto (NPI 1780459438) is set as the
+default TEST prescriber (Figure 2b). Per the Weno EZ Guide, a user with an ePrescribing role signs &amp; sends from the
+ComposeRx screen above; the prescriber then clicks <em>&ldquo;Sync from Weno&rdquo;</em> on the Medications tab and the same NewRx
+appears on the NewRx Sync Report and in the patient's Medication List (sync mechanism verified — see Section 13). The final
+signed send is completed by the Weno-registered prescriber in TEST mode, and those confirmation screenshots will be attached here.</p>
 """))
 
 sections.append(("12", "REQUIRED — RxLog View on Demand by User", pill("pass"), """
@@ -178,8 +182,10 @@ scheduled to run frequently during clinic hours and less frequently off-hours �
 """))
 
 sections.append(("15", "REQUIRED — CancelRx Approved Testing", pill("live"), """
-<p><strong>Pass/Fail notes:</strong> CancelRx messaging is implemented (SCRIPT CancelRx referencing the original NewRx
-MessageID). The required approved-cancel round trip is a live TEST step to be completed by the prescriber:</p>
+<p><strong>Pass/Fail notes:</strong> The Weno EZ Integration Guide does not define an EHR-side CancelRx API — in EZ mode the
+CancelRx is initiated by the prescriber inside Weno Online, and the outcome flows back to the EHR through the NewRx Sync
+Report (Section 13), which updates the patient's Medication List. The approved-cancel round trip below is a live TEST step
+for the registered prescriber (Yosvani Soto):</p>
 <ol>
 <li><em>(a)</em> Send a NewRx to NCPDP <code>TestWOLPendingPharmacy</code> — the drug shows in the patient's chart.</li>
 <li><em>(b)</em> Send a CancelRx for that NewRx with header <code>&lt;RxReferenceNumber&gt;EXPECTED_CANCELRX_APPROVED&lt;/RxReferenceNumber&gt;</code>.</li>
@@ -191,7 +197,9 @@ same one verified in Sections 12 and 13.</p>
 """))
 
 sections.append(("16", "REQUIRED — CancelRx Denied Testing", pill("live"), """
-<p><strong>Pass/Fail notes:</strong> Same CancelRx capability as Section 15. The denied-cancel round trip is a live TEST step:</p>
+<p><strong>Pass/Fail notes:</strong> As in Section 15, EZ-mode CancelRx is performed by the prescriber in Weno Online and the
+outcome is reflected in the EHR via the NewRx Sync Report. The denied-cancel round trip below is a live TEST step for the
+registered prescriber (Yosvani Soto):</p>
 <ol>
 <li><em>(e)</em> Send a NewRx to NCPDP <code>TestWOLPendingPharmacy</code> — the drug shows in the chart.</li>
 <li><em>(f)</em> Send a CancelRx with header <code>&lt;RxReferenceNumber&gt;EXPECTED_CANCELRX_DENIED&lt;/RxReferenceNumber&gt;</code>.</li>
@@ -221,7 +229,11 @@ appendix = """
 <tr><th>RxLog</th><td>Encrypted { UserEmail, MD5Password } &rarr; GET /en/EPCS/RxLog, embedded in an EHR iFrame.</td></tr>
 <tr><th>Credentials handling</th><td>UserEmail, MD5Password, Location ID and the EZ encryption key are stored server-side only (never in client code or logs). The password is MD5-hashed before use. All secrets are masked in this document and in the EHR UI.</td></tr>
 </table>
-<p class="note">Sensitive values (password/MD5, encryption key) are intentionally masked in the screenshots and text above.</p>
+<p class="note">Sensitive values (password/MD5, encryption key) are intentionally masked in the screenshots and text above.
+The Sync (<code>/en/EPCS/DownloadNewRxSyncDataVal</code>) and RxLog (<code>/en/EPCS/RxLog</code>) endpoints and their
+request fields (UserEmail, MD5Password, FromDate/ToDate, ResponseFormat) match the Weno EZ Integration Guide (07-25-2025)
+exactly. The EZ Guide does not define an EHR-side CancelRx API; CancelRx (Sections 15&ndash;16) is therefore performed in
+Weno Online and reflected in the EHR via the NewRx Sync Report.</p>
 """
 
 # ---- Assemble HTML --------------------------------------------------------
@@ -288,11 +300,11 @@ HTML = f"""<!doctype html><html><head><meta charset="utf-8"><title>Weno EZ Integ
       <tr><th>Facility NPI</th><td>1457273203</td></tr>
       <tr><th>Environment</th><td>TEST mode</td></tr>
       <tr><th>Submission date</th><td>{DATE_LONG}</td></tr>
-      <tr><th>Document version</th><td>v1</td></tr>
+      <tr><th>Document version</th><td>v2</td></tr>
       <tr><th>Prepared by</th><td>ProactiveClinics integration team</td></tr>
     </table>
     <div class="badge">Preview / TEST evidence — not a claim of Weno production certification</div>
-    <div class="foot">Return completed plan to admin@wenoexchange.com · File: ClinicaFamiliarBandera_EZTestPlan_09032026_v1</div>
+    <div class="foot">Return completed plan to admin@wenoexchange.com · File: ClinicaFamiliarBandera_EZTestPlan_09032026_v2</div>
   </div>
 
   <h1>Test Plan &amp; Evidence</h1>
