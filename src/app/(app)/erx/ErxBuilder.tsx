@@ -318,6 +318,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
 
   async function submit() {
     setErr(null);
+    if (npiValid !== true) { setErr("Provider NPI must be verified against NPPES (\u201cNPI Valid\u201d) before signing."); return; }
     if (!med.medName.trim()) { setErr("Select or enter a medication."); return; }
     if (!patient && !patQ.trim()) { setErr("Select a patient."); return; }
     if (!sig) { setErr("Add your e-signature to sign the prescription."); return; }
@@ -701,7 +702,10 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
         <SignaturePad onChange={setSig} />
 
         {err && <div className="rounded-md bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-3 py-2 text-sm">{err}</div>}
-        <button onClick={submit} disabled={busy} className="btn-primary w-full py-3">{busy ? "Signing…" : "Sign & generate prescription"}</button>
+        <button onClick={submit} disabled={busy || npiValid !== true} className="btn-primary w-full py-3 disabled:opacity-60 disabled:cursor-not-allowed">{busy ? "Signing…" : "Sign & generate prescription"}</button>
+        {npiValid !== true && (
+          <p className="text-[11px] font-medium text-rose-600">Enter a valid Provider NPI (verified as “NPI Valid” against NPPES) to enable signing.</p>
+        )}
         <p className="text-[10px] text-slate-400">The PDF includes the practice letterhead &amp; NPI, pharmacy details, and your NPI + e-signature. Demo build — not for clinical use.</p>
       </section>
       </div>
