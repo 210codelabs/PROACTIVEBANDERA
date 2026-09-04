@@ -691,3 +691,9 @@ Deliverable: submission-ready PDF mapping all 18 Weno EZ Integration Test Plan s
 - Key finding: official EZ Integration Guide (07-25-2025) documents NewRx(ComposeRx)/Sync(DownloadNewRxSyncDataVal)/RxLog/PharmacyDirectory but has **NO CancelRx API** — sections 15/16 CancelRx are Weno-Online-side actions reflected via the Sync Report. Section 11 signed Send + sections 15/16 require a prescriber registered in the WENO ONLINE dashboard (not just EHR) to complete live.
 - Deliverable: /app/public/ClinicaFamiliarBandera_EZTestPlan_09032026_v2.pdf (27 pages). Link: {NEXT_PUBLIC_BASE_URL}/ClinicaFamiliarBandera_EZTestPlan_09032026_v2.pdf
 - Scripts: weno_composerx_probe.py (DOM discovery), weno_composerx_capture.py (evidence), build_weno_pdf.py (report).
+
+### Update — v3 (Section 11 NewRx send COMPLETED)
+- Prescriber (Yosvani Soto) signed & sent a NewRx (amoxicillin 125mg) via ComposeRx iFrame → Weno status "Sent to intermediary". Screenshot: public/weno-evidence/10-composerx-sent.png. Section 11 now PASS.
+- rx-sync for that patient (Liam O'Connor) returns 0 rows so far — Weno publishing delay between "Sent to intermediary" and DownloadNewRxSyncData; sync mechanism verified (correct 7-day window).
+- Deliverable: /app/public/ClinicaFamiliarBandera_EZTestPlan_09032026_v3.pdf (28 pages). Link: {NEXT_PUBLIC_BASE_URL}/ClinicaFamiliarBandera_EZTestPlan_09032026_v3.pdf
+- Remaining: Sections 15/16 CancelRx (approved/denied) — customer live step in Weno Online (TestWOLPendingPharmacy + RxReferenceNumber). Also Weno directory download returns zip; ask Weno for CSV/delimited partner format.

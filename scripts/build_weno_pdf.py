@@ -7,7 +7,7 @@ downloadable from the preview URL. Nothing is sent to production.
 import base64, os, subprocess, mimetypes, html
 
 EVID = "/app/public/weno-evidence"
-OUT_PDF = "/app/public/ClinicaFamiliarBandera_EZTestPlan_09032026_v2.pdf"
+OUT_PDF = "/app/public/ClinicaFamiliarBandera_EZTestPlan_09032026_v3.pdf"
 HTML_PATH = os.path.join(EVID, "report.html")
 CHROME = "/root/bin/chromium"
 
@@ -23,7 +23,7 @@ def data_uri(fname):
 IMG = {n: data_uri(n) for n in [
     "01-demographics.png", "02-pharmacy-search.png", "03-medications.png",
     "04-composerx.png", "05-rxlog.png", "06-guide.png", "07-admin-connections.png",
-    "08-prescriber-registered.png", "09-composerx-compose.png",
+    "08-prescriber-registered.png", "09-composerx-compose.png", "10-composerx-sent.png",
 ]}
 
 def fig(fname, caption):
@@ -141,20 +141,24 @@ sections.append(("10", "REQUIRED — HIPAA / HITECH Attestation", pill("attest")
 (see Technical Appendix). Weno is treated as a HIPAA business associate. The practice will complete the attestation above prior to go-live.</p>
 """))
 
-sections.append(("11", "REQUIRED — ComposeRx iFrame", pill("live"), """
-<p><strong>Pass/Fail notes — the ComposeRx compose flow is demonstrated end-to-end up to the signature; the final Sign &amp; Send and the sync/chart confirmation are the registered prescriber's live TEST step.</strong></p>
-<p><em>Evidence (1):</em> The Weno ComposeRx screen launches inside the EHR via the encrypted iFrame, pre-populated with
-the real facility (<strong>CLÍNICA FAMILIAR BANDERA LLC</strong>) and the selected patient (Eleanor Adams, DOB 1958-04-12).
+sections.append(("11", "REQUIRED — ComposeRx iFrame", pill("pass"), """
+<p><strong>Pass/Fail notes — a NewRx was completed and sent from the ComposeRx iFrame inside the EHR (TEST mode).</strong></p>
+<p><em>Evidence (1) — launch:</em> The Weno ComposeRx screen launches inside the EHR via the encrypted iFrame, pre-populated with
+the real facility (<strong>CLÍNICA FAMILIAR BANDERA LLC</strong>) and the selected patient.
 This confirms the AES-256-CBC payload, <code>useremail</code> and Location ID are accepted by Weno in TEST mode.</p>
 """ + fig("04-composerx.png", "Figure 11a — ComposeRx iFrame launched from within the EHR (Practice Location = CLÍNICA FAMILIAR BANDERA LLC; TEST mode).")
-   + fig("09-composerx-compose.png", "Figure 11b — ComposeRx compose form populated inside the EHR (SIG, Refills, Days Supply) and ready for the prescriber to sign &amp; send.")
-   + fig("03-medications.png", "Figure 11c — Patient Medications tab with &ldquo;e-Prescribe (Weno)&rdquo; launch and &ldquo;Sync from Weno&rdquo; to record the sent NewRx.")
+   + fig("09-composerx-compose.png", "Figure 11b — ComposeRx compose form populated inside the EHR (SIG, Refills, Days Supply).")
    + """
-<p class="note"><strong>Evidence (2) &amp; (3) — registered-prescriber live TEST step:</strong> Yosvani Soto (NPI 1780459438) is set as the
-default TEST prescriber (Figure 2b). Per the Weno EZ Guide, a user with an ePrescribing role signs &amp; sends from the
-ComposeRx screen above; the prescriber then clicks <em>&ldquo;Sync from Weno&rdquo;</em> on the Medications tab and the same NewRx
-appears on the NewRx Sync Report and in the patient's Medication List (sync mechanism verified — see Section 13). The final
-signed send is completed by the Weno-registered prescriber in TEST mode, and those confirmation screenshots will be attached here.</p>
+<p><em>Evidence (2) — completed &amp; sent:</em> The prescriber (Yosvani Soto) selected a drug (amoxicillin 125 mg chewable tablet),
+signed on-screen, and sent the NewRx to the WENO-connected pharmacy. Weno returned status <strong>&ldquo;Sent to intermediary&rdquo;</strong>,
+confirming the NewRx was transmitted from the ComposeRx iFrame.</p>
+""" + fig("10-composerx-sent.png", "Figure 11c — NewRx completed &amp; sent from the ComposeRx iFrame inside the EHR: amoxicillin 125&nbsp;MG to &ldquo;On WENO! Test Direct Pharmacy&rdquo; (NCPDP 1234567) — Status: &ldquo;Sent to intermediary&rdquo;.")
+   + fig("03-medications.png", "Figure 11d — Patient Medications tab with &ldquo;e-Prescribe (Weno)&rdquo; and &ldquo;Sync from Weno&rdquo; to record the sent NewRx into the chart.")
+   + """
+<p class="note"><strong>Evidence (3) — chart record:</strong> Clicking <em>&ldquo;Sync from Weno&rdquo;</em> pulls the NewRx Sync Report for the
+patient and records the drug in the Medication List. The sync mechanism is verified (returns the correct 7-day window; see Section 13);
+the sent NewRx populates the chart on the next sync once Weno publishes it to the NewRx Sync Report (there is a normal publishing
+delay between &ldquo;Sent to intermediary&rdquo; and the sync report).</p>
 """))
 
 sections.append(("12", "REQUIRED — RxLog View on Demand by User", pill("pass"), """
@@ -300,11 +304,11 @@ HTML = f"""<!doctype html><html><head><meta charset="utf-8"><title>Weno EZ Integ
       <tr><th>Facility NPI</th><td>1457273203</td></tr>
       <tr><th>Environment</th><td>TEST mode</td></tr>
       <tr><th>Submission date</th><td>{DATE_LONG}</td></tr>
-      <tr><th>Document version</th><td>v2</td></tr>
+      <tr><th>Document version</th><td>v3</td></tr>
       <tr><th>Prepared by</th><td>ProactiveClinics integration team</td></tr>
     </table>
     <div class="badge">Preview / TEST evidence — not a claim of Weno production certification</div>
-    <div class="foot">Return completed plan to admin@wenoexchange.com · File: ClinicaFamiliarBandera_EZTestPlan_09032026_v2</div>
+    <div class="foot">Return completed plan to admin@wenoexchange.com · File: ClinicaFamiliarBandera_EZTestPlan_09032026_v3</div>
   </div>
 
   <h1>Test Plan &amp; Evidence</h1>
