@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
-import { getWenoConfig } from "@/lib/weno";
 import { getWenoOnlineConfig, isWenoOnlineConfigured, buildComposeRxUrl } from "@/lib/wenoOnline";
 
 export const runtime = "nodejs";
@@ -13,9 +12,8 @@ export async function GET() {
   try { await requireSession(); } catch { return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); }
 
   const online = await getWenoOnlineConfig();
-  const sw = await getWenoConfig();
 
-  // Weno Online (ComposeRx launch) — the primary eRx path.
+  // Weno Online (ComposeRx launch) — the only eRx path (EZ Integration).
   let onlineOk = false;
   let onlineMsg: string;
   if (!online.enabled) {
@@ -26,22 +24,14 @@ export async function GET() {
     try {
       buildComposeRxUrl(online, { id: "TEST", firstName: "Test", lastName: "Patient", gender: "U", dob: "1990-01-01" }, {});
       onlineOk = true;
-      onlineMsg = `Ready (${online.environment}) — ComposeRx launch builds for ${online.providerEmail}.`;
+      onlineMsg = `Ready (${online.environment}) — ComposeRx (EZ Integration) launch verified.`;
     } catch (e: any) {
       onlineMsg = String(e?.message || e).slice(0, 200);
     }
   }
 
-  const switchConfigured = Boolean(sw.partnerId && sw.md5Password);
-  const switchMsg = !sw.enabled
-    ? "Switch (NewRx/CancelRx) not enabled."
-    : switchConfigured
-      ? `Configured (${sw.environment}). Live delivery requires Weno certification + IP allowlist.`
-      : "Enabled but missing Partner ID / password.";
-
   return NextResponse.json({
-    ok: onlineOk || switchConfigured,
+    ok: onlineOk,
     online: { enabled: online.enabled, configured: isWenoOnlineConfigured(online), ok: onlineOk, environment: online.environment, message: onlineMsg },
-    switch: { enabled: sw.enabled, configured: switchConfigured, environment: sw.environment, message: switchMsg },
   });
 }

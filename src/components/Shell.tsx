@@ -128,7 +128,7 @@ export default function Shell({
       ],
     },
     { label: t("nav.pharmacy"), href: "/pharmacy", icon: <Icon.Pill /> },
-    { label: "eRx", href: "/erx", icon: <Icon.Pill /> },
+    { label: "E-Prescribe", href: "/erx", icon: <Icon.Pill /> },
     { label: t("nav.pos"), href: "/pos", icon: <Icon.Register /> },
     { label: t("nav.inventory"), href: "/inventory", icon: <Icon.Box /> },
     {

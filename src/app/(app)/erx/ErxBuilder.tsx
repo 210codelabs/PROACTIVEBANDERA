@@ -23,6 +23,9 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
   const [providerNpi, setProviderNpi] = useState(defaultNpi);
   const [providerDea, setProviderDea] = useState(defaultDea);
+  const [provName, setProvName] = useState(providerName);
+  const [npiValid, setNpiValid] = useState<null | boolean>(null);
+  const [npiChecking, setNpiChecking] = useState(false);
   const [profileDea, setProfileDea] = useState(defaultDea); // last value saved to the provider profile
   const [savingProfile, setSavingProfile] = useState<string>("");
   const [histQ, setHistQ] = useState("");
@@ -130,8 +133,27 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   function selectPrescriber(id: string) {
     setSelectedPrescriberId(id);
     const p = wenoPrescribers.find((x) => x.id === id);
-    if (p) { setProviderNpi(p.npi || ""); setProviderDea(p.dea || ""); }
+    if (p) { setProviderNpi(p.npi || ""); setProviderDea(p.dea || ""); if (p.name) setProvName(p.name); }
   }
+
+  // Self-verify the entered Provider NPI against the national registry (NPPES).
+  // Shows a green "NPI Valid" when the number is found, red "Not Valid" otherwise.
+  useEffect(() => {
+    const digits = (providerNpi || "").replace(/\D/g, "");
+    if (digits.length !== 10) { setNpiValid(null); setNpiChecking(false); return; }
+    setNpiChecking(true); setNpiValid(null);
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/nppes/search?npi=${digits}`);
+        const d = await r.json();
+        const results = Array.isArray(d.results) ? d.results : [];
+        const found = results.length > 0;
+        setNpiValid(found);
+        if (found && results[0]?.name) setProvName((cur) => cur && cur.trim() ? cur : results[0].name);
+      } catch { setNpiValid(null); } finally { setNpiChecking(false); }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [providerNpi]);
 
   async function searchNpi() {
     if (!npiQ.first.trim() && !npiQ.last.trim()) return;
@@ -152,8 +174,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
       const r = await fetch("/api/erx/weno-test");
       const d = await r.json();
       const parts: string[] = [];
-      if (d.online) parts.push(`Weno Online — ${d.online.message}`);
-      if (d.switch) parts.push(`Switch — ${d.switch.message}`);
+      if (d.online) parts.push(`Weno Online (EZ Integration) — ${d.online.message}`);
       setWenoTest({ ok: Boolean(d.ok), text: parts.join("  ·  ") || "No response." });
     } catch { setWenoTest({ ok: false, text: "Test request failed." }); } finally { setWenoTestBusy(false); }
   }
@@ -319,7 +340,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
         pharmacyName: pharmacy?.name || null, pharmacyPhone: pharmacy?.phone || null,
         pharmacyAddress: pharmacy ? [pharmacy.city, pharmacy.state].filter(Boolean).join(", ") : null,
         pharmacyNpi: (pharmacy as any)?.ncpdpId || null,
-        providerName, providerNpi: providerNpi || null, providerDea: providerDea || null,
+        providerName: provName, providerNpi: providerNpi || null, providerDea: providerDea || null,
         signatureType: sig.type, signatureData: sig.data,
       };
       const r = await fetch("/api/erx", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -616,8 +637,16 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
 
         <h3 className="font-semibold text-slate-900 pt-1">Prescriber</h3>
         <div className="grid grid-cols-2 gap-2">
-          <label className="text-sm"><span className="label">Provider</span><input className="input w-full" value={providerName} disabled /></label>
-          <label className="text-sm"><span className="label">Provider NPI</span><input className="input w-full" value={providerNpi} onChange={(e) => setProviderNpi(e.target.value)} placeholder="10-digit NPI" /></label>
+          <label className="text-sm"><span className="label">Provider</span><input className="input w-full" value={provName} onChange={(e) => setProvName(e.target.value)} placeholder="Provider name" /></label>
+          <label className="text-sm"><span className="label">Provider NPI</span><input className="input w-full" value={providerNpi} onChange={(e) => setProviderNpi(e.target.value)} placeholder="10-digit NPI" />
+            {npiChecking ? (
+              <span className="mt-0.5 block text-[11px] text-slate-400">Checking NPPES…</span>
+            ) : npiValid === true ? (
+              <span className="mt-0.5 block text-[11px] font-semibold text-emerald-600">NPI Valid</span>
+            ) : npiValid === false ? (
+              <span className="mt-0.5 block text-[11px] font-semibold text-rose-600">Not Valid</span>
+            ) : null}
+          </label>
           <label className="text-sm"><span className="label">DEA number</span><input className="input w-full" value={providerDea} onChange={(e) => setProviderDea(e.target.value)} placeholder="e.g. AB1234563" /></label>
           <div className="flex items-end">
             <button type="button" onClick={saveProfile} className="btn-secondary w-full py-2 text-sm">
@@ -652,7 +681,7 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
             <ul className="mt-1.5 max-h-40 overflow-auto divide-y divide-slate-100 rounded-md bg-white ring-1 ring-slate-200">
               {npiResults.map((n) => (
                 <li key={n.npi}>
-                  <button type="button" onClick={() => { setProviderNpi(n.npi); setNpiOpen(false); }} className="w-full text-left px-2.5 py-1.5 hover:bg-brand-50 text-xs">
+                  <button type="button" onClick={() => { setProviderNpi(n.npi); if (n.name) setProvName(n.name); setNpiOpen(false); }} className="w-full text-left px-2.5 py-1.5 hover:bg-brand-50 text-xs">
                     <span className="font-medium text-slate-900">{n.name}</span>{n.credential ? `, ${n.credential}` : ""} <span className="font-mono text-slate-500">{n.npi}</span>
                     <span className="text-slate-400">{n.primaryTaxonomy?.desc ? ` · ${n.primaryTaxonomy.desc}` : ""}{n.practice?.state ? ` · ${n.practice.state}` : ""}</span>
                   </button>
