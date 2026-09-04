@@ -37,6 +37,7 @@ const PUBLIC_PREFIX = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/admin/config/public",
+  "/api/net/egress-ip",
   "/_next",
   "/favicon.ico",
   "/icon-",
