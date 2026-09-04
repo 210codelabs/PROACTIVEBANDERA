@@ -476,35 +476,6 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
         </section>
       ) : (
       <>
-      {weno?.online?.enabled && weno.online.keySet && (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div className="flex items-start gap-2">
-              <span className="text-lg leading-none">💊</span>
-              <div>
-                <div className="text-sm font-semibold text-indigo-900">
-                  Prescribe in Weno Online
-                  <span className="chip ml-2 text-[10px] bg-indigo-100 text-indigo-700">{weno.online.environment}</span>
-                </div>
-                <p className="text-[12px] text-indigo-700/90 mt-0.5">
-                  Opens Weno&apos;s ComposeRx web app pre-filled with {patient ? `${patient.firstName} ${patient.lastName}` : "the selected patient"}.
-                  {!weno.online.configured && " Add the provider email, password & Location ID in Admin → External Integrations → Weno Online to enable launch."}
-                </p>
-                {olErr && <p className="text-[12px] text-rose-700 mt-1">{olErr}</p>}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={launchWenoOnline}
-              disabled={olBusy || !patient || !weno.online.configured}
-              className="btn-primary shrink-0 disabled:opacity-60"
-              title={!weno.online.configured ? "Finish Weno Online setup in Admin → External Integrations" : !patient ? "Select a patient first" : "Open Weno Online"}
-            >
-              {olBusy ? "Opening…" : "Open in Weno Online ↗"}
-            </button>
-          </div>
-        </div>
-      )}
       {deaProfileGap && (
         <div className="rounded-lg bg-rose-50 ring-1 ring-rose-300 p-3">
           <div className="flex items-start gap-2">
