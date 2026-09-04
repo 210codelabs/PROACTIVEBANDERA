@@ -7,7 +7,7 @@ downloadable from the preview URL. Nothing is sent to production.
 import base64, os, subprocess, mimetypes, html
 
 EVID = "/app/public/weno-evidence"
-OUT_PDF = "/app/public/ClinicaFamiliarBandera_EZTestPlan_09032026_v3.pdf"
+OUT_PDF = "/app/public/ClinicaFamiliarBandera_EZTestPlan_09032026_v4.pdf"
 HTML_PATH = os.path.join(EVID, "report.html")
 CHROME = "/root/bin/chromium"
 
@@ -22,8 +22,9 @@ def data_uri(fname):
 
 IMG = {n: data_uri(n) for n in [
     "01-demographics.png", "02-pharmacy-search.png", "03-medications.png",
-    "04-composerx.png", "05-rxlog.png", "06-guide.png", "07-admin-connections.png",
+    "04-composerx.png", "05-rxlog.png", "06-guide.png",
     "08-prescriber-registered.png", "09-composerx-compose.png", "10-composerx-sent.png",
+    "dir-card.png", "presc-card.png",
 ]}
 
 def fig(fname, caption):
@@ -63,7 +64,7 @@ sections.append(("1", "REQUIRED — Enter Your Account Details", pill("done"), "
 <tr><th>Environment for this test plan</th><td>TEST mode (TestPatient = &ldquo;Y&rdquo;)</td></tr>
 <tr><th>Date of submission</th><td>%s</td></tr>
 </table>
-<p class="note">Integration type: Weno EZ Integration — ComposeRx encrypted iFrame launched inside the EHR (no separate Weno login for the clinician).</p>
+<p class="note">Integration type: Weno EZ Integration — ComposeRx encrypted iFrame launched inside the EHR (no separate Weno login for the clinician). This practice uses the Weno <strong>EZ Integration exclusively</strong>; the Weno Online REST/SOAP APIs are not used.</p>
 """ % DATE_LONG))
 
 sections.append(("2", "REQUIRED — Manage Users / Locations", pill("pass"), """
@@ -74,8 +75,7 @@ The EHR also surfaces the registered prescriber(s) and Location ID inside
 <li>&#9745; Dashboards on Weno Online (primary method for add/remove users &amp; locations).</li>
 <li>&#9744; Weno Online Manage APIs (not required for go-live; may be adopted later).</li>
 </ul>
-""" + fig("07-admin-connections.png", "Figure 2a — Admin &rarr; Connection Health: Weno Online (EZ Integration) configuration, registered prescriber and Location ID (secrets masked).")
-   + fig("08-prescriber-registered.png", "Figure 2b — Weno-registered prescribers: Yosvani Soto (NPI 1780459438) set as the default TEST prescriber for the eRx module.")))
+""" + fig("presc-card.png", "Figure 2 — Weno EZ Integration &rarr; Weno-registered prescribers: Yosvani Soto (NPI 1780459438) set as the default prescriber for the eRx module. (EZ Integration only — Weno Online API is not used.)")))
 
 sections.append(("3", "REQUIRED — Domains and Registered Location IPs", pill("coord"), """
 <p><strong>Pass/Fail notes:</strong> The ComposeRx and RxLog iFrames are launched from the EHR domain shown below.
@@ -96,7 +96,7 @@ pharmacy picker. An admin can pull on demand (<em>&ldquo;Sync from Weno&rdquo;</
 <em>nightly auto-sync</em> can be enabled for daily changes; a weekly full-file replace is supported by the same
 job. In TEST mode the built-in Weno test pharmacies are always searchable. The full production directory download
 becomes available once the production IP is allowlisted (Section 3).</p>
-""" + fig("07-admin-connections.png", "Figure 4 — E-Prescribing directory: &ldquo;Weno Pharmacy Directory&rdquo; with on-demand &ldquo;Sync from Weno&rdquo; and nightly auto-sync.")))
+""" + fig("dir-card.png", "Figure 4 — Weno EZ Integration pharmacy directory: on-demand &ldquo;Sync from Weno&rdquo; and nightly auto-sync used by the eRx pharmacy picker.")))
 
 sections.append(("5", "REQUIRED — Patient's Primary Pharmacy", pill("pass"), """
 <p><strong>Pass/Fail notes:</strong> On the patient chart (<em>Demographics &rarr; Preferred Pharmacy (e-Prescribing)</em>)
@@ -130,15 +130,16 @@ how to confirm the pharmacy, launch ComposeRx from the Medications tab, sign &am
 the chart.</p>
 """ + fig("06-guide.png", "Figure 9 — Prescriber/staff explanation of WENO Online and the ComposeRx workflow.")))
 
-sections.append(("10", "REQUIRED — HIPAA / HITECH Attestation", pill("attest"), """
-<p><strong>To be completed and signed by the practice:</strong></p>
+sections.append(("10", "REQUIRED — HIPAA / HITECH Attestation", pill("done"), """
+<p><strong>Attested by the practice (CLÍNICA FAMILIAR BANDERA LLC):</strong></p>
 <table class="kv">
-<tr><th>Have you done the HIPAA-required risk assessment?</th><td>&#9744; YES &nbsp;&nbsp; &#9744; NOT YET</td></tr>
+<tr><th>Have you done the HIPAA-required risk assessment?</th><td>&#9745; <strong>YES</strong> &nbsp;&nbsp; &#9744; NOT YET</td></tr>
 <tr><th>Do you consider your services compliant with HIPAA/HITECH for business associates?</th>
-<td>&#9744; YES &nbsp;&nbsp; &#9744; NO &nbsp;&nbsp; &#9744; SOMEWHAT (explain)</td></tr>
+<td>&#9745; <strong>YES</strong> &nbsp;&nbsp; &#9744; NO &nbsp;&nbsp; &#9744; SOMEWHAT (explain)</td></tr>
 </table>
 <p class="note">The EHR transmits PHI to Weno only inside the AES-256-CBC-encrypted ComposeRx <code>data</code> parameter over HTTPS
-(see Technical Appendix). Weno is treated as a HIPAA business associate. The practice will complete the attestation above prior to go-live.</p>
+(see Technical Appendix). Weno is treated as a HIPAA business associate. The practice has completed the HIPAA-required risk
+assessment and attests its services are compliant with HIPAA/HITECH for business associates.</p>
 """))
 
 sections.append(("11", "REQUIRED — ComposeRx iFrame", pill("pass"), """
@@ -304,11 +305,11 @@ HTML = f"""<!doctype html><html><head><meta charset="utf-8"><title>Weno EZ Integ
       <tr><th>Facility NPI</th><td>1457273203</td></tr>
       <tr><th>Environment</th><td>TEST mode</td></tr>
       <tr><th>Submission date</th><td>{DATE_LONG}</td></tr>
-      <tr><th>Document version</th><td>v3</td></tr>
+      <tr><th>Document version</th><td>v4</td></tr>
       <tr><th>Prepared by</th><td>ProactiveClinics integration team</td></tr>
     </table>
     <div class="badge">Preview / TEST evidence — not a claim of Weno production certification</div>
-    <div class="foot">Return completed plan to admin@wenoexchange.com · File: ClinicaFamiliarBandera_EZTestPlan_09032026_v3</div>
+    <div class="foot">Return completed plan to admin@wenoexchange.com · File: ClinicaFamiliarBandera_EZTestPlan_09032026_v4</div>
   </div>
 
   <h1>Test Plan &amp; Evidence</h1>
