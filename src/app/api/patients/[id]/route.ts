@@ -13,6 +13,7 @@ const EDITABLE = [
   "insurerName", "insurerPlan", "memberId", "groupNumber", "payerId",
   "ecName", "ecRelation", "ecPhone",
   "primaryPharmacyNcpdp", "alternativePharmacyNcpdp", "pharmacyCheckinFlag",
+  "immtracConsent", "immtracConsentAt",
 ];
 const VALID_STATUS = ["active", "inactive", "archived", "deceased"];
 

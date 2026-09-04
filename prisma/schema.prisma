@@ -245,6 +245,10 @@ model Patient {
   alternativePharmacyNcpdp String?  // 7-digit NCPDP ID of an alternative pharmacy
   pharmacyCheckinFlag      Boolean  @default(false) // flag: needs a WENO-connected alternative pharmacy at next encounter
 
+  // Texas ImmTrac2 (state immunization registry) — opt-in consent must be on file before querying
+  immtracConsent           Boolean   @default(false)
+  immtracConsentAt         DateTime?
+
   // emergency contact
   ecName         String?
   ecRelation     String?
@@ -364,8 +368,31 @@ model Immunization {
   givenAt      DateTime
   lot          String?
   site         String?
+  route        String?
+  manufacturer String?
+  doseNumber   String?
   source       String?  // manual | iis-import | fhir-import
+  sourceKey    String?  // dedupe key for registry imports (e.g. cvx|yyyy-mm-dd)
   notes        String?
+
+  @@index([patientId, sourceKey])
+}
+
+// Audit trail for Texas ImmTrac2 (IIS) queries — no raw PHI/HL7 is persisted here.
+model ImmTracQuery {
+  id          String    @id @default(cuid()) @map("_id")
+  patientId   String
+  userId      String?
+  environment String    // test | production
+  queryId     String    @unique
+  status      String    // SENT | COMPLETED | NO_MATCH | MULTIPLE | ERROR | NOT_CONFIGURED | NO_CONSENT
+  matchType   String?   // Z32 | Z31 | Z33 | Z34 ...
+  imported    Int       @default(0)
+  errorCode   String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([patientId, createdAt])
 }
 
 // -------------------------------------------------------------

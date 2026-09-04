@@ -697,3 +697,11 @@ Deliverable: submission-ready PDF mapping all 18 Weno EZ Integration Test Plan s
 - rx-sync for that patient (Liam O'Connor) returns 0 rows so far — Weno publishing delay between "Sent to intermediary" and DownloadNewRxSyncData; sync mechanism verified (correct 7-day window).
 - Deliverable: /app/public/ClinicaFamiliarBandera_EZTestPlan_09032026_v3.pdf (28 pages). Link: {NEXT_PUBLIC_BASE_URL}/ClinicaFamiliarBandera_EZTestPlan_09032026_v3.pdf
 - Remaining: Sections 15/16 CancelRx (approved/denied) — customer live step in Weno Online (TestWOLPendingPharmacy + RxReferenceNumber). Also Weno directory download returns zip; ask Weno for CSV/delimited partner format.
+
+## Texas ImmTrac2 (state immunization registry) — on-demand pull (Sep 2026)
+- Added on-demand "Pull from Texas ImmTrac2" to the patient Immunizations tab. Env-driven; INACTIVE until DSHS issues TEST creds/WSDL (user is mid-onboarding).
+- Connector: src/lib/immtrac.ts — HL7 v2.5.1 QBP^Q11 builder, WSDL SOAP query (soap pkg, op=submitSingleMessage configurable), RSP^K11 parser (RXA/RXR/OBX->CVX/date/lot/site/route/mfr), CVX map. No PHI/HL7 logged.
+- Routes: GET /api/immtrac/status (configured?), POST /api/patients/[id]/immunizations/pull (role + consent + connection gated; dedupe by sourceKey & cvx+date; never auto-imports Z31 multiple-candidate; audits to ImmTracQuery). Backend-tested: 401/412 NO_CONSENT/503 NOT_CONFIGURED, no 500s.
+- Consent gate: Patient.immtracConsent + immtracConsentAt (opt-in); toggle in ImmtracPanel; added to patient PATCH whitelist.
+- Schema: Immunization +route/manufacturer/doseNumber/sourceKey; new ImmTracQuery audit model.
+- .env IMMTRAC_* placeholders added (blank). Needs from DSHS: WSDL/SOAP URL, username/import code, password, facility/org id, MSH sender/receiver IDs. Then flip on by filling .env (restart) — button auto-enables.
