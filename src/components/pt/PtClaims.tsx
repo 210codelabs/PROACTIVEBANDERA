@@ -224,7 +224,7 @@ export default function PtClaims() {
 
       {/* Prepare CMS-1500 modal */}
       {prep && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-4" onClick={() => !busy && setPrep(null)}>
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-4 pt-[calc(var(--chrome-h)+16px)]" onClick={() => !busy && setPrep(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-t-2xl">
               <div className="font-bold">CMS-1500 · {prep.note.patientName}</div>

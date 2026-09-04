@@ -46,7 +46,7 @@ export default function CategoryManager({ onClose, onChanged }: { onClose: () =>
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[calc(var(--chrome-h)+16px)]" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md my-12" onClick={(e) => e.stopPropagation()}>
         <header className="px-5 py-3 border-b border-slate-200 flex items-center">
           <span className="font-semibold text-slate-900">Manage categories</span>

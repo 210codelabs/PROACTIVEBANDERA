@@ -88,6 +88,45 @@ export default async function WenoGuidePage() {
           </ul>
         </div>
       </section>
+
+      {/* CancelRx (Approved / Denied) — performed in Weno Online */}
+      <section className="card mt-4">
+        <header className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-900">
+          Cancelling a Prescription (CancelRx) — Approved &amp; Denied
+        </header>
+        <div className="p-4 space-y-3 text-sm text-slate-700">
+          <p>
+            In the Weno EZ Integration, a <strong>CancelRx is sent from Weno Online</strong> (there is no separate button in
+            this EHR). After you cancel in Weno, click <strong>Sync from Weno</strong> on the patient&apos;s Medications tab and
+            the chart updates automatically based on the pharmacy&apos;s response.
+          </p>
+
+          <div className="rounded-lg ring-1 ring-emerald-200 bg-emerald-50 px-3 py-2">
+            <div className="font-semibold text-emerald-800">Approved cancel (pharmacy accepts the cancel)</div>
+            <ol className="list-decimal list-inside mt-1 space-y-1 text-emerald-900/90">
+              <li>Send a test NewRx from ComposeRx to pharmacy NCPDP <code className="bg-white/70 px-1 rounded">TestWOLPendingPharmacy</code>.</li>
+              <li>In Weno Online (Rx Log), open that Rx and choose <strong>Cancel</strong>.</li>
+              <li>In the CancelRx header, set <code className="bg-white/70 px-1 rounded">RxReferenceNumber = EXPECTED_CANCELRX_APPROVED</code>.</li>
+              <li>Back in the EHR, click <strong>Sync from Weno</strong> — the drug shows as <strong>cancelled</strong> in the Medication List.</li>
+            </ol>
+          </div>
+
+          <div className="rounded-lg ring-1 ring-amber-200 bg-amber-50 px-3 py-2">
+            <div className="font-semibold text-amber-800">Denied cancel (patient already picked it up)</div>
+            <ol className="list-decimal list-inside mt-1 space-y-1 text-amber-900/90">
+              <li>Send a test NewRx from ComposeRx to pharmacy NCPDP <code className="bg-white/70 px-1 rounded">TestWOLPendingPharmacy</code>.</li>
+              <li>In Weno Online (Rx Log), open that Rx and choose <strong>Cancel</strong>.</li>
+              <li>In the CancelRx header, set <code className="bg-white/70 px-1 rounded">RxReferenceNumber = EXPECTED_CANCELRX_DENIED</code>.</li>
+              <li>Click <strong>Sync from Weno</strong> — because the pharmacy denied the cancel, the drug remains <strong>active/prescribed</strong> in the chart.</li>
+            </ol>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Note: in real use there is a time delay between the cancel request and the pharmacy&apos;s response; in the Weno TEST
+            environment the response is immediate. Always confirm the chart matches the Sync Report after cancelling.
+          </p>
+        </div>
+      </section>
     </Shell>
   );
 }

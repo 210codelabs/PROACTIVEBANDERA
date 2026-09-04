@@ -138,7 +138,7 @@ export default function ProductEditor({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto pt-[calc(var(--chrome-h)+16px)]" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl my-8" onClick={(e) => e.stopPropagation()}>
         <header className="px-5 py-3 border-b border-slate-200 flex items-center gap-2">
           <span className="font-semibold text-slate-900">{editing ? "Edit product" : "Add product"}</span>
