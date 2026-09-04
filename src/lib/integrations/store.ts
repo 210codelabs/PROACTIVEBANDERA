@@ -114,29 +114,41 @@ export async function upsertProviderCredentials(
   providerKey: string,
   creds: Record<string, string>,
   opts?: { enable?: boolean; editedBy?: string; onlyIfEmpty?: boolean },
-): Promise<{ applied: string[] }> {
+): Promise<{ applied: string[]; changed: string[] }> {
   const state = await readIntegrations();
   const prev = state.providers[providerKey] || emptyProviderState();
   const merged: Record<string, string> = { ...(prev.credentials || {}) };
   const applied: string[] = [];
+  const changed: string[] = [];
   for (const [k, v] of Object.entries(creds)) {
     if (v == null || String(v).trim() === "") continue;
-    // Non-destructive mode (boot auto-apply): never overwrite a value an admin
-    // may have already saved — only fill gaps.
+    // onlyIfEmpty = non-destructive mode: never overwrite a value that is
+    // already present — only fill gaps. Otherwise (reconcile mode) we OVERWRITE
+    // so the environment stays the source of truth across SEPARATE databases
+    // (e.g. a freshly-deployed production instance self-heals a stale value).
     if (opts?.onlyIfEmpty && merged[k] && String(merged[k]).trim() !== "") continue;
+    const before = merged[k];
     merged[k] = String(v);
     applied.push(k);
+    if (String(before ?? "") !== String(v)) changed.push(k);
   }
+  const enableChanged = opts?.enable != null && opts.enable !== prev.enabled;
+  // Nothing actually changed -> skip the write (avoids needless churn on every
+  // boot, so this is safe to run unconditionally on server start).
+  if (changed.length === 0 && !enableChanged) {
+    return { applied, changed };
+  }
+  const now = new Date().toISOString();
   state.providers[providerKey] = {
     ...prev,
     credentials: merged,
     enabled: opts?.enable ?? prev.enabled,
-    lastEditedAt: new Date().toISOString(),
+    lastEditedAt: now,
     lastEditedBy: opts?.editedBy || "system",
   };
-  state.updatedAt = new Date().toISOString();
+  state.updatedAt = now;
   await writeIntegrations(state);
-  return { applied };
+  return { applied, changed };
 }
 
 // ---- Client-facing sanitization ------------------------------------------

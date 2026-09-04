@@ -705,3 +705,10 @@ Deliverable: submission-ready PDF mapping all 18 Weno EZ Integration Test Plan s
 - Consent gate: Patient.immtracConsent + immtracConsentAt (opt-in); toggle in ImmtracPanel; added to patient PATCH whitelist.
 - Schema: Immunization +route/manufacturer/doseNumber/sourceKey; new ImmTracQuery audit model.
 - .env IMMTRAC_* placeholders added (blank). Needs from DSHS: WSDL/SOAP URL, username/import code, password, facility/org id, MSH sender/receiver IDs. Then flip on by filling .env (restart) — button auto-enables.
+
+## Bug fix (2026-09) — Weno production "Encryption key is wrong. Decryption failed."
+- Symptom: production E-Prescribe (ComposeRx) showed "Your EHR is integrated with WENO Online... Encryption key is wrong. Decryption failed." Preview worked.
+- Root cause: production runs a SEPARATE DB whose weno-online EHR_ENCRYPTION_KEY was STALE. getWenoOnlineConfig() reads DB first (env only as fallback), and boot auto-apply used onlyIfEmpty:true, so the stale key was never replaced.
+- Fix: src/app/api/internal/weno-apply-env/route.ts now RECONCILES (overwrites) the DB weno-online creds from WENO_ONLINE_* env when the full core config is present (wenoOnlineEnvEnablable), so a freshly-deployed instance self-heals on boot; partial env stays non-destructive. src/lib/integrations/store.ts upsertProviderCredentials() returns {applied, changed} and skips the write when nothing changed (safe on every boot; preview = no-op). instrumentation.ts logs reconcile.
+- Verified: corrupting DB key -> boot route restored it (changed:['EHR_ENCRYPTION_KEY'], reconciled:true). Backend agent: 403 w/o secret, 200 reconciled:true w/ secret, iframe-url still 200. No 500s.
+- Preview key matches env (..NgFl). ACTION for user: re-Publish so the reconcile code + correct WENO_ONLINE_KEY reach production; on next boot production DB self-heals automatically.

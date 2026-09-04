@@ -11,8 +11,10 @@ export async function register() {
   const port = process.env.PORT || "3000";
   const secret = process.env.AUTH_SECRET || "";
 
-  // Boot-time: auto-apply Weno Online config from WENO_ONLINE_* env (zero clicks
-  // after deploy). Non-destructive; retries once if the server is still warming.
+  // Boot-time: RECONCILE the Weno Online config from WENO_ONLINE_* env (zero
+  // clicks after deploy). When the full core config is in env it overwrites the
+  // DB so a freshly-deployed instance with its own database self-heals the Weno
+  // encryption key/credentials; otherwise it only fills gaps. Retries once.
   const applyEnv = async (retry = true) => {
     try {
       const r = await fetch(`http://127.0.0.1:${port}/api/internal/weno-apply-env`, {
@@ -20,7 +22,8 @@ export async function register() {
         headers: { "x-weno-cron": secret },
       });
       const d = await r.json().catch(() => ({}));
-      if (d?.applied?.length) console.log(`[weno-boot] applied Weno Online config from env: ${d.applied.join(", ")}`);
+      if (d?.changed?.length) console.log(`[weno-boot] reconciled Weno Online config from env: ${d.changed.join(", ")}`);
+      else if (d?.applied?.length) console.log(`[weno-boot] applied Weno Online config from env: ${d.applied.join(", ")}`);
     } catch {
       if (retry) setTimeout(() => applyEnv(false), 30 * 1000);
     }

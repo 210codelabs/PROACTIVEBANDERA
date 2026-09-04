@@ -15,16 +15,24 @@ export async function POST(req: Request) {
   }
   const creds = collectWenoOnlineEnv();
   if (Object.keys(creds).length === 0) {
-    return NextResponse.json({ ok: true, applied: [], reason: "no WENO_ONLINE_* env set" });
+    return NextResponse.json({ ok: true, applied: [], changed: [], reason: "no WENO_ONLINE_* env set" });
   }
   try {
-    const { applied } = await upsertProviderCredentials("weno-online", creds, {
-      enable: wenoOnlineEnvEnablable() || undefined,
+    const enablable = wenoOnlineEnvEnablable();
+    // RECONCILE-ON-BOOT: when the full core config is present in the environment
+    // (key + email + password + location), overwrite the DB-backed Weno Online
+    // config to MATCH env. This makes a freshly-deployed instance with its own
+    // SEPARATE database self-heal to the correct credentials on startup — fixing
+    // the "Encryption key is wrong. Decryption failed." error caused by a stale
+    // key left in a production database. With only a partial env, stay
+    // non-destructive and just fill gaps (onlyIfEmpty).
+    const { applied, changed } = await upsertProviderCredentials("weno-online", creds, {
+      enable: enablable || undefined,
       editedBy: "auto-apply on boot (env)",
-      onlyIfEmpty: true,
+      onlyIfEmpty: !enablable,
     });
-    return NextResponse.json({ ok: true, applied });
+    return NextResponse.json({ ok: true, applied, changed, reconciled: enablable });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, applied: [], error: String(e?.message || e).slice(0, 200) }, { status: 200 });
+    return NextResponse.json({ ok: false, applied: [], changed: [], error: String(e?.message || e).slice(0, 200) }, { status: 200 });
   }
 }
