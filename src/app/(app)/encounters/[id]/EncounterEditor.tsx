@@ -17,6 +17,121 @@ function appendBlock(prev: string, block: string) {
   return prev ? `${prev.trimEnd()}\n${block}` : block;
 }
 
+// One-click starter templates — insert an EDITABLE skeleton into the note (not
+// just placeholder hints). Grouped by care type; clinicians fill the blanks.
+const STARTER_TEMPLATES: {
+  key: string; label: string; group: string; cc?: string;
+  subjective: string; objective: string; assessment: string; plan: string;
+}[] = [
+  {
+    key: "pt-eval", label: "PT Evaluation", group: "Physical Therapy",
+    subjective:
+`History / onset (date, how injured): 
+Mechanism of injury: 
+Pain (0-10): rest __ / activity __ ; location: ; quality: 
+Aggravating factors: 
+Easing factors: 
+Prior level of function: 
+Current functional limitations (ADLs / work / sport): 
+Patient goals: `,
+    objective:
+`Observation / posture: 
+Gait: 
+AROM (degrees): 
+PROM (degrees): 
+Strength (MMT grade): 
+Special tests: 
+Palpation: 
+Girth / edema: `,
+    assessment:
+`Diagnosis / clinical impression: 
+Rehab potential: good / fair / poor
+Justification for skilled therapy (medical necessity): 
+Barriers to progress: `,
+    plan:
+`Frequency & duration: __x/week x __ weeks
+Planned interventions: therapeutic exercise, manual therapy, neuromuscular re-ed, modalities PRN
+Home exercise program (HEP): 
+Short-term goals (2 wks): 
+Long-term goals (4-6 wks): 
+Re-evaluation / discharge criteria: `,
+  },
+  {
+    key: "pt-daily", label: "PT Daily / Follow-up", group: "Physical Therapy",
+    subjective:
+`Interval since last visit: better / same / worse
+Pain (0-10): rest __ / activity __
+HEP compliance: 
+Patient report: `,
+    objective:
+`Interventions performed today (with parameters):
+- Therapeutic exercise (97110): __ sets x __ reps, resistance ___
+- Manual therapy (97140): ___ min
+- Neuromuscular re-education (97112): ___
+- Modalities: ___ (settings / time)
+Objective measures (AROM / strength): 
+Assist level / tolerance: 
+Total timed-code minutes: `,
+    assessment:
+`Progress toward goals (% met): 
+Response to treatment: 
+Continued skilled need: `,
+    plan:
+`Continue POC __x/week x __ weeks
+Progression: 
+HEP update: 
+Next visit / re-eval: `,
+  },
+  {
+    key: "em-new", label: "New Patient (E&M)", group: "Clinical (E&M)",
+    subjective:
+`HPI (OLDCARTS): Onset ; Location ; Duration ; Character ; Aggravating/Relieving ; Radiation ; Timing ; Severity 
+PMH: 
+Medications: 
+Allergies: 
+Family Hx: 
+Social Hx: `,
+    objective:
+`Vitals: BP __/__  HR __  RR __  Temp __  SpO2 __  BMI __
+General: 
+HEENT: 
+CV: 
+Resp: 
+Abd: 
+MSK / Ext: 
+Neuro: `,
+    assessment:
+`1) __ (ICD-10 __) — 
+2) `,
+    plan:
+`1) Medications: 
+   Orders (labs / imaging): 
+   Referrals: 
+   Patient education: 
+Follow-up: `,
+  },
+  {
+    key: "em-followup", label: "Follow-up (E&M)", group: "Clinical (E&M)",
+    subjective:
+`Interval history since last visit: 
+Symptoms: 
+Medication adherence / side effects: 
+Home readings (BP / glucose / etc.): `,
+    objective:
+`Vitals: BP __/__  HR __  BMI __
+Focused exam: 
+Relevant labs / results reviewed: `,
+    assessment:
+`1) __ (ICD-10 __) — stable / improving / worsening
+2) `,
+    plan:
+`1) Continue / adjust medications: 
+   Orders: 
+   Education: 
+Follow-up in __ weeks / months`,
+  },
+];
+
 const FEE_DEFAULTS: Record<string, number> = {
   "99213": 11500, "99214": 17500, "99215": 25000, "99203": 16000, "99204": 22000,
   "99202": 12000, "99205": 30000, "99211": 6500, "99212": 9000, "99396": 21000,
@@ -215,6 +330,24 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
     if (sec.objective?.length) setO((p: string) => appendBlock(p, j(sec.objective)));
     if (sec.assessment?.length) setA((p: string) => appendBlock(p, j(sec.assessment)));
     if (sec.plan?.length) setP((p: string) => appendBlock(p, j(sec.plan)));
+  }
+  // One-click starter: insert an editable skeleton for the chosen visit type.
+  // Fills the simple body when in simple mode, otherwise S/O/A/P. Appends below
+  // any existing text so nothing is overwritten.
+  function applyStarter(key: string) {
+    if (signed) return;
+    const t = STARTER_TEMPLATES.find((x) => x.key === key);
+    if (!t) return;
+    if (noteFormat === "simple") {
+      const body = `SUBJECTIVE\n${t.subjective}\n\nOBJECTIVE\n${t.objective}\n\nASSESSMENT\n${t.assessment}\n\nPLAN\n${t.plan}`;
+      setSimpleBody((p: string) => (p.trim() ? appendBlock(p, body) : body));
+      return;
+    }
+    if (t.cc) setCC((p: string) => (p.trim() ? p : t.cc as string));
+    setS((p: string) => (p.trim() ? appendBlock(p, t.subjective) : t.subjective));
+    setO((p: string) => (p.trim() ? appendBlock(p, t.objective) : t.objective));
+    setA((p: string) => (p.trim() ? appendBlock(p, t.assessment) : t.assessment));
+    setP((p: string) => (p.trim() ? appendBlock(p, t.plan) : t.plan));
   }
   function applyBillingTemplate(tplId: string) {
     const t = billingTpls.find((x) => x.id === tplId); if (!t) return;
@@ -495,6 +628,22 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
             </div>
           </div>
         </div>
+
+        {!signed && (
+          <div className="card card-pad">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-slate-700">Starter templates:</span>
+              {STARTER_TEMPLATES.map((t) => (
+                <button key={t.key} type="button" onClick={() => applyStarter(t.key)}
+                  className="chip bg-brand-100 text-brand-800 ring-1 ring-brand-200 text-xs hover:bg-brand-200"
+                  title={`Insert a ${t.label} skeleton (${t.group})`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Inserts an editable skeleton for this visit type into the note (adds below any existing text).</p>
+          </div>
+        )}
 
         {noteFormat === "simple" ? (
           <SoapBlock title="Visit Note" hint="Free-text note body" value={simpleBody} onChange={setSimpleBody} disabled={signed} rows={18} placeholder={guide.simple} />
