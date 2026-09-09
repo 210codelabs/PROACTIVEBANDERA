@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   if (!name) return NextResponse.json({ error: "Name is required." }, { status: 400 });
   const codeSystem = ["SNOMED", "CPT", "HCPCS"].includes(String(b.codeSystem)) ? String(b.codeSystem) : "";
   const created = await db.encounterType.create({
-    data: { name, code: String(b.code || "") || null, codeSystem: codeSystem || null, active: true },
+    data: { name, code: String(b.code || "") || null, codeSystem: codeSystem || null, category: String(b.category || "") || null, active: true },
   });
   return NextResponse.json({ ok: true, encounterType: created });
 }

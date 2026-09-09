@@ -398,6 +398,23 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
     setQuality(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   }
 
+  // Pick a Note Type: set it AND auto-add its corresponding CPT/HCPCS code to
+  // the visit charges (still editable/removable below). Not allowed once signed.
+  function pickNoteType(id: string) {
+    setEncTypeId(id);
+    if (signed) return;
+    const t = encTypes.find((x) => x.id === id);
+    if (t && t.code) {
+      setCharges((prev) => prev.some((c) => c.cpt === t.code)
+        ? prev
+        : [...prev, { cpt: t.code, description: t.name, units: 1, feeCents: FEE_DEFAULTS[t.code] ?? 0 }]);
+    }
+  }
+
+  // Note-writing guidance shown as placeholders, tailored to the selected type.
+  const noteCategory = encTypes.find((t) => t.id === encounterTypeId)?.category || "";
+  const guide = noteGuide(noteCategory);
+
   const total = charges.reduce((s, c) => s + (c.feeCents * (c.units || 1)), 0);
   const labImagingOrders = (encounter.orders || []).filter((o: any) => o.type === "lab" || o.type === "imaging");
   const orderHref = (type: string) => `/patients/${encounter.patientId}/orders/new?type=${type}&encounterId=${encounter.id}`;
@@ -426,13 +443,25 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
         <div className="card card-pad">
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="block">
-              <span className="label">Encounter type</span>
-              <select className="input" value={encounterTypeId} disabled={signed} onChange={(e) => setEncTypeId(e.target.value)}>
+              <span className="label">Note type</span>
+              <select className="input" value={encounterTypeId} disabled={signed} onChange={(e) => pickNoteType(e.target.value)}>
                 <option value="">— Select —</option>
-                {encTypes.filter((t) => t.active || t.id === encounterTypeId).map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}{t.code ? ` (${t.codeSystem || ""} ${t.code})` : ""}</option>
-                ))}
+                {(() => {
+                  const list = encTypes.filter((t) => t.active || t.id === encounterTypeId);
+                  const order = ["Clinical (E&M)", "Physical Therapy", "Occupational Therapy"];
+                  const grouped: Record<string, any[]> = {};
+                  for (const t of list) { const g = t.category || "Other"; (grouped[g] ||= []).push(t); }
+                  const groups = [...order.filter((g) => grouped[g]), ...Object.keys(grouped).filter((g) => !order.includes(g))];
+                  return groups.map((g) => (
+                    <optgroup key={g} label={g}>
+                      {grouped[g].map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}{t.code ? ` (${t.codeSystem || ""} ${t.code})` : ""}</option>
+                      ))}
+                    </optgroup>
+                  ));
+                })()}
               </select>
+              {!signed && <span className="mt-1 block text-[11px] text-slate-400">Selecting a note type adds its CPT/HCPCS code to Charges below.</span>}
             </label>
             <label className="block">
               <span className="label">Note format</span>
@@ -468,7 +497,7 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
         </div>
 
         {noteFormat === "simple" ? (
-          <SoapBlock title="Visit Note" hint="Free-text note body" value={simpleBody} onChange={setSimpleBody} disabled={signed} rows={18} />
+          <SoapBlock title="Visit Note" hint="Free-text note body" value={simpleBody} onChange={setSimpleBody} disabled={signed} rows={18} placeholder={guide.simple} />
         ) : (<>
         {!signed && chartTpls.length > 0 && (
           <div className="card card-pad flex items-center gap-2 flex-wrap">
@@ -514,9 +543,9 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
             <label className="label">Chief Complaint</label>
             {!signed && <DictateButton onText={(t) => setCC((p) => appendText(p, t))} />}
           </div>
-          <input className="input" value={chiefComplaint} onChange={e => setCC(e.target.value)} placeholder="e.g., Lower back pain x 2 weeks" disabled={signed} />
+          <input className="input" value={chiefComplaint} onChange={e => setCC(e.target.value)} placeholder={guide.cc} disabled={signed} />
         </div>
-        <SoapBlock title="Subjective (S)" hint="HPI, history, patient report" value={subjective} onChange={setS} disabled={signed} />
+        <SoapBlock title="Subjective (S)" hint="HPI, history, patient report" value={subjective} onChange={setS} disabled={signed} placeholder={guide.subjective} />
         <div className="grid sm:grid-cols-2 gap-3">
           <SoapBlock title="Family History" value={familyHistory} onChange={setFamHx} disabled={signed} rows={3} />
           <SoapBlock title="Social History" value={socialHistory} onChange={setSocHx} disabled={signed} rows={3} />
@@ -566,7 +595,7 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
             </div>
           )}
         </div>
-        <SoapBlock title="Objective (O)" hint="Vitals, exam, lab/imaging results" value={objective} onChange={setO} disabled={signed} />
+        <SoapBlock title="Objective (O)" hint="Vitals, exam, lab/imaging results" value={objective} onChange={setO} disabled={signed} placeholder={guide.objective} />
         {labImagingOrders.length > 0 && !signed && (
           <div className="card card-pad">
             <div className="text-sm font-semibold text-slate-800 mb-2">Attach lab / imaging results</div>
@@ -597,8 +626,8 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
         </div>
 
         {/* Assessment & Plan */}
-        <SoapBlock title="Assessment (A)" hint="Clinical reasoning" value={assessment} onChange={setA} disabled={signed} />
-        <SoapBlock title="Plan (P)" value={plan} onChange={setP} disabled={signed} />
+        <SoapBlock title="Assessment (A)" hint="Clinical reasoning" value={assessment} onChange={setA} disabled={signed} placeholder={guide.assessment} />
+        <SoapBlock title="Plan (P)" value={plan} onChange={setP} disabled={signed} placeholder={guide.plan} />
 
         </>)}
 
@@ -865,7 +894,7 @@ export default function EncounterEditor({ encounter }: { encounter: any }) {
   );
 }
 
-function SoapBlock({ title, hint, value, onChange, disabled, rows = 6 }: { title: string; hint?: string; value: string; onChange: (v: string) => void; disabled?: boolean; rows?: number }) {
+function SoapBlock({ title, hint, value, onChange, disabled, rows = 6, placeholder }: { title: string; hint?: string; value: string; onChange: (v: string) => void; disabled?: boolean; rows?: number; placeholder?: string }) {
   return (
     <section className="card card-pad">
       <div className="flex items-center justify-between gap-2">
@@ -875,9 +904,44 @@ function SoapBlock({ title, hint, value, onChange, disabled, rows = 6 }: { title
           {!disabled && <DictateButton onText={(t) => onChange(appendText(value, t))} />}
         </div>
       </div>
-      <textarea className="input font-mono text-[13px] leading-relaxed" rows={rows} value={value} onChange={e => onChange(e.target.value)} disabled={disabled} />
+      <textarea className="input font-mono text-[13px] leading-relaxed" rows={rows} value={value} onChange={e => onChange(e.target.value)} disabled={disabled} placeholder={placeholder} />
     </section>
   );
+}
+
+// Note-writing guidance shown as (non-persisted) placeholder text in each note
+// box, tailored to the selected Note Type so MD/NP/PT/OT know what & how to
+// write. Rehab (PT/OT) vs Clinical (E&M). This text never saves — it only shows
+// while the box is empty.
+function noteGuide(category: string): { cc: string; subjective: string; objective: string; assessment: string; plan: string; simple: string } {
+  if (category === "Physical Therapy" || category === "Occupational Therapy") {
+    return {
+      cc: "e.g., R shoulder pain limiting overhead reach x 3 weeks (post rotator-cuff strain)",
+      subjective:
+        "SUBJECTIVE (Rehab)\n\u2022 Onset / mechanism of injury (date, how it happened)\n\u2022 Pain: location, 0\u201310 at rest & with activity, quality, what aggravates/eases it\n\u2022 Prior level of function vs current limitations (ADLs, work, sport)\n\u2022 Patient's goals for therapy; HEP compliance; since last visit: better/same/worse\n\nExample: \"Pt reports 4/10 R shoulder pain, improved from 7/10. Reaches overhead to shoulder height. Doing HEP 1x/day. Still difficulty sleeping on R side.\"",
+      objective:
+        "OBJECTIVE (Rehab)\n\u2022 Observation/posture, gait\n\u2022 ROM (AROM/PROM in degrees), strength (MMT grade), special tests, palpation, girth/swelling\n\u2022 Interventions performed THIS visit WITH parameters (sets x reps, resistance, minutes, modality settings)\n\u2022 Assist level & tolerance; total timed-code minutes\n\nExample: \"R shoulder AROM flex 140\u00b0 (was 120\u00b0), abd 130\u00b0. MMT supraspinatus 4/5. Ther ex 3x10 theraband, manual therapy GH joint 8 min, US 1.0 w/cm\u00b2 5 min. Tolerated well.\"",
+      assessment:
+        "ASSESSMENT (Rehab)\n\u2022 Clinical impression & progress toward goals (% met)\n\u2022 Justify SKILLED need / medical necessity\n\u2022 Barriers to progress\n\nExample: \"Progressing toward STG of pain-free overhead reach (60% met). Improved AROM/strength support continued skilled PT. No adverse response.\"",
+      plan:
+        "PLAN (Rehab)\n\u2022 Frequency & duration (e.g., 2x/week x 4 weeks)\n\u2022 Planned progression / interventions; HEP updates; patient education\n\u2022 Short- & long-term goals (measurable, time-bound); re-eval / d/c criteria\n\nExample: \"Continue PT 2x/wk x 4 wks. Progress theraband resistance; update HEP. STG (2 wk): AROM flex \u2265150\u00b0. LTG (4 wk): pain-free overhead reach, RTW full duty.\"",
+      simple:
+        "Rehab treatment note \u2014 document: subjective update; objective measures (ROM/strength); interventions performed WITH parameters (sets\u00d7reps, modality settings, minutes); skilled justification / medical necessity; plan & progression. Include total timed-code minutes for billing.",
+    };
+  }
+  return {
+    cc: "e.g., Follow-up hypertension; medication refill",
+    subjective:
+      "SUBJECTIVE\n\u2022 HPI with OLDCARTS: Onset, Location, Duration, Character, Aggravating/relieving, Radiation, Timing, Severity\n\u2022 Interval history, pertinent PMH/meds/allergies\n\u2022 Patient-reported symptoms & concerns\n\nExample: \"58 y/o F, follow-up HTN. Denies chest pain, headache, vision changes. Adherent to lisinopril. Home BP ~135/85.\"",
+    objective:
+      "OBJECTIVE\n\u2022 Vitals\n\u2022 Focused exam by system\n\u2022 Relevant labs / imaging / point-of-care results\n\nExample: \"BP 138/86, HR 72, BMI 28. Gen: NAD. CV: RRR, no m/r/g. Lungs CTA bilaterally. Ext: no edema.\"",
+    assessment:
+      "ASSESSMENT\n\u2022 Problem list with clinical reasoning\n\u2022 Status (stable/controlled/worsening) + ICD-10\n\nExample: \"1) Essential HTN (I10) \u2014 suboptimal control. 2) Overweight (E66.3).\"",
+    plan:
+      "PLAN (per problem)\n\u2022 Medications: start / continue / adjust\n\u2022 Orders: labs, imaging, referrals\n\u2022 Patient education & lifestyle; follow-up interval\n\nExample: \"1) Increase lisinopril to 20 mg daily; BMP in 2 wks; recheck BP in 4 wks. 2) Dietitian referral; f/u 3 months.\"",
+    simple:
+      "Document the visit: reason for visit, pertinent history & focused exam, assessment with ICD-10 diagnoses, and plan (medications / orders / education / follow-up).",
+  };
 }
 
 

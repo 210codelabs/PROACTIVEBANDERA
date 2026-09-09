@@ -491,6 +491,7 @@ model EncounterType {
   name       String
   code       String?
   codeSystem String?  // SNOMED | CPT | HCPCS
+  category   String?  // Clinical (E&M) | Physical Therapy | Occupational Therapy | ...
   isDefault  Boolean  @default(false)
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
