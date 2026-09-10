@@ -19,6 +19,7 @@ import { PROVIDER_PALETTE } from "./palette";
 import { mapByIds } from "@/lib/safe-relations";
 import { getCopayMap, getLatestCoverageMap, classifyCoverage } from "@/lib/coverage";
 import { getBalanceMap } from "@/lib/balances";
+import { clinicDayKey, clinicHHmm, clinicTimeLabel, clinicMinutesOfDay } from "@/lib/clinic";
 
 type View = "day" | "week" | "month" | "staff";
 type Provider = { id: string; firstName: string; lastName: string; credential: string | null };
@@ -116,14 +117,14 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const calAppts: CalAppt[] = appts.map((a) => {
     const start = new Date(a.startsAt);
     const end = new Date(a.endsAt);
-    const startMin = start.getHours() * 60 + start.getMinutes() - GRID_START_HOUR * 60;
+    const startMin = clinicMinutesOfDay(start) - GRID_START_HOUR * 60;
     const durMin = (end.getTime() - start.getTime()) / 60000;
     return {
       id: a.id, patientId: a.patientId, providerId: a.providerId, status: a.status,
       pFirst: a.pFirst, pLast: a.pLast, provLast: a.provLast,
       svcName: a.svcName, svcCat: a.svcCat, reason: a.reason,
-      dayKey: format(start, "yyyy-MM-dd"), timeHHmm: format(start, "HH:mm"),
-      startLabel: format(start, "h:mm a"), endLabel: format(end, "h:mm a"),
+      dayKey: clinicDayKey(start), timeHHmm: clinicHHmm(start),
+      startLabel: clinicTimeLabel(start), endLabel: clinicTimeLabel(end),
       top: Math.max(0, (startMin / 30) * SLOT_PX),
       height: Math.max(40, (durMin / 30) * SLOT_PX - 4),
       slotIndex: Math.round(startMin / 30),

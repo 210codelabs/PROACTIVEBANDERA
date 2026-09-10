@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import Shell from "@/components/Shell";
 import JellyBeans from "@/components/JellyBeans";
 import ProviderIntegrations from "@/components/admin/ProviderIntegrations";
-import WenoDirectorySync from "@/components/admin/WenoDirectorySync";
 import WenoAdminMaintenance from "@/components/admin/WenoAdminMaintenance";
 import WenoPrescriberDirectory from "@/components/admin/WenoPrescriberDirectory";
 import { readIntegrationsForClient } from "@/lib/integrations/store";
@@ -31,11 +30,8 @@ export default async function ConnectionsPage() {
         </section>
         <section>
           <div className="border-t border-slate-200 pt-5">
-            <h2 className="text-base font-semibold text-slate-900 mb-3">E-Prescribing directory</h2>
-            <WenoDirectorySync />
-            <div className="mt-4">
-              <WenoAdminMaintenance />
-            </div>
+            <h2 className="text-base font-semibold text-slate-900 mb-3">Weno EZ Integration</h2>
+            <WenoAdminMaintenance />
             <div className="mt-4">
               <WenoPrescriberDirectory />
             </div>

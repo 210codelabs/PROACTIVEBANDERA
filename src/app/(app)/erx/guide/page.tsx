@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 // Weno e-Prescribing in-app guide. Satisfies Weno EZ Integration Test Plan:
 //   Section 8 — My Drug App (patient text-message notice)
-//   Section 9 — Explain WENO Online to prescribers / users
+//   Section 9 — Explain Weno EZ Integration to prescribers / users
 //   Section 6 — Patient check-in flag guidance (alternative pharmacy)
 export default async function WenoGuidePage() {
   const user = await requireSession();
@@ -19,14 +19,14 @@ export default async function WenoGuidePage() {
         <Link href="/erx" className="text-sm text-brand-700 hover:underline">← Back to e-Prescribe</Link>
       </div>
 
-      {/* Section 9 — Explain WENO Online to prescribers/users */}
+      {/* Section 9 — Explain Weno EZ Integration to prescribers/users */}
       <section className="card mb-4">
         <header className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-900">
-          For Prescribers &amp; Staff — Using WENO Online
+          For Prescribers &amp; Staff — Using Weno EZ Integration
         </header>
         <div className="p-4 space-y-3 text-sm text-slate-700">
           <p>
-            We e-prescribe through <strong>WENO Online</strong> using the secure <strong>ComposeRx</strong> screen,
+            We e-prescribe through <strong>Weno EZ Integration</strong> using the secure <strong>ComposeRx</strong> screen,
             launched directly inside this EHR (no separate login). WENO transmits the prescription electronically to
             the patient&apos;s chosen pharmacy.
           </p>
@@ -89,14 +89,14 @@ export default async function WenoGuidePage() {
         </div>
       </section>
 
-      {/* CancelRx (Approved / Denied) — performed in Weno Online */}
+      {/* CancelRx (Approved / Denied) — performed in Weno EZ Integration */}
       <section className="card mt-4">
         <header className="px-4 py-3 border-b border-slate-200 font-semibold text-slate-900">
           Cancelling a Prescription (CancelRx) — Approved &amp; Denied
         </header>
         <div className="p-4 space-y-3 text-sm text-slate-700">
           <p>
-            In the Weno EZ Integration, a <strong>CancelRx is sent from Weno Online</strong> (there is no separate button in
+            In the Weno EZ Integration, a <strong>CancelRx is sent from Weno EZ Integration</strong> (there is no separate button in
             this EHR). After you cancel in Weno, click <strong>Sync from Weno</strong> on the patient&apos;s Medications tab and
             the chart updates automatically based on the pharmacy&apos;s response.
           </p>
@@ -105,7 +105,7 @@ export default async function WenoGuidePage() {
             <div className="font-semibold text-emerald-800">Approved cancel (pharmacy accepts the cancel)</div>
             <ol className="list-decimal list-inside mt-1 space-y-1 text-emerald-900/90">
               <li>Send a test NewRx from ComposeRx to pharmacy NCPDP <code className="bg-white/70 px-1 rounded">TestWOLPendingPharmacy</code>.</li>
-              <li>In Weno Online (Rx Log), open that Rx and choose <strong>Cancel</strong>.</li>
+              <li>In Weno EZ Integration (Rx Log), open that Rx and choose <strong>Cancel</strong>.</li>
               <li>In the CancelRx header, set <code className="bg-white/70 px-1 rounded">RxReferenceNumber = EXPECTED_CANCELRX_APPROVED</code>.</li>
               <li>Back in the EHR, click <strong>Sync from Weno</strong> — the drug shows as <strong>cancelled</strong> in the Medication List.</li>
             </ol>
@@ -115,7 +115,7 @@ export default async function WenoGuidePage() {
             <div className="font-semibold text-amber-800">Denied cancel (patient already picked it up)</div>
             <ol className="list-decimal list-inside mt-1 space-y-1 text-amber-900/90">
               <li>Send a test NewRx from ComposeRx to pharmacy NCPDP <code className="bg-white/70 px-1 rounded">TestWOLPendingPharmacy</code>.</li>
-              <li>In Weno Online (Rx Log), open that Rx and choose <strong>Cancel</strong>.</li>
+              <li>In Weno EZ Integration (Rx Log), open that Rx and choose <strong>Cancel</strong>.</li>
               <li>In the CancelRx header, set <code className="bg-white/70 px-1 rounded">RxReferenceNumber = EXPECTED_CANCELRX_DENIED</code>.</li>
               <li>Click <strong>Sync from Weno</strong> — because the pharmacy denied the cancel, the drug remains <strong>active/prescribed</strong> in the chart.</li>
             </ol>

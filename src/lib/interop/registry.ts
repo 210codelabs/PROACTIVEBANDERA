@@ -138,7 +138,7 @@ export function getInteropSources(): InteropSource[] {
         "Enable the Medication History (RxHistory) service on your Weno account",
         "Complete Weno certification for the RxHistory use case",
         "Allowlist this server's outbound IP in the Weno dashboard",
-        "Configure Weno partner credentials under Admin → External Integrations → Weno Exchange",
+        "Configure Weno EZ Integration credentials under Admin → External Integrations → Weno EZ Integration",
       ],
       credentials: ["WENO_BASE_URL", "WENO_PARTNER_ID", "WENO_PARTNER_PASSWORD"],
       note: "Display as unverified history and reconcile with the patient. Requires Weno RxHistory to be enabled on your account.",

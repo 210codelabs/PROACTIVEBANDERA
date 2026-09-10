@@ -54,3 +54,45 @@ export function formatClinic(
 ): string {
   return new Date(d).toLocaleString(locale, { timeZone: CLINIC_TZ, ...opts });
 }
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Extract calendar parts (year/month/day/hour/minute) of a Date AS SEEN IN THE
+ * CLINIC TIMEZONE, independent of the server's process TZ or the browser TZ.
+ * Uses Intl with an explicit timeZone so it is always correct.
+ */
+export function clinicParts(d: Date | string | number): { y: number; mo: number; da: number; h: number; mi: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: CLINIC_TZ,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(new Date(d));
+  const g = (t: string) => Number(parts.find((x) => x.type === t)?.value || 0);
+  let h = g("hour");
+  if (h === 24) h = 0; // some ICU builds emit "24" for midnight
+  return { y: g("year"), mo: g("month"), da: g("day"), h, mi: g("minute") };
+}
+
+/** "YYYY-MM-DD" for a date, in the clinic timezone. */
+export function clinicDayKey(d: Date | string | number): string {
+  const { y, mo, da } = clinicParts(d);
+  return `${y}-${pad2(mo)}-${pad2(da)}`;
+}
+
+/** "HH:mm" (24h) for a date, in the clinic timezone. */
+export function clinicHHmm(d: Date | string | number): string {
+  const { h, mi } = clinicParts(d);
+  return `${pad2(h)}:${pad2(mi)}`;
+}
+
+/** Minutes since midnight for a date, in the clinic timezone. */
+export function clinicMinutesOfDay(d: Date | string | number): number {
+  const { h, mi } = clinicParts(d);
+  return h * 60 + mi;
+}
+
+/** "h:mm a" (e.g. "2:30 PM") for a date, in the clinic timezone. */
+export function clinicTimeLabel(d: Date | string | number): string {
+  return formatClinic(d, { hour: "numeric", minute: "2-digit", hour12: true });
+}

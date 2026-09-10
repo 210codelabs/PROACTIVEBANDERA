@@ -183,13 +183,13 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   {
     slug: "eprescribing-weno",
     title: "E-Prescribing with Weno",
-    summary: "Search the Weno pharmacy directory, pre-fill the prescriber, launch Weno Online, and track delivery in Rx history.",
+    summary: "Search the Weno pharmacy directory, pre-fill the prescriber, launch Weno EZ Integration, and track delivery in Rx history.",
     hero: `${IMG}/clinical.jpg`,
     icon: "M19 7h-3V6a2 2 0 00-2-2h-4a2 2 0 00-2 2v1H5a1 1 0 000 2h1v9a2 2 0 002 2h8a2 2 0 002-2V9h1a1 1 0 100-2zM10 6h4v1h-4V6zm2 5a1 1 0 011 1v2h2a1 1 0 110 2h-2v2a1 1 0 11-2 0v-2H9a1 1 0 110-2h2v-2a1 1 0 011-1z",
     audience: "Providers, MAs, Admin",
     blocks: [
-      { type: "p", text: "Electronic prescribing runs on Weno Exchange. The eRx module lets you pick a patient, choose a medication, select a pharmacy from the Weno directory, confirm the prescriber, and either sign locally or launch Weno's online prescribing app pre-filled. Delivery status flows back into Rx history." },
-      { type: "shot", src: `${S}/erx-weno.png`, caption: "The eRx module: Weno Online launch, Weno pharmacy directory search, prescriber pre-fill, NPI lookup and Test Weno connection." },
+      { type: "p", text: "Electronic prescribing runs on Weno EZ Integration. The eRx module lets you pick a patient, choose a medication, select a pharmacy from the Weno directory, confirm the prescriber, and launch Weno's ComposeRx prescribing app pre-filled. Delivery status flows back into Rx history." },
+      { type: "shot", src: `${S}/erx-weno.png`, caption: "The eRx module: Weno EZ Integration launch, Weno pharmacy directory search, prescriber pre-fill, NPI lookup and Test Weno connection." },
 
       { type: "subhead", text: "Find a pharmacy (Weno directory)" },
       { type: "steps", title: "Pharmacy search", items: [
@@ -203,16 +203,16 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { type: "steps", title: "Prescriber tools", items: [
         "Prescribe as: choose a saved Weno-registered prescriber; the default is auto-selected for your login.",
         "Find prescriber NPI (NPPES): search by first/last name to fill the NPI from the national registry.",
-        "Test Weno connection: instantly confirms Weno Online is configured and the launch is ready.",
+        "Test Weno connection: instantly confirms Weno EZ Integration is configured and the launch is ready.",
       ] },
 
-      { type: "subhead", text: "Prescribe in Weno Online (ComposeRx)" },
-      { type: "steps", title: "Launch Weno Online", items: [
-        "With a patient selected, click “Open in Weno Online” in the banner at the top of New prescription.",
+      { type: "subhead", text: "Prescribe in Weno EZ Integration (ComposeRx)" },
+      { type: "steps", title: "Launch Weno EZ Integration", items: [
+        "With a patient selected, click “Open in Weno EZ Integration” in the banner at the top of New prescription.",
         "Weno's prescribing web app opens in a new tab, pre-filled with the patient (and pharmacy if selected).",
         "Complete and send the prescription in Weno; a “Composing” entry appears in Rx history right away.",
       ] },
-      { type: "tip", text: "Weno Online launch requires your clinic's Weno account, provider email/password and Location ID to be configured (Admin → Connection Health → Weno Online). The button stays disabled until setup is complete." },
+      { type: "tip", text: "Weno EZ Integration launch requires your clinic's Weno account, provider email/password and Location ID to be configured (Admin → Connection Health → Weno EZ Integration). The button stays disabled until setup is complete." },
 
       { type: "subhead", text: "Track delivery in Rx history" },
       { type: "p", text: "Open the Rx history tab to see every prescription with a live Weno status badge — Composing, Submitted, Delivered, Rejected, Cancelled or Send error. Turn on Auto to refresh statuses automatically, or click “Check status” any time. Reprint or re-prescribe from the same row." },
@@ -220,9 +220,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
 
       { type: "subhead", text: "Admin: configure & maintain Weno" },
       { type: "steps", title: "Admin → Connection Health", items: [
-        "Weno Exchange & Weno Online: enter credentials, choose the environment, and use Test Connection to verify.",
-        "Weno Pharmacy Directory: click “Sync from Weno” (or enable nightly auto-sync) and read the Added / Updated / Errors report.",
-        "Weno maintenance: “Apply from environment” populates Weno Online settings from server variables after a deploy; “Relabel now” tidies any legacy pharmacy tags.",
+        "Weno EZ Integration: enter credentials, choose the environment, and use Test Connection to verify.",
+        "Weno maintenance: “Apply from environment” populates Weno EZ Integration settings from server variables after a deploy; “Relabel now” tidies any legacy pharmacy tags.",
         "Weno-registered prescribers: add each prescriber's NPI/DEA (and optional Weno email) and set a default — these pre-fill the eRx module.",
       ] },
       { type: "shot", src: `${S}/weno-admin.png`, caption: "Admin Connection Health: Weno directory sync, one-click maintenance, and the registered-prescriber directory." },

@@ -107,8 +107,40 @@ async function writeIntegrations(state: IntegrationsState): Promise<void> {
   });
 }
 
+// One-time, idempotent, self-healing cleanup of retired Weno integrations.
+// Removes the legacy "weno" (Weno Exchange SOAP) provider record entirely and
+// clears any stale "weno-online" validation message that still references the
+// retired "Weno Online"/"Weno Exchange" labels or the old test.wenoexchange.com
+// host. Called on boot so both preview AND production (separate DBs) self-clean
+// to the single "Weno EZ Integration" identity. Never touches credentials.
+export async function pruneLegacyWenoStore(): Promise<{ removedExchange: boolean; clearedValidation: boolean }> {
+  try {
+    const row = await db.appSetting.findUnique({ where: { key: INTEGRATIONS_KEY } });
+    const v: any = row?.value;
+    if (!v?.providers) return { removedExchange: false, clearedValidation: false };
+    let removedExchange = false;
+    let clearedValidation = false;
+    if (v.providers["weno"]) {
+      delete v.providers["weno"];
+      removedExchange = true;
+    }
+    const wo = v.providers["weno-online"];
+    const msg = wo?.validation?.message ? String(wo.validation.message) : "";
+    if (msg && /(Weno Online|Weno Exchange|test\.wenoexchange\.com)/i.test(msg)) {
+      wo.validation = { status: "untested", message: "", checkedAt: null, subServices: {} };
+      clearedValidation = true;
+    }
+    if (removedExchange || clearedValidation) {
+      await db.appSetting.update({ where: { key: INTEGRATIONS_KEY }, data: { value: v } });
+    }
+    return { removedExchange, clearedValidation };
+  } catch {
+    return { removedExchange: false, clearedValidation: false };
+  }
+}
+
 // Merge non-empty credential values into a provider (preserving existing values
-// for any field not supplied). Used by the "Apply Weno Online config from
+// for any field not supplied). Used by the "Apply Weno EZ Integration config from
 // environment" admin action so production can be populated without hand-typing.
 export async function upsertProviderCredentials(
   providerKey: string,

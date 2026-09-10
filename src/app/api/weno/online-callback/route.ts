@@ -104,7 +104,7 @@ export async function POST(req: Request) {
   const { raw, data } = await extract(req);
   try {
     const state = mapState(data.status, data.statusText);
-    const statusText = (data.statusText || data.status || "Weno Online status update").slice(0, 300);
+    const statusText = (data.statusText || data.status || "Weno EZ Integration status update").slice(0, 300);
     const dbStatus = state === "rejected" || state === "error" ? "transmit_error" : "transmitted";
 
     const detailPatch: Record<string, any> = {
@@ -151,9 +151,9 @@ export async function POST(req: Request) {
       await db.prescription.create({
         data: {
           patientId: data.orgPatientId || null,
-          patientName: "(Weno Online)",
-          medName: data.drug ? data.drug.slice(0, 200) : "Weno Online prescription",
-          providerName: "Weno Online",
+          patientName: "(Weno EZ Integration)",
+          medName: data.drug ? data.drug.slice(0, 200) : "Weno EZ Integration prescription",
+          providerName: "Weno EZ Integration",
           transmissionMethod: "weno-online",
           pharmacyNcpdp: data.ncpdp || null,
           pharmacyName: data.pharmacyName || null,

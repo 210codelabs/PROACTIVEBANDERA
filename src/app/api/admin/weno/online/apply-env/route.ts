@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // POST /api/admin/weno/online/apply-env — admin one-click: populate the DB-backed
-// Weno Online config from this server's WENO_ONLINE_* environment variables.
+// Weno EZ Integration config from this server's WENO_ONLINE_* environment variables.
 // Keeps secrets in the environment (never hand-typed / never echoed).
 export async function POST() {
   const u = await getSession();

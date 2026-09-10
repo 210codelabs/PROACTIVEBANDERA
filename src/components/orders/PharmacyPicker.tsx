@@ -97,7 +97,7 @@ export default function PharmacyPicker({
             state: p.state || null,
             phone: p.phone || null,
             preferred: false,
-            services: p.isTest ? "test pharmacy" : null,
+            services: p.isTest ? "test pharmacy" : (p.wenoConnected ? "Weno-connected" : null),
           })),
         );
       } catch {
@@ -165,6 +165,7 @@ export default function PharmacyPicker({
                     <div className="text-[11px] text-slate-500 truncate">
                       {[p.city, p.state].filter(Boolean).join(", ")}
                       {p.hours ? ` · ${p.hours}` : ""}
+                      {p.services === "Weno-connected" ? " · ✓ Weno-connected" : ""}
                     </div>
                   </div>
                   <span className={`chip ${networkBadge(p.network)} capitalize shrink-0`}>{p.network}</span>

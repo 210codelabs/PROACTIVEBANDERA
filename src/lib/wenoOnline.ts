@@ -2,10 +2,10 @@ import crypto from "node:crypto";
 import { readIntegrations } from "@/lib/integrations/store";
 
 // -----------------------------------------------------------------------------
-// Weno Online ("EZ Integration" / ComposeRx) e-prescribing LAUNCHER.
+// Weno EZ Integration ("EZ Integration" / ComposeRx) e-prescribing LAUNCHER.
 //
 // This is a DIFFERENT mechanism from the SOAP/NCPDP SCRIPT "Switch" client in
-// src/lib/weno.ts. Weno Online is a browser deep-link: the EHR encrypts patient
+// src/lib/weno.ts. Weno EZ Integration is a browser deep-link: the EHR encrypts patient
 // + prescriber context with the account's "EHR Encryption Key" and hands the
 // clinician a pre-filled ComposeRx URL in Weno's web app.
 //
@@ -71,7 +71,7 @@ export async function getWenoOnlineConfig(): Promise<WenoOnlineConfig> {
   };
 }
 
-/** True when Weno Online has everything it needs to build a launch URL. */
+/** True when Weno EZ Integration has everything it needs to build a launch URL. */
 export function isWenoOnlineConfigured(cfg: WenoOnlineConfig): boolean {
   return Boolean(
     cfg.ehrEncryptionKey && cfg.providerEmail && cfg.providerPassword && cfg.locationId,
@@ -79,7 +79,7 @@ export function isWenoOnlineConfigured(cfg: WenoOnlineConfig): boolean {
 }
 
 /**
- * Encrypt a payload for Weno Online.
+ * Encrypt a payload for Weno EZ Integration.
  * AES-256-CBC | key=SHA-256(ehrKey) | IV=16 zero bytes | PKCS#7 | Base64 out.
  */
 export function encryptWenoData(plaintext: string, ehrEncryptionKey: string): string {
@@ -116,17 +116,17 @@ export function buildComposeRxUrl(
   const email = (opts?.providerEmail || cfg.providerEmail || "").trim();
   if (!email)
     throw new WenoOnlineError(
-      "A Weno provider email is required. Set it in Admin \u2192 External Integrations \u2192 Weno Online.",
+      "A Weno provider email is required. Set it in Admin \u2192 External Integrations \u2192 Weno EZ Integration.",
       400,
     );
   if (!cfg.providerPassword)
     throw new WenoOnlineError(
-      "A Weno provider password is required (used to derive the launch token). Set it in Admin \u2192 External Integrations \u2192 Weno Online.",
+      "A Weno provider password is required (used to derive the launch token). Set it in Admin \u2192 External Integrations \u2192 Weno EZ Integration.",
       400,
     );
   if (!cfg.locationId)
     throw new WenoOnlineError(
-      "A Weno Location ID is required. Set it in Admin \u2192 External Integrations \u2192 Weno Online.",
+      "A Weno Location ID is required. Set it in Admin \u2192 External Integrations \u2192 Weno EZ Integration.",
       400,
     );
 

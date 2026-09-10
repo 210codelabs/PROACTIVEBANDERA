@@ -55,41 +55,16 @@ export const INTEGRATION_CATALOG: CapabilityDef[] = [
     selection: "multi",
     providers: [
       {
-        key: "weno",
-        name: "Weno Exchange",
-        description:
-          "Free e-prescribing network (NCPDP SCRIPT over SOAP). Sends NewRx/CancelRx to pharmacies via Weno 'Switch'. EPCS/controlled substances require separate Weno approval (DEA audit + identity proofing).",
-        docsUrl: "https://wenoexchange.com/switch-documentation/",
-        docsLabel: "Weno Switch docs & certification dashboard (cert.wenoexchange.com)",
-        authMode: "credentials",
-        fields: [
-          { key: "PARTNER_ID", label: "API Partner ID", type: "text", required: true, placeholder: "WENO-PARTNER-ID", help: "From Weno certification dashboard → Account Details → Company Data." },
-          { key: "PARTNER_PASSWORD", label: "Partner Password", type: "password", required: true, placeholder: "••••••••", help: "Your Weno partner password." },
-          { key: "MD5_PASSWORD", label: "MD5 Password Hash", type: "password", required: false, placeholder: "32-char md5 hash", help: "MD5 hash of the partner password. Required by Switch security headers and directory Basic auth. Leave blank to auto-derive from the partner password." },
-          { key: "ENVIRONMENT", label: "Environment", type: "text", required: true, placeholder: "test | production", help: "Use 'test' (cert.wenoexchange.com) until Weno certifies you, then 'production' (live.wenoexchange.com)." },
-          { key: "PRESCRIBER_ROUTING_ID", label: "Weno Prescriber/Routing ID (From)", type: "text", required: false, placeholder: "assigned by Weno", help: "The sender routing identifier Weno assigns to your clinic/prescriber." },
-          { key: "SENDER_SOFTWARE_NAME", label: "Sender Software Name", type: "text", required: false, placeholder: "ProactiveClinics EHR" },
-          { key: "SENDER_SOFTWARE_VERSION", label: "Sender Software Version", type: "text", required: false, placeholder: "1.0" },
-          { key: "ENDPOINT_OVERRIDE", label: "Switch Endpoint Override (optional)", type: "text", required: false, placeholder: "https://cert.wenoexchange.com/wenox/service.asmx", help: "Only set if Weno gives you a non-default message endpoint." },
-        ],
-        subServices: [
-          { key: "newrx", label: "NewRx / CancelRx (Switch)", description: "Transmit new prescriptions and cancellations directly to pharmacies." },
-          { key: "epcs", label: "Controlled Substances / EPCS", description: "Requires Weno DEA-audit approval + prescriber identity proofing. NOT certified by enabling this toggle alone." },
-          { key: "directory", label: "Pharmacy Directory Download", description: "Download Weno's pharmacy directory (NCPDP IDs) for routing." },
-          { key: "medhistory", label: "Medication History (RxHistory)", description: "Only if enabled on your Weno account." },
-        ],
-      },
-      {
         key: "weno-online",
-        name: "Weno Online (EZ Integration)",
+        name: "Weno EZ Integration",
         description:
-          "Browser launch e-prescribing: opens Weno's ComposeRx web app pre-filled with the patient using your 'EHR Encryption Key'. Simpler than the SOAP Switch — no NCPDP XML. Production launch still requires a Weno account, provider/location mapping, IP allowlisting and Weno certification.",
+          "Weno EZ Integration e-prescribing: opens Weno's ComposeRx screen pre-filled with the patient using your 'EHR Encryption Key', embedded directly inside the EHR. Production launch requires a Weno account, provider/location mapping, IP allowlisting and Weno certification.",
         docsUrl: "https://wenoexchange.com/wp-content/uploads/2025/08/EZ_Integration_Overview.pdf",
-        docsLabel: "Weno EZ Integration overview + dashboard (online.wenoexchange.com)",
+        docsLabel: "Weno EZ Integration overview + dashboard",
         authMode: "credentials",
         fields: [
           { key: "EHR_ENCRYPTION_KEY", label: "EHR Encryption Key", type: "password", required: true, placeholder: "from Weno dashboard → Developers", help: "The encryption key Weno assigns to your account (Manage Account → Developers). Used to encrypt the ComposeRx launch payload. Paste it EXACTLY as shown in Weno — special characters matter." },
-          { key: "ENVIRONMENT", label: "Environment", type: "text", required: true, placeholder: "test | production", help: "'test' launches test.wenoexchange.com; 'production' launches online.wenoexchange.com. Stay on test until Weno certifies you." },
+          { key: "ENVIRONMENT", label: "Environment", type: "text", required: true, placeholder: "test | production", help: "'test' sends every Rx as a Weno test patient; 'production' sends live. Stay on test until Weno certifies you." },
           { key: "PROVIDER_EMAIL", label: "Weno Provider Email / Username", type: "text", required: true, placeholder: "prescriber@clinic.com", help: "The prescriber's Weno login email. Passed as 'useremail' and inside the encrypted payload." },
           { key: "PROVIDER_PASSWORD", label: "Weno Provider Password", type: "password", required: true, placeholder: "••••••••", help: "The prescriber's Weno password. Only an MD5 of it is embedded in the launch token; the plaintext is never sent in the URL." },
           { key: "LOCATION_ID", label: "Weno Location ID", type: "text", required: true, placeholder: "L12345", help: "The Weno location the prescriber is assigned to (starts with 'L'). From your Weno account registration." },

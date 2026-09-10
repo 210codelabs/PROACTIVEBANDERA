@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { openApptWidget, APPT_CHANGED } from "@/lib/apptEvents";
+import { clinicDayKey, clinicHHmm, formatClinic } from "@/lib/clinic";
 
 type Appt = {
   id: string; startsAt: string; endsAt: string; status: string;
@@ -21,11 +22,10 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 function fmt(dt: string) {
-  const d = new Date(dt);
-  return d.toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  return formatClinic(dt, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
-function toDay(dt?: string) { const d = dt ? new Date(dt) : new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
-function toTime(dt?: string) { const d = dt ? new Date(dt) : new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
+function toDay(dt?: string) { return clinicDayKey(dt || new Date()); }
+function toTime(dt?: string) { return clinicHHmm(dt || new Date()); }
 
 export default function PatientAppointments({ patientId, role, patientName }: { patientId: string; role: string; patientName?: string }) {
   const router = useRouter();

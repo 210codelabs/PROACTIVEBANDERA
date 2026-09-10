@@ -42,9 +42,6 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   const [err, setErr] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [weno, setWeno] = useState<{ enabled: boolean; configured: boolean; environment: string; epcs: boolean; online?: { enabled: boolean; configured: boolean; keySet: boolean; environment: string; prescriber?: { npi: string; dea: string; firstName: string; lastName: string; name: string } } } | null>(null);
-  const [ncpdp, setNcpdp] = useState("");
-  const [txBusy, setTxBusy] = useState(false);
-  const [txResult, setTxResult] = useState<{ ok: boolean; state?: string; text: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/erx/weno-status")
@@ -63,44 +60,6 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
       .catch(() => setWeno(null));
   }, []);
 
-  async function transmitWeno() {
-    if (!savedId) return;
-    setTxBusy(true); setTxResult(null);
-    try {
-      const r = await fetch(`/api/erx/${savedId}/transmit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pharmacyNcpdp: ncpdp || null }) });
-      const d = await r.json();
-      if (!r.ok && d.error) { setTxResult({ ok: false, text: d.error }); return; }
-      setTxResult({ ok: d.ok !== false, state: d.state, text: d.statusText || d.error || (d.ok ? "Transmitted to Weno." : "Transmission failed.") });
-    } catch (e: any) {
-      setTxResult({ ok: false, text: "Transmission request failed." });
-    } finally { setTxBusy(false); }
-  }
-
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-
-  // Weno Online (ComposeRx) launcher: opens Weno's web prescribing app pre-filled.
-  const [olBusy, setOlBusy] = useState(false);
-  const [olErr, setOlErr] = useState<string | null>(null);
-  async function launchWenoOnline() {
-    setOlBusy(true); setOlErr(null);
-    try {
-      const r = await fetch("/api/erx/weno-online/launch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientId: patient?.id || null,
-          primaryPharmacyNcpdp: ncpdp || (pharmacy as any)?.ncpdpId || null,
-          providerEmail: selectedPrescriberEmail || undefined,
-        }),
-      });
-      const d = await r.json();
-      if (!r.ok || !d.url) { setOlErr(d.error || "Could not open Weno Online."); return; }
-      window.open(d.url, "_blank", "noopener,noreferrer");
-    } catch {
-      setOlErr("Weno Online launch request failed.");
-    } finally { setOlBusy(false); }
-  }
-
   // Prescriber NPI lookup (NPPES) + clinician-facing Weno connection test.
   const [npiQ, setNpiQ] = useState({ first: "", last: "" });
   const [npiResults, setNpiResults] = useState<any[]>([]);
@@ -112,7 +71,6 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
   // Weno-registered prescriber directory: pick the right prescriber per login.
   const [wenoPrescribers, setWenoPrescribers] = useState<any[]>([]);
   const [selectedPrescriberId, setSelectedPrescriberId] = useState<string>("");
-  const selectedPrescriberEmail = wenoPrescribers.find((p) => p.id === selectedPrescriberId)?.wenoEmail || "";
   useEffect(() => {
     fetch("/api/erx/prescribers")
       .then((r) => r.json())
@@ -174,20 +132,9 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
       const r = await fetch("/api/erx/weno-test");
       const d = await r.json();
       const parts: string[] = [];
-      if (d.online) parts.push(`Weno Online (EZ Integration) — ${d.online.message}`);
+      if (d.online) parts.push(`Weno EZ Integration — ${d.online.message}`);
       setWenoTest({ ok: Boolean(d.ok), text: parts.join("  ·  ") || "No response." });
     } catch { setWenoTest({ ok: false, text: "Test request failed." }); } finally { setWenoTestBusy(false); }
-  }
-
-  async function cancelRx(h: any) {
-    if (!window.confirm(`Send a CancelRx to the pharmacy for ${h.medName}? This notifies the pharmacy to cancel the prescription.`)) return;
-    setCancellingId(h.id);
-    try {
-      const r = await fetch(`/api/erx/${h.id}/cancel`, { method: "POST" });
-      const d = await r.json();
-      if (r.ok && d.ok !== false) { setHistReload((n) => n + 1); }
-      else window.alert(d.error || d.statusText || "Could not cancel.");
-    } catch { window.alert("Cancel request failed."); } finally { setCancellingId(null); }
   }
 
   useEffect(() => {
@@ -348,14 +295,10 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
       const d = await r.json();
       if (!r.ok) { setErr(d.error || "Could not save prescription."); return; }
       setSavedId(d.id);
-      setNcpdp((pharmacy as any)?.ncpdpId || "");
-      setTxResult(null);
     } catch { setErr("Could not save prescription."); } finally { setBusy(false); }
   }
 
   if (savedId) {
-    const stateChip = txResult?.state === "accepted" || txResult?.state === "delivered" || txResult?.state === "submitted"
-      ? "bg-emerald-100 text-emerald-700" : txResult?.ok === false ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-600";
     return (
       <div className="card card-pad max-w-lg mx-auto">
         <div className="text-center">
@@ -364,41 +307,16 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
           <p className="text-sm text-slate-500 mt-1">The eRx has been recorded and e-signed.</p>
         </div>
 
-        {/* Electronic transmission via Weno Exchange */}
         <div className="mt-4 rounded-xl border border-slate-200 p-4 text-left">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 text-sm">Send electronically (Weno Exchange)</h3>
-            {weno && (
-              <span className={`chip text-[10px] ${weno.enabled && weno.configured ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
-                {weno.enabled && weno.configured ? `Weno ${weno.environment}` : "Not configured"}
-              </span>
-            )}
-          </div>
-
-          {weno && weno.enabled && weno.configured ? (
-            <>
-              <WenoPharmacyField ncpdp={ncpdp} setNcpdp={setNcpdp} />
-              <button onClick={transmitWeno} disabled={txBusy || !ncpdp.trim()} className="btn-primary w-full mt-2 disabled:opacity-60">
-                {txBusy ? "Transmitting…" : "Transmit to pharmacy via Weno"}
-              </button>
-              {txResult && (
-                <div className={`mt-2 rounded-lg px-3 py-2 text-sm ${txResult.ok ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-rose-50 text-rose-700 ring-1 ring-rose-200"}`}>
-                  {txResult.state && <span className={`chip mr-2 text-[10px] ${stateChip}`}>{txResult.state}</span>}
-                  {txResult.text}
-                </div>
-              )}
-              {weno.environment === "test" && <p className="mt-1 text-[10px] text-slate-400">TEST/cert environment — use Weno test pharmacies only. Delivery is confirmed asynchronously.</p>}
-            </>
-          ) : (
-            <p className="mt-2 text-[12px] text-slate-500">
-              Weno e-prescribing isn&apos;t set up yet. An administrator can enable it under <span className="font-medium">Admin → External Integrations → Weno Exchange</span>. You can still print the prescription below.
-            </p>
-          )}
+          <h3 className="font-semibold text-slate-900 text-sm">Send electronically (Weno EZ Integration)</h3>
+          <p className="mt-2 text-[12px] text-slate-500">
+            To transmit this prescription electronically, open <span className="font-medium">e-Prescribe (Weno)</span> from the patient chart to launch the Weno EZ Integration ComposeRx screen, or print the prescription below.
+          </p>
         </div>
 
         <div className="mt-4 flex justify-center gap-2">
           <a href={`/api/erx/${savedId}/pdf`} target="_blank" rel="noopener" className="btn-secondary">Print / Download PDF</a>
-          <button onClick={() => { setSavedId(null); setMed({ medName: "", strength: "", form: "", ndc: "", deaSchedule: "" }); setRx({ sig: "", quantity: "", refills: "0", daw: false, notes: "" }); setSig(null); setPatient(null); setPatQ(""); setPharmacy(null); setNcpdp(""); setTxResult(null); }} className="btn-primary">New prescription</button>
+          <button onClick={() => { setSavedId(null); setMed({ medName: "", strength: "", form: "", ndc: "", deaSchedule: "" }); setRx({ sig: "", quantity: "", refills: "0", daw: false, notes: "" }); setSig(null); setPatient(null); setPatQ(""); setPharmacy(null); }} className="btn-primary">New prescription</button>
         </div>
       </div>
     );
@@ -465,9 +383,6 @@ export default function ErxBuilder({ providerName, defaultNpi = "", defaultDea =
                   <div className="flex items-center gap-2 shrink-0">
                     <a href={`/api/erx/${h.id}/pdf`} target="_blank" rel="noopener" className="chip bg-white ring-slate-200 text-xs hover:bg-slate-50">Reprint</a>
                     <button onClick={() => rePrescribe(h)} className="chip bg-brand-100 text-brand-800 ring-brand-200 text-xs">Re-prescribe</button>
-                    {h.transmissionMethod === "weno" && h.wenoMessageId && h.wenoState !== "cancelled" && h.wenoState !== "rejected" && h.wenoState !== "error" && (
-                      <button onClick={() => cancelRx(h)} disabled={cancellingId === h.id} className="chip bg-rose-100 text-rose-700 ring-rose-200 text-xs disabled:opacity-60">{cancellingId === h.id ? "Cancelling…" : "Cancel Rx"}</button>
-                    )}
                   </div>
                 </li>
               ))}
@@ -696,114 +611,11 @@ const WENO_STATE_STYLES: Record<string, { cls: string; label: string }> = {
   error: { cls: "bg-amber-100 text-amber-800", label: "Send error" },
 };
 
-function WenoStateBadge({ state, method }: { state?: string | null; method?: string | null }) {
+function WenoStateBadge({ state }: { state?: string | null; method?: string | null }) {
   const s = WENO_STATE_STYLES[String(state || "")] || { cls: "bg-slate-100 text-slate-500", label: state || "Sent" };
-  const label = method === "weno-online" ? "Weno Online" : "Weno";
   return (
     <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${s.cls}`}>
-      <span className="text-[8px]">{label}</span>{s.label}
+      <span className="text-[8px]">Weno EZ</span>{s.label}
     </span>
-  );
-}
-
-type PharmHit = { ncpdpId: string; name: string; city?: string | null; state?: string | null; phone?: string | null; isTest?: boolean };
-
-function WenoPharmacyField({ ncpdp, setNcpdp }: { ncpdp: string; setNcpdp: (v: string) => void }) {
-  const [q, setQ] = useState("");
-  const [results, setResults] = useState<PharmHit[]>([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [chosen, setChosen] = useState<PharmHit | null>(null);
-  const [manual, setManual] = useState(false);
-  const [favs, setFavs] = useState<PharmHit[]>([]);
-
-  useEffect(() => {
-    fetch("/api/weno/favorites").then((r) => r.json()).then((d) => setFavs((d.favorites || []).map((f: any) => ({ ncpdpId: f.ncpdpId, name: f.name, city: f.city, state: f.state, phone: f.phone })))).catch(() => {});
-  }, []);
-  const isFav = (id: string) => favs.some((f) => f.ncpdpId === id);
-  async function toggleFav(p: PharmHit) {
-    if (isFav(p.ncpdpId)) {
-      setFavs((cur) => cur.filter((f) => f.ncpdpId !== p.ncpdpId));
-      await fetch(`/api/weno/favorites?ncpdpId=${encodeURIComponent(p.ncpdpId)}`, { method: "DELETE" }).catch(() => {});
-    } else {
-      setFavs((cur) => [{ ncpdpId: p.ncpdpId, name: p.name, city: p.city, state: p.state, phone: p.phone }, ...cur]);
-      await fetch("/api/weno/favorites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ncpdpId: p.ncpdpId, name: p.name, city: p.city, state: p.state, phone: p.phone }) }).catch(() => {});
-    }
-  }
-
-  useEffect(() => {
-    if (manual || q.trim().length < 1) { setResults([]); return; }
-    let live = true;
-    setLoading(true);
-    const t = setTimeout(() => {
-      fetch(`/api/weno/pharmacies?q=${encodeURIComponent(q.trim())}`)
-        .then((r) => r.json())
-        .then((d) => { if (live) { setResults(d.pharmacies || []); setOpen(true); } })
-        .catch(() => { if (live) setResults([]); })
-        .finally(() => { if (live) setLoading(false); });
-    }, 250);
-    return () => { live = false; clearTimeout(t); };
-  }, [q, manual]);
-
-  function pick(p: PharmHit) {
-    setChosen(p); setNcpdp(p.ncpdpId); setOpen(false); setQ("");
-  }
-
-  if (manual) {
-    return (
-      <label className="text-sm block mt-2">
-        <span className="label flex items-center justify-between">Pharmacy NCPDP ID
-          <button type="button" onClick={() => setManual(false)} className="text-[11px] text-brand-600 underline">Search by name</button>
-        </span>
-        <input className="input w-full" value={ncpdp} onChange={(e) => setNcpdp(e.target.value)} placeholder="e.g. 1234567" />
-      </label>
-    );
-  }
-
-  return (
-    <div className="mt-2 relative">
-      <span className="label flex items-center justify-between">Pharmacy
-        <button type="button" onClick={() => setManual(true)} className="text-[11px] text-brand-600 underline">Enter NCPDP manually</button>
-      </span>
-      {!chosen && favs.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
-          <span className="text-[11px] text-slate-400 self-center mr-1">★ Favorites:</span>
-          {favs.slice(0, 8).map((f) => (
-            <button key={f.ncpdpId} type="button" onClick={() => pick(f)} className="chip bg-amber-50 ring-1 ring-amber-200 text-amber-800 text-[11px] hover:bg-amber-100" title={`NCPDP ${f.ncpdpId}${f.city ? ` · ${f.city}, ${f.state || ""}` : ""}`}>{f.name}</button>
-          ))}
-        </div>
-      )}
-      {chosen ? (
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-          <button type="button" onClick={() => toggleFav(chosen)} className={`text-lg leading-none ${isFav(chosen.ncpdpId) ? "text-amber-400" : "text-slate-300 hover:text-amber-400"}`} title={isFav(chosen.ncpdpId) ? "Remove favorite" : "Add to favorites"}>★</button>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-slate-800 truncate">{chosen.name} {chosen.isTest && <span className="chip bg-amber-100 text-amber-800 text-[9px] ml-1">TEST</span>}</div>
-            <div className="text-[11px] text-slate-500 truncate">NCPDP {chosen.ncpdpId}{chosen.city ? ` · ${chosen.city}, ${chosen.state || ""}` : ""}</div>
-          </div>
-          <button type="button" onClick={() => { setChosen(null); setNcpdp(""); }} className="text-slate-400 text-xs hover:text-slate-700">Change</button>
-        </div>
-      ) : (
-        <>
-          <input className="input w-full" value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => results.length && setOpen(true)} placeholder="Search pharmacy by name, city, or NCPDP…" />
-          {open && (results.length > 0 || loading) && (
-            <div className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-              {loading && <div className="px-3 py-2 text-xs text-slate-400">Searching…</div>}
-              {results.map((p) => (
-                <div key={p.ncpdpId} className="flex items-center gap-1 border-b border-slate-50 last:border-0 hover:bg-brand-50">
-                  <button type="button" onClick={() => pick(p)} className="flex-1 text-left px-3 py-2">
-                    <div className="text-sm text-slate-800">{p.name} {p.isTest && <span className="chip bg-amber-100 text-amber-800 text-[9px] ml-1">TEST</span>}</div>
-                    <div className="text-[11px] text-slate-500">NCPDP {p.ncpdpId}{p.city ? ` · ${p.city}, ${p.state || ""}` : ""}{p.phone ? ` · ${p.phone}` : ""}</div>
-                  </button>
-                  <button type="button" onClick={() => toggleFav(p)} className={`px-2 text-lg leading-none ${isFav(p.ncpdpId) ? "text-amber-400" : "text-slate-300 hover:text-amber-400"}`} title={isFav(p.ncpdpId) ? "Remove favorite" : "Add to favorites"}>★</button>
-                </div>
-              ))}
-              {!loading && results.length === 0 && q.trim().length >= 1 && (
-                <div className="px-3 py-2 text-xs text-slate-400">No pharmacies found. An admin can sync the Weno directory, or enter an NCPDP ID manually.</div>
-              )}
-            </div>
-          )}
-        </>
-      )}
-    </div>
   );
 }

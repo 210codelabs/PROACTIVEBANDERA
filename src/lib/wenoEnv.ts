@@ -1,4 +1,4 @@
-// Single source of truth mapping Weno Online integration fields <- server
+// Single source of truth mapping Weno EZ Integration integration fields <- server
 // environment variables. Shared by the admin "Apply from environment" action
 // and the boot-time auto-apply. No node-only imports here so it stays portable.
 export const WENO_ONLINE_ENV_MAP: Record<string, string> = {
@@ -23,7 +23,7 @@ export function collectWenoOnlineEnv(): Record<string, string> {
   return creds;
 }
 
-// Weno Online is considered "ready to enable" when the core fields are present.
+// Weno EZ Integration is considered "ready to enable" when the core fields are present.
 export function wenoOnlineEnvEnablable(): boolean {
   return Boolean(
     process.env.WENO_ONLINE_KEY &&

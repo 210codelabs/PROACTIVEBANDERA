@@ -1234,6 +1234,30 @@ model WenoPharmacy {
   @@index([name])
 }
 
+// Weno EZ "LITE" pharmacy directory (name/address only — no NCPDP/phone).
+// Imported from the Weno directory export so staff can search & set a patient's
+// preferred pharmacy. onWeno=true means the pharmacy is connected to receive
+// Weno e-prescriptions.
+model WenoDirectoryPharmacy {
+  id        String   @id @default(cuid()) @map("_id")
+  onWeno    Boolean  @default(false)
+  name      String
+  address1  String?
+  address2  String?
+  city      String?
+  state     String?
+  zip       String?
+  country   String?
+  mailOrder Boolean  @default(false)
+  app       String?  // Weno routing method (e.g. "switch")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  @@index([state])
+  @@index([name])
+  @@index([onWeno])
+}
+
+
 // Weno-registered prescribers an admin can save, so the eRx module can pre-fill
 // NPI/DEA and the clinician can pick the right one per login.
 model WenoPrescriber {

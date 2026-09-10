@@ -8,7 +8,6 @@ import {
   validateProviderConfig,
 } from "@/lib/integrations/store";
 import { stediPing } from "@/lib/stedi";
-import { wenoDirectoryPing } from "@/lib/weno";
 import { getWenoOnlineConfig, buildComposeRxUrl } from "@/lib/wenoOnline";
 
 export const dynamic = "force-dynamic";
@@ -59,29 +58,11 @@ export async function POST(req: Request) {
     validation.checkedAt = new Date().toISOString();
   }
 
-  // For Weno, perform a REAL connectivity/credential test via the directory
-  // download endpoint (HTTP Basic auth = partnerId:md5). This also surfaces
-  // IP-allowlist problems clearly.
-  if (providerKey === "weno" && validation.status === "success") {
-    try {
-      const res = await wenoDirectoryPing("PharmacyDirectory");
-      validation.message = `Live connection to Weno verified (pharmacy directory reachable, ${res.bytes} bytes). Note: NewRx transmission still requires Weno certification.`;
-    } catch (e: any) {
-      const status = e?.status;
-      validation.status = "error";
-      validation.message =
-        status === 401 || status === 403
-          ? "Weno rejected the credentials (unauthorized). Verify Partner ID + password/MD5 and that this server's outbound IP is allowlisted in the Weno dashboard."
-          : `Could not reach Weno: ${String(e?.message || e).slice(0, 200)}`;
-    }
-    validation.checkedAt = new Date().toISOString();
-  }
-
-  // For Weno Online (ComposeRx launch), there is no server-to-server auth call
-  // we can make without a browser session. Instead we verify the config is
-  // complete and that the EHR Encryption Key + crypto actually produce a valid
-  // launch URL for a synthetic patient. True end-to-end verification happens by
-  // launching ComposeRx in the browser during Weno certification.
+  // For Weno EZ Integration (ComposeRx launch), there is no server-to-server
+  // auth call we can make without a browser session. Instead we verify the
+  // config is complete and that the EHR Encryption Key + crypto actually produce
+  // a valid launch URL for a synthetic patient. True end-to-end verification
+  // happens by launching ComposeRx in the browser during Weno certification.
   if (providerKey === "weno-online" && validation.status === "success") {
     try {
       const cfg = await getWenoOnlineConfig();
@@ -91,10 +72,10 @@ export async function POST(req: Request) {
         {},
       );
       const host = (() => { try { return new URL(url).host; } catch { return cfg.composeBase; } })();
-      validation.message = `Configuration valid — encrypted launch URL builds successfully for ${cfg.environment} (${host}). Note: actual prescribing is confirmed by launching Weno Online in the browser; production requires Weno certification + IP allowlisting.`;
+      validation.message = `Configuration valid — encrypted launch URL builds successfully for ${cfg.environment} (${host}). Note: actual prescribing is confirmed by launching Weno EZ Integration (ComposeRx) in the browser; production requires Weno certification + IP allowlisting.`;
     } catch (e: any) {
       validation.status = "error";
-      validation.message = `Could not build a Weno Online launch URL: ${String(e?.message || e).slice(0, 200)}`;
+      validation.message = `Could not build a Weno EZ Integration launch URL: ${String(e?.message || e).slice(0, 200)}`;
     }
     validation.checkedAt = new Date().toISOString();
   }

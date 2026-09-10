@@ -253,7 +253,7 @@ export class WenoIntegrationService {
     const cfg = await this.getConfig();
     if (!this.isConfigured(cfg)) {
       throw new WenoOnlineError(
-        "Weno EZ Integration is not configured. An encryption key, prescriber email/password and location ID are required (Admin \u2192 External Integrations \u2192 Weno Online, or WENO_* environment variables).",
+        "Weno EZ Integration is not configured. An encryption key, prescriber email/password and location ID are required (Admin \u2192 External Integrations \u2192 Weno EZ Integration, or WENO_* environment variables).",
         400,
       );
     }
@@ -504,7 +504,7 @@ export class WenoIntegrationService {
 
     if (!cfg.ehrEncryptionKey) {
       throw new WenoOnlineError(
-        "Weno EZ Integration is not configured: the EZ encryption key is missing (WENO_ONLINE_KEY / Admin \u2192 External Integrations \u2192 Weno Online).",
+        "Weno EZ Integration is not configured: the EZ encryption key is missing (WENO_ONLINE_KEY / Admin \u2192 External Integrations \u2192 Weno EZ Integration).",
         400,
       );
     }

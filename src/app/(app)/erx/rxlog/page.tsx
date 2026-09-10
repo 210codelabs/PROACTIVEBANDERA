@@ -10,7 +10,7 @@ export default async function WenoRxLogPage() {
   return (
     <Shell user={user} pageTitle="Weno Rx Log">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm text-slate-500">On-demand view of prescriptions sent through Weno Online.</span>
+        <span className="text-sm text-slate-500">On-demand view of prescriptions sent through Weno EZ Integration.</span>
         <Link href="/dashboard" className="text-sm text-brand-700 hover:underline">← Back to dashboard</Link>
       </div>
       <WenoRxLogFrame />
