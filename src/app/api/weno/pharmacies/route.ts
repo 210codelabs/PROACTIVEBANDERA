@@ -11,88 +11,123 @@ const WENO_TEST_PHARMACIES = [
   { ncpdpId: "1234567", name: "Weno Test Pharmacy", city: "Test City", state: "TX", zip: "78201", phone: "(210) 555-0100" },
 ];
 
-// GET /api/weno/pharmacies?q=... -> search the local Weno pharmacy directory by
-// name / city / NCPDP ID. In the test environment, built-in Weno test
-// pharmacies are merged so clinicians always have a destination to pick.
+// Query the NPPES national registry for PHARMACY organizations (NPI-2). This has
+// no NCPDP ID (so it can't route a ComposeRx destination), but it lets staff
+// find any US pharmacy by name/city/state/zip. Results are flagged source:nppes.
+async function searchNppesPharmacies(f: { name: string; city: string; state: string; zip: string }): Promise<any[]> {
+  const canSearch = f.name.length >= 2 || (f.city.length >= 2 && f.state.length >= 2) || f.zip.length >= 3;
+  if (!canSearch) return [];
+  const p = new URLSearchParams({ version: "2.1", enumeration_type: "NPI-2", limit: "20" });
+  if (f.name) p.set("organization_name", `${f.name}*`);
+  if (f.city) p.set("city", f.city);
+  if (f.state) p.set("state", f.state.toUpperCase().slice(0, 2));
+  if (f.zip) p.set("postal_code", `${f.zip}*`);
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    const r = await fetch(`https://npiregistry.cms.gov/api/?${p.toString()}`, { signal: ctrl.signal });
+    clearTimeout(t);
+    const d = await r.json().catch(() => ({}));
+    const out: any[] = [];
+    for (const res of d.results || []) {
+      const taxes = res.taxonomies || [];
+      const isPharmacy = taxes.some((t: any) => /pharmac/i.test(t.desc || "") || String(t.code || "").startsWith("3336"));
+      if (!isPharmacy) continue;
+      const addr = (res.addresses || []).find((a: any) => a.address_purpose === "LOCATION") || (res.addresses || [])[0] || {};
+      out.push({
+        ncpdpId: `nppes:${res.number}`,
+        npi: String(res.number),
+        name: res.basic?.organization_name || res.basic?.name || "Pharmacy",
+        address: [addr.address_1, addr.address_2].filter(Boolean).join(", ") || null,
+        city: addr.city || null,
+        state: addr.state || null,
+        zip: (addr.postal_code || "").slice(0, 5) || null,
+        phone: addr.telephone_number || null,
+        source: "nppes",
+        routable: false,
+      });
+    }
+    return out;
+  } catch { return []; }
+}
+
+// GET /api/weno/pharmacies
+// Structured search across the Weno directory (real NCPDP), the local directory,
+// and (optionally) the NPPES national registry.
+// Params: q (free text) | name | city | state | zip | address | nppes=0 to skip NPPES.
 export async function GET(req: Request) {
   try { await requireSession(); } catch { return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); }
-  const q = (new URL(req.url).searchParams.get("q") || "").trim();
+  const sp = new URL(req.url).searchParams;
+  const q = (sp.get("q") || "").trim();
+  const name = (sp.get("name") || "").trim();
+  const city = (sp.get("city") || "").trim();
+  const state = (sp.get("state") || "").trim();
+  const zip = (sp.get("zip") || "").trim();
+  const address = (sp.get("address") || "").trim();
+  const wantNppes = sp.get("nppes") !== "0";
+
   const cfg = await getWenoOnlineConfig();
   const environment = cfg.environment;
 
+  // Build AND conditions from whichever fields are provided.
+  const ci = (v: string) => ({ contains: v, mode: "insensitive" as const });
+  const and: any[] = [];
+  if (name) and.push({ name: ci(name) });
+  if (city) and.push({ city: ci(city) });
+  if (state) and.push({ OR: [{ state: ci(state) }] });
+  if (zip) and.push({ zip: { contains: zip } });
+  if (address) and.push({ address: ci(address) });
+  // Free-text q searches name/city/ncpdp together.
+  if (q) and.push({ OR: [{ name: ci(q) }, { city: ci(q) }, { ncpdpId: { contains: q } }] });
+
+  const hasCriteria = and.length > 0;
   let results: any[] = [];
-  if (q.length >= 1) {
-    const [wenoRows, localRows] = await Promise.all([
-      db.wenoPharmacy.findMany({
-        where: {
-          active: true,
-          OR: [
-            { name: { contains: q, mode: "insensitive" } },
-            { city: { contains: q, mode: "insensitive" } },
-            { ncpdpId: { contains: q } },
-          ],
-        },
-        take: 40,
-        orderBy: { name: "asc" },
-      }).catch(() => []),
-      // Also include the local pharmacy directory (seeded + NPPES-imported), all
-      // treated as Weno-network destinations, so search stays populated even
-      // before a full Weno directory sync.
-      db.pharmacy.findMany({
-        where: {
-          active: true,
-          OR: [
-            { name: { contains: q, mode: "insensitive" } },
-            { city: { contains: q, mode: "insensitive" } },
-            { state: { contains: q } },
-            { postalCode: { contains: q } },
-            { ncpdpId: { contains: q } },
-          ],
-        },
-        take: 25,
-        orderBy: [{ preferred: "desc" }, { name: "asc" }],
-      }).catch(() => []),
+
+  if (hasCriteria) {
+    const localAnd: any[] = [];
+    if (name) localAnd.push({ name: ci(name) });
+    if (city) localAnd.push({ city: ci(city) });
+    if (state) localAnd.push({ state: { contains: state } });
+    if (zip) localAnd.push({ postalCode: { contains: zip } });
+    if (address) localAnd.push({ addressLine1: ci(address) });
+    if (q) localAnd.push({ OR: [{ name: ci(q) }, { city: ci(q) }, { postalCode: { contains: q } }, { ncpdpId: { contains: q } }] });
+
+    const [wenoRows, localRows, nppesRows] = await Promise.all([
+      db.wenoPharmacy.findMany({ where: { active: true, AND: and }, take: 40, orderBy: { name: "asc" } }).catch(() => []),
+      db.pharmacy.findMany({ where: { active: true, AND: localAnd }, take: 20, orderBy: [{ preferred: "desc" }, { name: "asc" }] }).catch(() => []),
+      wantNppes ? searchNppesPharmacies({ name: name || q, city, state, zip }) : Promise.resolve([]),
     ]);
+
     results = wenoRows.map((w: any) => ({
-      ncpdpId: w.ncpdpId,
-      name: w.name,
-      city: w.city,
-      state: w.state,
-      zip: w.zip,
-      phone: w.phone,
-      address: w.address,
-      npi: w.npi,
-      wenoConnected: (w.services || "").includes("weno"),
-      isTest: (w.services || "").includes("test"),
+      ncpdpId: w.ncpdpId, name: w.name, city: w.city, state: w.state, zip: w.zip, phone: w.phone, address: w.address, npi: w.npi,
+      wenoConnected: (w.services || "").includes("weno"), isTest: (w.services || "").includes("test"), source: "weno", routable: true,
     }));
-    for (const lp of localRows) {
+    const seenNpi = new Set(results.map((r) => r.npi).filter(Boolean));
+    for (const lp of localRows as any[]) {
       if (lp.ncpdpId && results.some((r) => r.ncpdpId === lp.ncpdpId)) continue;
-      results.push({
-        ncpdpId: lp.ncpdpId || lp.id,
-        name: lp.name,
-        city: lp.city,
-        state: lp.state,
-        zip: lp.postalCode,
-        phone: lp.phone,
-        address: lp.addressLine1,
-      });
+      results.push({ ncpdpId: lp.ncpdpId || lp.id, name: lp.name, city: lp.city, state: lp.state, zip: lp.postalCode, phone: lp.phone, address: lp.addressLine1, source: "local", routable: Boolean(lp.ncpdpId) });
+    }
+    for (const n of nppesRows) {
+      if (n.npi && seenNpi.has(n.npi)) continue; // already have a routable Weno entry for this NPI
+      results.push(n);
     }
   }
 
   // Merge test pharmacies (test env) matching the query.
   if (environment === "test") {
-    const ql = q.toLowerCase();
-    const tests = WENO_TEST_PHARMACIES.filter((p) => !q || p.name.toLowerCase().includes(ql) || p.ncpdpId.includes(q) || (p.city || "").toLowerCase().includes(ql));
+    const needle = (q || name || city).toLowerCase();
+    const tests = WENO_TEST_PHARMACIES.filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.ncpdpId.includes(needle) || (p.city || "").toLowerCase().includes(needle));
     for (const t of tests) {
-      if (!results.some((r) => r.ncpdpId === t.ncpdpId)) results.unshift({ ...t, isTest: true });
+      if (!results.some((r) => r.ncpdpId === t.ncpdpId)) results.unshift({ ...t, isTest: true, source: "weno", routable: true });
     }
   }
 
   return NextResponse.json({
     pharmacies: results.map((p) => ({
       ncpdpId: p.ncpdpId, name: p.name, city: p.city || null, state: p.state || null,
-      zip: p.zip || null, phone: p.phone || null, address: p.address || null, isTest: Boolean(p.isTest),
-      wenoConnected: p.wenoConnected ?? undefined, mailOrder: p.mailOrder ?? undefined,
+      zip: p.zip || null, phone: p.phone || null, address: p.address || null, npi: p.npi || null,
+      isTest: Boolean(p.isTest), wenoConnected: p.wenoConnected ?? undefined,
+      source: p.source || "weno", routable: p.routable !== false,
     })),
     environment,
   });

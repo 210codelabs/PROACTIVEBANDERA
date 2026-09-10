@@ -202,6 +202,39 @@ export type EzPrescriber = {
   email: string;
 };
 
+// Per-prescriber Weno login used to launch ComposeRx AS a specific provider
+// (the prescriber is identified to Weno by useremail). When a field is omitted
+// the account default (env / integration config) is used instead.
+export type PrescriberOverride = {
+  email?: string;
+  password?: string;
+  locationId?: string;
+};
+
+// Look up a WenoPrescriber by id and build the per-prescriber launch override.
+// Used by the ComposeRx launch routes so the SELECTED prescriber (not just the
+// account admin) is who Weno attributes the prescription to.
+export async function resolvePrescriberOverride(
+  prescriberId?: string | null,
+): Promise<{ override: PrescriberOverride; label: string; npi: string } | null> {
+  if (!prescriberId) return null;
+  // Provider user accounts (id form "user:<id>") have no Weno login of their own,
+  // so ComposeRx opens with the account default; we still return their name/NPI
+  // for attribution/auditing.
+  if (prescriberId.startsWith("user:")) {
+    const u = await db.user.findUnique({ where: { id: prescriberId.slice(5) } }).catch(() => null);
+    if (!u) return null;
+    return { override: {}, label: `${u.firstName} ${u.lastName}`.trim(), npi: u.npi || "" };
+  }
+  const p = await db.wenoPrescriber.findUnique({ where: { id: prescriberId } }).catch(() => null);
+  if (!p || !p.active) return null;
+  const override: PrescriberOverride = {};
+  if (p.wenoEmail) override.email = p.wenoEmail;
+  if (p.wenoPassword) override.password = p.wenoPassword;
+  if (p.wenoLocationId) override.locationId = p.wenoLocationId;
+  return { override, label: `${p.firstName} ${p.lastName}`.trim(), npi: p.npi };
+}
+
 export class WenoIntegrationService {
   private cfg: WenoOnlineConfig | null = null;
 
@@ -276,26 +309,30 @@ export class WenoIntegrationService {
    *   MD5Password <- WENO_MD5_PASSWORD (already hashed) | md5(WENO_PASSWORD |
    *                  WENO_PRESCRIBER_PASSWORD | WENO_ONLINE_PASSWORD | cfg)
    */
-  resolveCredentials(cfg: WenoOnlineConfig): { userEmail: string; md5Password: string; locationId: string } {
+  resolveCredentials(cfg: WenoOnlineConfig, override?: PrescriberOverride): { userEmail: string; md5Password: string; locationId: string } {
     const userEmail = str(
-      process.env.WENO_USER_EMAIL ||
+      override?.email ||
+        process.env.WENO_USER_EMAIL ||
         process.env.WENO_PRESCRIBER_EMAIL ||
         process.env.WENO_ONLINE_EMAIL ||
         cfg.providerEmail,
     );
     const locationId = str(
-      process.env.WENO_LOCATION_ID || process.env.WENO_ONLINE_LOCATION || cfg.locationId,
+      override?.locationId || process.env.WENO_LOCATION_ID || process.env.WENO_ONLINE_LOCATION || cfg.locationId,
     );
 
     const preHashed = str(process.env.WENO_MD5_PASSWORD);
     const plain = str(
-      process.env.WENO_PASSWORD ||
+      override?.password ||
+        process.env.WENO_PASSWORD ||
         process.env.WENO_PRESCRIBER_PASSWORD ||
         process.env.WENO_ONLINE_PASSWORD ||
         cfg.providerPassword,
     );
     let md5Password = "";
-    if (preHashed && MD5_HEX.test(preHashed)) md5Password = preHashed.toLowerCase();
+    // A per-prescriber password (override) always wins and is hashed here.
+    if (override?.password) md5Password = MD5_HEX.test(override.password) ? override.password.toLowerCase() : md5(override.password);
+    else if (preHashed && MD5_HEX.test(preHashed)) md5Password = preHashed.toLowerCase();
     else if (plain) md5Password = MD5_HEX.test(plain) ? plain.toLowerCase() : md5(plain);
 
     return { userEmail, md5Password, locationId };
@@ -317,9 +354,10 @@ export class WenoIntegrationService {
   async buildPrescriptionPayload(
     patientId?: string | null,
     providerId?: string | null,
+    override?: PrescriberOverride,
   ): Promise<WenoBuildResult> {
     const cfg = await this.getConfig();
-    const creds = this.resolveCredentials(cfg);
+    const creds = this.resolveCredentials(cfg, override);
 
     // --- 1) Data extraction -------------------------------------------------
     let p: any = null;
@@ -498,8 +536,9 @@ export class WenoIntegrationService {
   async buildLaunchUrl(
     patientId: string,
     providerId?: string | null,
+    override?: PrescriberOverride,
   ): Promise<{ iframeUrl: string; environment: "test" | "production" }> {
-    const { payload, environment } = await this.buildPrescriptionPayload(patientId, providerId);
+    const { payload, environment } = await this.buildPrescriptionPayload(patientId, providerId, override);
     const cfg = await this.getConfig();
 
     if (!cfg.ehrEncryptionKey) {

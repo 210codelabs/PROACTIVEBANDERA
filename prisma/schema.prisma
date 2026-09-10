@@ -1266,7 +1266,9 @@ model WenoPrescriber {
   lastName   String
   npi        String
   dea        String?
-  wenoEmail  String?  // overrides the Weno Online launch "useremail" when selected
+  wenoEmail  String?  // overrides the Weno EZ launch "useremail" when selected
+  wenoPassword String? // per-prescriber Weno password (plain or MD5) for their own login
+  wenoLocationId String? // optional per-prescriber Weno Location ID
   userId     String?  // optional link to an EMR user login for auto-selection
   isDefault  Boolean  @default(false)
   active     Boolean  @default(true)

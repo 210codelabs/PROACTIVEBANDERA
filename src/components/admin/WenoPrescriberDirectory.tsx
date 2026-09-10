@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-type Prescriber = { id: string; firstName: string; lastName: string; npi: string; dea?: string | null; wenoEmail?: string | null; userId?: string | null; isDefault: boolean; active: boolean };
+type Prescriber = { id: string; firstName: string; lastName: string; npi: string; dea?: string | null; wenoEmail?: string | null; wenoLocationId?: string | null; hasWenoPassword?: boolean; userId?: string | null; isDefault: boolean; active: boolean };
 
-const empty = { firstName: "", lastName: "", npi: "", dea: "", wenoEmail: "", userId: "", isDefault: false };
+const empty = { firstName: "", lastName: "", npi: "", dea: "", wenoEmail: "", wenoPassword: "", wenoLocationId: "", userId: "", isDefault: false };
 
 export default function WenoPrescriberDirectory() {
   const [list, setList] = useState<Prescriber[]>([]);
@@ -52,7 +52,10 @@ export default function WenoPrescriberDirectory() {
         <input className="input sm:col-span-1" placeholder="NPI (10-digit)" value={form.npi} onChange={(e) => setForm((s) => ({ ...s, npi: e.target.value }))} />
         <input className="input sm:col-span-1" placeholder="DEA (optional)" value={form.dea} onChange={(e) => setForm((s) => ({ ...s, dea: e.target.value }))} />
         <input className="input sm:col-span-2" placeholder="Weno email (optional launch override)" value={form.wenoEmail} onChange={(e) => setForm((s) => ({ ...s, wenoEmail: e.target.value }))} />
+        <input className="input sm:col-span-3" type="password" placeholder="Weno password (optional — enables prescribing AS this provider)" value={form.wenoPassword} onChange={(e) => setForm((s) => ({ ...s, wenoPassword: e.target.value }))} />
+        <input className="input sm:col-span-3" placeholder="Weno Location ID (optional)" value={form.wenoLocationId} onChange={(e) => setForm((s) => ({ ...s, wenoLocationId: e.target.value }))} />
       </div>
+      <p className="mt-1 text-[11px] text-slate-400">Add a prescriber&apos;s own Weno email + password so ComposeRx opens AS them. Leave blank to use the clinic account. NPPES auto-fills NPI/DEA in the eRx module.</p>
       <div className="mt-2 flex items-center gap-3">
         <label className="flex items-center gap-1.5 text-xs text-slate-600">
           <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((s) => ({ ...s, isDefault: e.target.checked }))} /> Set as default
@@ -71,7 +74,7 @@ export default function WenoPrescriberDirectory() {
                 {p.dea && <span className="ml-1 text-[10px] text-slate-400">DEA ••••{p.dea.slice(-4)}</span>}
                 {p.isDefault && <span className="ml-2 chip bg-emerald-100 text-emerald-700 text-[10px]">Default</span>}
               </div>
-              {p.wenoEmail && <div className="text-[11px] text-slate-400 truncate">{p.wenoEmail}</div>}
+              {p.wenoEmail && <div className="text-[11px] text-slate-400 truncate">{p.wenoEmail}{p.hasWenoPassword ? " · Weno login set ✓" : " · no password (uses clinic account)"}</div>}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {!p.isDefault && <button type="button" onClick={() => makeDefault(p.id)} className="text-[11px] text-brand-700 hover:underline">Make default</button>}

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { WenoIntegrationService, WenoOnlineError, WenoPayloadError } from "@/lib/weno/ezIntegration";
+import { WenoIntegrationService, WenoOnlineError, WenoPayloadError, resolvePrescriberOverride } from "@/lib/weno/ezIntegration";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ const PRESCRIBER_ROLES = ["provider", "admin"];
 // /api/weno/sso-payload (WenoIntegrationService.buildLaunchUrl): it constructs
 // the exact validated payload, encrypts it (AES-256-CBC per Weno's EZ guide) and
 // returns { iframeUrl }. Missing critical patient fields -> descriptive 4xx.
-export async function GET(_req: Request, { params }: { params: Promise<{ patientId: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ patientId: string }> }) {
   // 1) Authentication
   let user: any;
   try { user = await requireSession(); } catch { return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); }
@@ -29,12 +29,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ patient
   const { patientId } = await params;
   if (!patientId) return NextResponse.json({ error: "patientId is required" }, { status: 400 });
 
+  // Selected prescriber (from the "Prescribe as" picker). Falls back to the
+  // account default when not provided / not found.
+  const prescriberId = new URL(req.url).searchParams.get("prescriberId");
+  const chosen = await resolvePrescriberOverride(prescriberId);
+
   // 3) Build the encrypted, authenticated iFrame URL from the 45-field payload.
-  //    The logged-in doctor (session) is the prescriber for this prescription.
   try {
     const svc = new WenoIntegrationService();
     const orgTxId = crypto.randomUUID().replace(/-/g, "");
-    const { iframeUrl, environment } = await svc.buildLaunchUrl(patientId, user.id);
+    const { iframeUrl, environment } = await svc.buildLaunchUrl(patientId, user.id, chosen?.override);
 
     // Audit WITHOUT the URL (it embeds PHI + credential-derived material).
     await db.auditLog.create({
@@ -43,12 +47,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ patient
         action: "erx.wenoEz.iframeUrl",
         resource: "Patient",
         resourceId: patientId,
-        meta: JSON.stringify({ environment, orgTxId, prescriberNpi: user.npi || null }),
+        meta: JSON.stringify({ environment, orgTxId, prescriberNpi: chosen?.npi || user.npi || null, prescriberId: prescriberId || null }),
       },
     }).catch(() => {});
 
     // 4) Respond with the authenticated iFrame URL for direct rendering
-    return NextResponse.json({ iframeUrl, environment, orgTransactionId: orgTxId });
+    return NextResponse.json({ iframeUrl, environment, orgTransactionId: orgTxId, prescriber: chosen?.label || null });
   } catch (e: any) {
     // WenoPayloadError: 404 (patient not found) or 422 (missing critical fields).
     if (e instanceof WenoPayloadError) {

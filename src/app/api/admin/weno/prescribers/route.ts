@@ -11,7 +11,12 @@ async function admin() { const u = await getSession(); return u && u.role === "a
 export async function GET() {
   if (!(await admin())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const list = await db.wenoPrescriber.findMany({ orderBy: [{ isDefault: "desc" }, { lastName: "asc" }] }).catch(() => []);
-  return NextResponse.json({ prescribers: list });
+  // Never return the stored Weno password; expose only whether one is set.
+  const safe = list.map((p: any) => {
+    const { wenoPassword, ...rest } = p;
+    return { ...rest, hasWenoPassword: Boolean(wenoPassword) };
+  });
+  return NextResponse.json({ prescribers: safe });
 }
 
 // POST — create a prescriber (admin). If isDefault, clear the flag on others.
@@ -34,6 +39,8 @@ export async function POST(req: Request) {
       npi,
       dea: String(b.dea || "").trim() || null,
       wenoEmail: String(b.wenoEmail || "").trim() || null,
+      wenoPassword: String(b.wenoPassword || "").trim() || null,
+      wenoLocationId: String(b.wenoLocationId || "").trim() || null,
       userId: String(b.userId || "").trim() || null,
       isDefault,
       active: true,
@@ -50,7 +57,9 @@ export async function PATCH(req: Request) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   if (b.isDefault === true) await db.wenoPrescriber.updateMany({ where: { isDefault: true }, data: { isDefault: false } }).catch(() => {});
   const data: any = {};
-  for (const k of ["firstName", "lastName", "dea", "wenoEmail", "userId"]) if (typeof b[k] === "string") data[k] = b[k].trim() || null;
+  for (const k of ["firstName", "lastName", "dea", "wenoEmail", "wenoLocationId", "userId"]) if (typeof b[k] === "string") data[k] = b[k].trim() || null;
+  // Only update the Weno password when a non-empty value is supplied (blank = keep existing).
+  if (typeof b.wenoPassword === "string" && b.wenoPassword.trim()) data.wenoPassword = b.wenoPassword.trim();
   if (typeof b.npi === "string") { const n = b.npi.replace(/\D/g, ""); if (n.length === 10) data.npi = n; }
   if (typeof b.isDefault === "boolean") data.isDefault = b.isDefault;
   if (typeof b.active === "boolean") data.active = b.active;
