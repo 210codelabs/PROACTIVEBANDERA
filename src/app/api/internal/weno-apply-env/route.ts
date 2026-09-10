@@ -22,19 +22,17 @@ export async function POST(req: Request) {
   }
   try {
     const enablable = wenoOnlineEnvEnablable();
-    // RECONCILE-ON-BOOT: when the full core config is present in the environment
-    // (key + email + password + location), overwrite the DB-backed Weno EZ Integration
-    // config to MATCH env. This makes a freshly-deployed instance with its own
-    // SEPARATE database self-heal to the correct credentials on startup — fixing
-    // the "Encryption key is wrong. Decryption failed." error caused by a stale
-    // key left in a production database. With only a partial env, stay
-    // non-destructive and just fill gaps (onlyIfEmpty).
+    // SOURCE OF TRUTH = Admin Ops Settings (DB). The environment is only used to
+    // FILL EMPTY fields (fresh deploy with an empty DB). We deliberately do NOT
+    // overwrite values an admin already saved in the UI — otherwise a stale env
+    // var (e.g. an old admin email/key) would silently revert a working config
+    // on every redeploy. Fresh/empty DB still gets fully populated from env.
     const { applied, changed } = await upsertProviderCredentials("weno-online", creds, {
       enable: enablable || undefined,
-      editedBy: "auto-apply on boot (env)",
-      onlyIfEmpty: !enablable,
+      editedBy: "auto-apply on boot (env, fill-empty only)",
+      onlyIfEmpty: true,
     });
-    return NextResponse.json({ ok: true, applied, changed, reconciled: enablable, pruned });
+    return NextResponse.json({ ok: true, applied, changed, reconciled: false, pruned });
   } catch (e: any) {
     return NextResponse.json({ ok: false, applied: [], changed: [], error: String(e?.message || e).slice(0, 200) }, { status: 200 });
   }

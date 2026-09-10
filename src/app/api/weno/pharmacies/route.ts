@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
   let results: any[] = [];
   if (q.length >= 1) {
-    const [wenoRows, localRows, dirRows] = await Promise.all([
+    const [wenoRows, localRows] = await Promise.all([
       db.wenoPharmacy.findMany({
         where: {
           active: true,
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
             { ncpdpId: { contains: q } },
           ],
         },
-        take: 25,
+        take: 40,
         orderBy: { name: "asc" },
       }).catch(() => []),
       // Also include the local pharmacy directory (seeded + NPPES-imported), all
@@ -52,23 +52,19 @@ export async function GET(req: Request) {
         take: 25,
         orderBy: [{ preferred: "desc" }, { name: "asc" }],
       }).catch(() => []),
-      // Weno EZ LITE directory (imported from the Weno directory export).
-      // Weno-connected pharmacies (onWeno=true) rank first.
-      db.wenoDirectoryPharmacy.findMany({
-        where: {
-          active: true,
-          OR: [
-            { name: { contains: q, mode: "insensitive" } },
-            { city: { contains: q, mode: "insensitive" } },
-            { state: { contains: q, mode: "insensitive" } },
-            { zip: { contains: q } },
-          ],
-        },
-        take: 40,
-        orderBy: [{ onWeno: "desc" }, { name: "asc" }],
-      }).catch(() => []),
     ]);
-    results = [...wenoRows];
+    results = wenoRows.map((w: any) => ({
+      ncpdpId: w.ncpdpId,
+      name: w.name,
+      city: w.city,
+      state: w.state,
+      zip: w.zip,
+      phone: w.phone,
+      address: w.address,
+      npi: w.npi,
+      wenoConnected: (w.services || "").includes("weno"),
+      isTest: (w.services || "").includes("test"),
+    }));
     for (const lp of localRows) {
       if (lp.ncpdpId && results.some((r) => r.ncpdpId === lp.ncpdpId)) continue;
       results.push({
@@ -79,20 +75,6 @@ export async function GET(req: Request) {
         zip: lp.postalCode,
         phone: lp.phone,
         address: lp.addressLine1,
-      });
-    }
-    for (const d of dirRows) {
-      results.push({
-        // LITE directory rows have no NCPDP; use the row id as a reference key.
-        ncpdpId: d.id,
-        name: d.name,
-        city: d.city,
-        state: d.state,
-        zip: d.zip,
-        phone: null,
-        address: [d.address1, d.address2].filter(Boolean).join(", ") || null,
-        wenoConnected: d.onWeno,
-        mailOrder: d.mailOrder,
       });
     }
   }
