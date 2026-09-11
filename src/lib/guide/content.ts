@@ -24,6 +24,38 @@ const S = "/guide/shots";
 
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
+    slug: "whats-new",
+    title: "What's New",
+    summary: "Recent enhancements — Weno e-prescribing, the 89,000-pharmacy directory, prescriber selection, structured pharmacy search and clinic-time scheduling.",
+    hero: `${IMG}/tech.jpg`,
+    icon: "M13 10V3L4 14h7v7l9-11h-7z",
+    audience: "All staff",
+    blocks: [
+      { type: "p", text: "This release focused on e-prescribing and scheduling. Here's what changed and where to find it." },
+      { type: "subhead", text: "Weno EZ Integration (single, streamlined e-prescribing)" },
+      { type: "steps", title: "Highlights", items: [
+        "One clear integration: everything is now “Weno EZ Integration” — the older “Weno Online” and “Weno Exchange” options and their settings were removed to end confusion.",
+        "Embedded prescribing: Weno's ComposeRx screen opens right inside the patient chart, pre-filled with the patient and their pharmacy.",
+        "Self-healing config: your saved Weno credentials in Ops Settings are the source of truth and are no longer overwritten by a stale value on redeploy.",
+      ] },
+      { type: "subhead", text: "Real pharmacy directory + national registry search" },
+      { type: "steps", title: "Highlights", items: [
+        "89,000+ pharmacies with real NCPDP IDs, downloaded from Weno's LITE directory (Admin can refresh with Full sync weekly and Daily changes nightly).",
+        "Structured search: find a pharmacy by name, address, city, state or zip — not just a single search box.",
+        "Combined results: Weno directory + your saved pharmacies + the NPPES national registry, with the chosen pharmacy auto-filled into ComposeRx.",
+      ] },
+      { type: "subhead", text: "Prescriber selection (“Prescribe as”)" },
+      { type: "steps", title: "Highlights", items: [
+        "Pick the correct prescriber from a merged list of Weno-registered prescribers and provider accounts — regardless of who is logged in or the admin account in Settings.",
+        "Each prescriber can have their own Weno login so prescriptions are attributed to the right provider.",
+        "The right prescriber is auto-selected for your login.",
+      ] },
+      { type: "subhead", text: "Scheduling shows clinic time" },
+      { type: "p", text: "Appointment times now always display in the clinic's Central Time on every calendar and chart — no more times appearing hours off from what you booked. Booking into an occupied or after-hours slot is prevented, and drag-to-reschedule keeps the visit's duration." },
+      { type: "tip", text: "See the E-Prescribing with Weno and Scheduling & Calendar sections below for full step-by-step details." },
+    ],
+  },
+  {
     slug: "getting-started",
     title: "Getting Started & Signing In",
     summary: "Log in, learn the layout, and find your way around Proactive Clinic.",
@@ -103,7 +135,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         "Month: drag a visit onto another date to move it (same time).",
         "Staff: drag a visit within a provider's column to change the time, or across to another provider's column to reassign it.",
       ] },
-      { type: "tip", text: "As you drag, open time slots turn green and any slot that would double-book the provider turns red — a clashing drop is blocked, so you can't accidentally overbook. If a move can't be saved, an on-screen message explains why and the visit snaps back to where it was." },
+      { type: "tip", text: "As you drag, open time slots turn green and any slot that would double-book the provider turns red — a clashing drop is blocked, so you can't accidentally overbook. If you book into an occupied or after-hours slot, the visit is automatically moved to the next available time that day. If a move can't be saved, an on-screen message explains why and the visit snaps back to where it was." },
       { type: "subhead", text: "Manage the day (Day view)" },
       { type: "steps", title: "During the day", items: [
         "The Day view shows a 9 AM–8 PM time grid with every visit placed in its slot.",
@@ -167,10 +199,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     blocks: [
       { type: "p", text: "Orders can be placed from the patient chart or reviewed in the central Orders workspace. Filter by type (Rx, Lab, Imaging, Referral, Procedure) or status (Pending, Completed)." },
       { type: "steps", title: "E-prescribe", items: [
-        "In the chart → Orders → New, choose Rx (or open the eRx module in the sidebar).",
+        "In the chart → Orders → New, choose Rx (or open e-Prescribe (Weno) in the sidebar).",
         "Search the medication, set strength, form, sig and quantity.",
-        "Search the Weno pharmacy directory by name, city or NCPDP and select the pharmacy.",
-        "Sign and send; track pending vs. sent counts in the Orders workspace.",
+        "Search the pharmacy by name/NCPDP — or by address, city, state and zip — across the Weno directory and the national registry, then select it.",
+        "Confirm the prescriber in “Prescribe as”, then sign/send; track pending vs. sent counts in the Orders workspace.",
       ] },
       { type: "steps", title: "Lab order", items: [
         "Choose Lab, pick the test(s) and add clinical instructions.",
@@ -183,46 +215,49 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   {
     slug: "eprescribing-weno",
     title: "E-Prescribing with Weno",
-    summary: "Search the Weno pharmacy directory, pre-fill the prescriber, launch Weno EZ Integration, and track delivery in Rx history.",
+    summary: "Search 89,000+ real pharmacies (Weno directory + national registry), choose the right prescriber, launch Weno EZ ComposeRx embedded in the chart, and track delivery in Rx history.",
     hero: `${IMG}/clinical.jpg`,
     icon: "M19 7h-3V6a2 2 0 00-2-2h-4a2 2 0 00-2 2v1H5a1 1 0 000 2h1v9a2 2 0 002 2h8a2 2 0 002-2V9h1a1 1 0 100-2zM10 6h4v1h-4V6zm2 5a1 1 0 011 1v2h2a1 1 0 110 2h-2v2a1 1 0 11-2 0v-2H9a1 1 0 110-2h2v-2a1 1 0 011-1z",
     audience: "Providers, MAs, Admin",
     blocks: [
-      { type: "p", text: "Electronic prescribing runs on Weno EZ Integration. The eRx module lets you pick a patient, choose a medication, select a pharmacy from the Weno directory, confirm the prescriber, and launch Weno's ComposeRx prescribing app pre-filled. Delivery status flows back into Rx history." },
-      { type: "shot", src: `${S}/erx-weno.png`, caption: "The eRx module: Weno EZ Integration launch, Weno pharmacy directory search, prescriber pre-fill, NPI lookup and Test Weno connection." },
+      { type: "p", text: "Electronic prescribing runs on Weno EZ Integration. From a patient's chart you open e-Prescribe (Weno), choose the prescriber, and Weno's ComposeRx screen opens embedded in the EHR — pre-filled with the patient and their pharmacy. Delivery status flows back into Rx history. The pharmacy search is backed by Weno's full LITE directory (89,000+ pharmacies with real NCPDP IDs) and is combined with the NPPES national registry." },
+      { type: "shot", src: `${S}/erx-weno.png`, caption: "The eRx module: embedded Weno EZ ComposeRx, structured pharmacy search, the “Prescribe as” picker, NPI lookup and Test Weno connection." },
 
-      { type: "subhead", text: "Find a pharmacy (Weno directory)" },
+      { type: "subhead", text: "Find a pharmacy (structured search)" },
       { type: "steps", title: "Pharmacy search", items: [
-        "In the Pharmacy (Weno directory) box, type a name, city or NCPDP ID.",
-        "Pick a result — each carries its NCPDP ID for routing (shown with a teal “Weno” tag).",
-        "Can't find it? Use “Search the national registry (NPPES)” to look it up and add it — it's saved to the Weno directory for next time.",
+        "Type a pharmacy name or NCPDP ID in the main box for a quick lookup.",
+        "Click “Search by address / city / state / zip” to search on any combination of those fields — ideal for finding a specific location of a chain.",
+        "Results combine sources: “Weno” (real NCPDP, ready to route), “Saved” (your local directory) and “National” (NPPES). Weno-connected pharmacies show a ✓ and rank first.",
+        "Pick a “National” (NPPES) result and it is auto-added to your directory so it becomes selectable/routable for next time.",
       ] },
 
-      { type: "subhead", text: "Confirm the prescriber" },
-      { type: "p", text: "The Prescriber section pre-fills your NPI and DEA from your profile (or from the prescriber registered with Weno). If your clinic has saved multiple Weno-registered prescribers, use the “Prescribe as (Weno-registered)” dropdown to pick the right one — it fills the NPI/DEA for you." },
+      { type: "subhead", text: "Choose the prescriber (“Prescribe as”)" },
+      { type: "p", text: "On the e-Prescribe screen the “Prescribe as” dropdown lists every valid prescriber — both Weno-registered prescribers and any provider account that has an NPI — so the correct provider can always be chosen no matter who is logged in or which admin account is in Settings. The right prescriber is auto-selected for your login (matched by account, then NPI, then name, then the clinic default)." },
       { type: "steps", title: "Prescriber tools", items: [
-        "Prescribe as: choose a saved Weno-registered prescriber; the default is auto-selected for your login.",
+        "Prescribe as: pick the provider; ComposeRx opens as that prescriber when they have their own Weno login on file, otherwise it opens with the clinic account.",
         "Find prescriber NPI (NPPES): search by first/last name to fill the NPI from the national registry.",
         "Test Weno connection: instantly confirms Weno EZ Integration is configured and the launch is ready.",
       ] },
+      { type: "tip", text: "To attribute a prescription to a specific provider, an admin adds that prescriber's own Weno email + password under Admin → Connections → Weno EZ Integration. Passwords are stored securely and never shown again." },
 
       { type: "subhead", text: "Prescribe in Weno EZ Integration (ComposeRx)" },
       { type: "steps", title: "Launch Weno EZ Integration", items: [
-        "With a patient selected, click “Open in Weno EZ Integration” in the banner at the top of New prescription.",
-        "Weno's prescribing web app opens in a new tab, pre-filled with the patient (and pharmacy if selected).",
-        "Complete and send the prescription in Weno; a “Composing” entry appears in Rx history right away.",
+        "Open a patient's chart and choose e-Prescribe (Weno).",
+        "Confirm the prescriber in “Prescribe as”; the embedded ComposeRx screen loads pre-filled with the patient (and their preferred pharmacy if set).",
+        "Complete and send the prescription; a “Composing” entry appears in Rx history right away.",
       ] },
-      { type: "tip", text: "Weno EZ Integration launch requires your clinic's Weno account, provider email/password and Location ID to be configured (Admin → Connection Health → Weno EZ Integration). The button stays disabled until setup is complete." },
+      { type: "tip", text: "Weno EZ Integration launch requires your clinic's Weno account, admin email/password and Location ID to be configured (Admin → Connections → Weno EZ Integration). The screen shows a clear error until setup is complete." },
 
       { type: "subhead", text: "Track delivery in Rx history" },
       { type: "p", text: "Open the Rx history tab to see every prescription with a live Weno status badge — Composing, Submitted, Delivered, Rejected, Cancelled or Send error. Turn on Auto to refresh statuses automatically, or click “Check status” any time. Reprint or re-prescribe from the same row." },
       { type: "shot", src: `${S}/erx-history.png`, caption: "Rx history with Weno delivery badges, auto-refresh, Check status, and reprint / re-prescribe." },
 
       { type: "subhead", text: "Admin: configure & maintain Weno" },
-      { type: "steps", title: "Admin → Connection Health", items: [
-        "Weno EZ Integration: enter credentials, choose the environment, and use Test Connection to verify.",
-        "Weno maintenance: “Apply from environment” populates Weno EZ Integration settings from server variables after a deploy; “Relabel now” tidies any legacy pharmacy tags.",
-        "Weno-registered prescribers: add each prescriber's NPI/DEA (and optional Weno email) and set a default — these pre-fill the eRx module.",
+      { type: "steps", title: "Admin → Connections → Weno EZ Integration", items: [
+        "Credentials: enter the admin email, password, EHR Encryption Key and Location ID, choose the environment, and use Test Connection to verify.",
+        "Pharmacy directory: click “Full sync now” (weekly) to load the full Weno directory with real NCPDP IDs, and “Daily changes” (nightly) to stay current — the report shows how many pharmacies were updated.",
+        "Registered prescribers: add each prescriber's NPI/DEA, and optionally their own Weno email + password + Location ID so ComposeRx opens as them; set one as the default.",
+        "Apply from environment / Relabel: one-click helpers to load settings from server variables after a deploy and tidy legacy pharmacy tags.",
       ] },
       { type: "shot", src: `${S}/weno-admin.png`, caption: "Admin Connection Health: Weno directory sync, one-click maintenance, and the registered-prescriber directory." },
       { type: "tip", text: "Live prescribing/transmission requires Weno onboarding — a Weno account, valid credentials, your server's outbound IP allow-listed, and Weno certification. Start in the test environment; the printed prescription remains a fallback and is not proof of electronic transmission.", kind: "warn" },
@@ -357,8 +392,9 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       { type: "p", text: "Admins manage the clinic from Settings: users and roles, clinical catalogs (services, problems, meds), charting templates, branding, integrations and operational modules. Role-based access controls what each staff type can see and do." },
       { type: "shot", src: `${S}/settings.png`, caption: "The Settings hub — configuration, catalogs, integrations, EHI export and admin tools." },
       { type: "steps", title: "Common admin tasks", items: [
-        "Add a user: Admin → Users → invite, set role and provider details.",
+        "Add a user: Admin → Users → invite, set role and provider details (add an NPI so they appear in the eRx “Prescribe as” list).",
         "Enable a module (e.g., pharmacy routing, Labcorp): Admin operational settings.",
+        "Weno e-prescribing: Admin → Connections → Weno EZ Integration to set credentials, sync the pharmacy directory, and register prescribers.",
         "Connect a data source for migration: Settings → FHIR import (Practice Fusion / Veradigm).",
         "Export EHI or clone the platform installer from Settings.",
       ] },
