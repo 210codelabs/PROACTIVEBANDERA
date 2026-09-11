@@ -1723,3 +1723,43 @@ model Waitlist {
   @@index([patientId])
   @@index([offerToken])
 }
+
+
+// -------------------------------------------------------------
+// Public Integration API — API keys/secrets for external apps
+// (e.g. a remote behavioral-health app) to integrate with ProactiveClinics.
+// Managed from Admin → API & Integrations. The plaintext secret is shown
+// exactly once at creation/rotation; only a SHA-256 hash is stored here.
+// -------------------------------------------------------------
+model ApiClient {
+  id           String   @id @default(cuid()) @map("_id")
+  name         String                         // integration app name
+  description  String?
+  keyId        String   @unique               // public identifier (pck_...)
+  secretHash   String                         // sha256 of the secret (never plaintext)
+  secretLast4  String?                        // last 4 chars of secret for display
+  scopes       String[]                       // e.g. ["patients:read","appointments:write"]
+  active       Boolean  @default(true)
+  rateLimitPerMin Int   @default(120)
+  lastUsedAt   DateTime?
+  requestCount Int      @default(0)
+  createdByName String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  logs         ApiRequestLog[]
+  @@index([active])
+}
+
+model ApiRequestLog {
+  id         String    @id @default(cuid()) @map("_id")
+  clientId   String
+  client     ApiClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  method     String
+  path       String
+  status     Int
+  durationMs Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([clientId, createdAt])
+}

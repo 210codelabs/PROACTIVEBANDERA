@@ -31,6 +31,7 @@ const PUBLIC_PREFIX = [
   "/api/internal/weno-apply-env",
   "/api/internal/credentialing-recheck",
   "/api/compare",
+  "/api/v1",
   "/fhir",
   "/api/auth/login",
   "/api/auth/logout",
