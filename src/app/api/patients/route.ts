@@ -24,6 +24,12 @@ const Body = z.object({
   insurerPlan: z.string().optional(),
   memberId: z.string().optional(),
   groupNumber: z.string().optional(),
+  // emergency contact
+  ecName: z.string().optional(),
+  ecRelation: z.string().optional(),
+  ecPhone: z.string().optional(),
+  ecPhoneAlt: z.string().optional(),
+  ecEmail: z.string().optional(),
   // preferred pharmacy (e-prescribing)
   primaryPharmacyNcpdp: z.string().optional(),
   alternativePharmacyNcpdp: z.string().optional(),

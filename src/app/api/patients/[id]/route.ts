@@ -11,7 +11,7 @@ const EDITABLE = [
   "addressLine1", "addressLine2", "city", "state", "postalCode", "country",
   "preferredLang", "ethnicity", "race", "maritalStatus",
   "insurerName", "insurerPlan", "memberId", "groupNumber", "payerId",
-  "ecName", "ecRelation", "ecPhone",
+  "ecName", "ecRelation", "ecPhone", "ecPhoneAlt", "ecEmail",
   "primaryPharmacyNcpdp", "alternativePharmacyNcpdp", "pharmacyCheckinFlag",
   "immtracConsent", "immtracConsentAt",
 ];

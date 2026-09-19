@@ -34,6 +34,8 @@ const FIELDS: { id: string; label: string; type?: string; full?: boolean }[] = [
   { id: "ecName", label: "Emergency Contact Name" },
   { id: "ecRelation", label: "Emergency Relation" },
   { id: "ecPhone", label: "Emergency Phone" },
+  { id: "ecPhoneAlt", label: "Emergency Alt Phone" },
+  { id: "ecEmail", label: "Emergency Email" },
 ];
 
 function toDateInput(v: any): string {

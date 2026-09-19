@@ -261,6 +261,8 @@ model Patient {
   ecName         String?
   ecRelation     String?
   ecPhone        String?
+  ecPhoneAlt     String?
+  ecEmail        String?
 
   // registration type
   patientType    String   @default("clinical") // clinical | legal

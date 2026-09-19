@@ -54,13 +54,39 @@ export async function POST(req: Request) {
     totalChargeCents = serviceLines.reduce((s: number, l: any) => s + (l.chargeCents || 0) * (l.units || 1), 0);
   }
 
+  // PIP billing link: if this patient has an active legal/PIP case with an
+  // auto-insurer selected, and the caller did not explicitly pick a payer,
+  // auto-route the claim to that PIP auto-insurer as the primary payer.
+  let payerId = (b.payerId || "").trim();
+  let payerName = (b.payerName || "").trim() || null;
+  let pipRouted = false;
+  if (!payerId && !b.payerId && patientId) {
+    const legalCase = await db.legalCase
+      .findFirst({
+        where: {
+          patientId,
+          status: { not: "closed" },
+          pipInsurerName: { not: null },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { pipInsurerName: true, pipInsurerPayerId: true },
+      })
+      .catch(() => null);
+    if (legalCase?.pipInsurerName) {
+      payerName = legalCase.pipInsurerName;
+      if (legalCase.pipInsurerPayerId) payerId = legalCase.pipInsurerPayerId.trim();
+      pipRouted = true;
+    }
+  }
+  if (!payerId) payerId = (cfg.defaultPayerId || "").trim();
+
   const claim = await db.claim.create({
     data: {
       patientControlNumber: genPCN(),
       patientId, patientName,
       encounterId: b.encounterId || null,
-      payerId: (b.payerId || cfg.defaultPayerId || "").trim(),
-      payerName: b.payerName || null,
+      payerId,
+      payerName,
       status: "draft",
       totalChargeCents,
       diagnoses: diagnoses as object,
@@ -86,5 +112,5 @@ export async function POST(req: Request) {
       .catch(() => {});
   }
 
-  return NextResponse.json({ ok: true, claim });
+  return NextResponse.json({ ok: true, claim, pipRouted });
 }

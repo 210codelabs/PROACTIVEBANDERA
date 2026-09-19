@@ -343,6 +343,13 @@ export default function NewPatientForm() {
           <RefSelect type="usState" label="State" name="state" emit="code" showCode />
           <Field label="ZIP" name="postalCode" />
         </Section>
+        <Section title="Emergency Contact Information">
+          <Field label="Contact name" name="ecName" placeholder="e.g., Maria Adams" />
+          <Field label="Relationship" name="ecRelation" placeholder="e.g., Spouse, Parent" />
+          <Field label="Primary phone" name="ecPhone" type="tel" />
+          <Field label="Alternate phone" name="ecPhoneAlt" type="tel" />
+          <Field label="Email" name="ecEmail" type="email" />
+        </Section>
         <fieldset>
           <legend className="section-title mb-2 flex items-center gap-2">
             Preferred Pharmacy (e-Prescribing)

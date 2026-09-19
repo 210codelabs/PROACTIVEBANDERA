@@ -57,7 +57,30 @@ function Overview({ data, busy, patch, caseId, refresh }: any) {
     await fetch(`/api/legal-cases/${caseId}/events`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: note, type: noteType }) });
     setNote(""); await refresh();
   }
+  const hasPip = !!(data.pipInsurerName || data.pipPolicyNumber || data.pipClaimNumber || data.pipMedLimit);
+  const relLabel: Record<string, string> = { self: "Self (insured)", passenger: "Passenger", pedestrian: "Pedestrian", "other-driver": "Other driver", other: "Other" };
   return (
+    <div className="space-y-4">
+      {hasPip && (
+        <div className="card card-pad space-y-3 border-amber-200 bg-amber-50/60">
+          <div className="flex items-center gap-2">
+            <span className="chip bg-amber-500 text-white ring-amber-500 text-[11px] font-semibold">PIP</span>
+            <h3 className="font-semibold text-amber-900">Personal Injury Protection — auto insurer to bill</h3>
+          </div>
+          <p className="text-xs text-amber-800">
+            This patient&apos;s own auto policy (PIP / MedPay) is billed first, regardless of fault. New claims for this patient auto-route to this insurer as the primary payer.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+            <Info label="Auto insurer (PIP)" value={data.pipInsurerName} />
+            <Info label="Payer ID" value={data.pipInsurerPayerId || (data.pipInsurerName ? "Manual (no payer ID)" : null)} />
+            <Info label="PIP / MedPay limit" value={data.pipMedLimit} />
+            <Info label="Policy number" value={data.pipPolicyNumber} />
+            <Info label="PIP claim number" value={data.pipClaimNumber} />
+            <Info label="Policyholder / insured" value={data.pipInsuredName} />
+            <Info label="Relationship to insured" value={data.pipRelation ? (relLabel[data.pipRelation] || data.pipRelation) : null} />
+          </div>
+        </div>
+      )}
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div className="card card-pad space-y-3">
         <h3 className="font-semibold text-slate-900">Case status</h3>
@@ -104,6 +127,7 @@ function Overview({ data, busy, patch, caseId, refresh }: any) {
           ))}
         </ul>
       </div>
+    </div>
     </div>
   );
 }
