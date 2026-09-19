@@ -15,12 +15,14 @@ export default function PatientPharmacyCard({
   alternative,
   checkinFlag,
   canEdit,
+  patientZip,
 }: {
   patientId: string;
   primary: string | null;
   alternative: string | null;
   checkinFlag?: boolean;
   canEdit: boolean;
+  patientZip?: string | null;
 }) {
   const router = useRouter();
   const [values, setValues] = useState<{ primaryPharmacyNcpdp: string; alternativePharmacyNcpdp: string }>({
@@ -81,6 +83,7 @@ export default function PatientPharmacyCard({
           label="Primary pharmacy"
           ncpdp={values.primaryPharmacyNcpdp}
           canEdit={canEdit}
+          patientZip={patientZip}
           saving={savingSlot === "primaryPharmacyNcpdp"}
           onSelect={(p) => save("primaryPharmacyNcpdp", p?.ncpdpId || "")}
           onClear={() => save("primaryPharmacyNcpdp", "")}
@@ -89,6 +92,7 @@ export default function PatientPharmacyCard({
           label="Alternative pharmacy (optional)"
           ncpdp={values.alternativePharmacyNcpdp}
           canEdit={canEdit}
+          patientZip={patientZip}
           saving={savingSlot === "alternativePharmacyNcpdp"}
           onSelect={(p) => save("alternativePharmacyNcpdp", p?.ncpdpId || "")}
           onClear={() => save("alternativePharmacyNcpdp", "")}
@@ -137,6 +141,7 @@ function PharmacySlot({
   saving,
   onSelect,
   onClear,
+  patientZip,
 }: {
   label: string;
   ncpdp: string;
@@ -144,6 +149,7 @@ function PharmacySlot({
   saving: boolean;
   onSelect: (p: Pharmacy | null) => void;
   onClear: () => void;
+  patientZip?: string | null;
 }) {
   const [picking, setPicking] = useState(false);
   return (
@@ -163,6 +169,7 @@ function PharmacySlot({
         <PharmacyPicker
           compact
           selected={null}
+          patientZip={patientZip}
           onSelect={(p) => { if (p) { onSelect(p); setPicking(false); } }}
         />
       ) : (

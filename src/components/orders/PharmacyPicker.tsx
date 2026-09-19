@@ -44,10 +44,14 @@ export default function PharmacyPicker({
   selected,
   onSelect,
   compact = false,
+  patientZip,
+  showRecent = true,
 }: {
   selected: Pharmacy | null;
   onSelect: (pharmacy: Pharmacy | null) => void;
   compact?: boolean;
+  patientZip?: string | null;
+  showRecent?: boolean;
 }) {
   const [f, setF] = useState({ q: "", city: "", state: "", zip: "", address: "", npi: "" });
   const [showMore, setShowMore] = useState(false);
@@ -56,9 +60,23 @@ export default function PharmacyPicker({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [importingId, setImportingId] = useState<string | null>(null);
+  const [recent, setRecent] = useState<Hit[]>([]);
+  const [byDistance, setByDistance] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const zip5 = (patientZip || "").replace(/[^0-9]/g, "").slice(0, 5);
   const hasCriteria = Boolean(f.q || f.city || f.state || f.zip || f.address || f.npi);
+
+  // Load the clinic's recently-used pharmacies once (quick-pick).
+  useEffect(() => {
+    if (!showRecent) return;
+    let cancel = false;
+    fetch("/api/weno/pharmacies/recent")
+      .then((r) => r.json())
+      .then((d) => { if (!cancel) setRecent(Array.isArray(d.pharmacies) ? d.pharmacies : []); })
+      .catch(() => {});
+    return () => { cancel = true; };
+  }, [showRecent]);
 
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
@@ -73,6 +91,7 @@ export default function PharmacyPicker({
         if (f.zip) p.set("zip", f.zip);
         if (f.address) p.set("address", f.address);
         if (f.npi) p.set("npi", f.npi);
+        if (byDistance && zip5) p.set("sortZip", zip5);
         const res = await fetch(`/api/weno/pharmacies?${p.toString()}`);
         const data = await res.json().catch(() => ({}));
         const list = Array.isArray(data.pharmacies) ? data.pharmacies : [];
@@ -83,7 +102,7 @@ export default function PharmacyPicker({
     }, 260);
     return () => { if (debounce.current) clearTimeout(debounce.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f.q, f.city, f.state, f.zip, f.address, f.npi]);
+  }, [f.q, f.city, f.state, f.zip, f.address, f.npi, byDistance, zip5]);
 
   function reset() { setF({ q: "", city: "", state: "", zip: "", address: "", npi: "" }); setResults([]); setTotal(0); }
 
@@ -147,8 +166,34 @@ export default function PharmacyPicker({
         <button type="button" onClick={() => setShowMore((v) => !v)} className="text-[11px] font-medium text-brand-700 hover:underline">
           {showMore ? "Fewer fields" : "Search by address / city / state / zip / NPI"}
         </button>
+        {zip5 && (
+          <label className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600">
+            <input type="checkbox" checked={byDistance} onChange={(e) => setByDistance(e.target.checked)} />
+            Sort by distance to {zip5}
+          </label>
+        )}
         {hasCriteria && <button type="button" onClick={reset} className="text-[11px] text-slate-400 hover:underline">Clear</button>}
       </div>
+
+      {showRecent && recent.length > 0 && !hasCriteria && (
+        <div className="rounded-lg ring-1 ring-slate-200 bg-slate-50/60 p-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Recently used</div>
+          <div className="flex flex-wrap gap-1.5">
+            {recent.map((h, i) => (
+              <button
+                key={`${h.ncpdpId || h.name}-${i}`}
+                type="button"
+                onClick={() => choose(h)}
+                className="inline-flex items-center gap-1 rounded-full bg-white ring-1 ring-slate-200 hover:ring-brand-300 hover:bg-brand-50 px-2.5 py-1 text-[11px] text-slate-700"
+                title={[h.city, h.state, h.zip].filter(Boolean).join(", ")}
+              >
+                <span className="font-medium truncate max-w-[160px]">{h.name}</span>
+                {h.city && <span className="text-slate-400">· {h.city}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {showMore && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           <input className="input" placeholder="Address" value={f.address} onChange={(e) => setF((s) => ({ ...s, address: e.target.value }))} />

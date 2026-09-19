@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import RefSelect from "@/components/RefSelect";
 import PayerAutocomplete from "@/components/billing/PayerAutocomplete";
 import MedNormalizeTool from "@/components/enrichment/MedNormalizeTool";
+import PharmacyPicker, { type Pharmacy } from "@/components/orders/PharmacyPicker";
 
 type Attorney = { id: string; name: string; firm: string | null; email: string };
 type Summary = { label: string; value: string };
@@ -51,6 +52,10 @@ export default function NewPatientForm() {
   const [type, setType] = useState<"clinical" | "legal">("clinical");
   const [attorneys, setAttorneys] = useState<Attorney[]>([]);
   const [lawFirm, setLawFirm] = useState("");
+
+  // Preferred pharmacy (e-prescribing)
+  const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
+  const [pharmZip, setPharmZip] = useState("");
 
   // Insurance / payer state
   const [payerId, setPayerId] = useState("");
@@ -143,6 +148,7 @@ export default function NewPatientForm() {
       const fd = new FormData(form);
       const body: Record<string, unknown> = Object.fromEntries(fd.entries());
       body.patientType = type;
+      if (pharmacy?.ncpdpId) body.primaryPharmacyNcpdp = pharmacy.ncpdpId;
       const res = await fetch("/api/patients", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -196,7 +202,7 @@ export default function NewPatientForm() {
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-      <form ref={formRef} onSubmit={onSubmit} onChange={() => setInsSig(readInsurance().sig)} className="card card-pad space-y-6 xl:col-span-2">
+      <form ref={formRef} onSubmit={onSubmit} onChange={() => { setInsSig(readInsurance().sig); setPharmZip((formRef.current ? (new FormData(formRef.current).get("postalCode") as string) : "") || ""); }} className="card card-pad space-y-6 xl:col-span-2">
         {/* Registration type */}
         <fieldset>
           <legend className="section-title mb-2">Registration type</legend>
@@ -282,6 +288,19 @@ export default function NewPatientForm() {
           <RefSelect type="usState" label="State" name="state" emit="code" showCode />
           <Field label="ZIP" name="postalCode" />
         </Section>
+        <fieldset>
+          <legend className="section-title mb-2 flex items-center gap-2">
+            Preferred Pharmacy (e-Prescribing)
+            <span className="chip bg-teal-100 text-teal-800 ring-teal-200 text-[10px]">Weno directory</span>
+          </legend>
+          <PharmacyPicker
+            selected={pharmacy}
+            onSelect={setPharmacy}
+            patientZip={pharmZip}
+          />
+          <p className="text-[11px] text-slate-500 mt-1">Optional. Sets the patient&apos;s primary pharmacy so it pre-fills e-prescriptions. You can change it later from the chart.</p>
+        </fieldset>
+
         <fieldset>
           <legend className="section-title mb-2">Insurance</legend>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

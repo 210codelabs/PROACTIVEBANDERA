@@ -24,6 +24,9 @@ const Body = z.object({
   insurerPlan: z.string().optional(),
   memberId: z.string().optional(),
   groupNumber: z.string().optional(),
+  // preferred pharmacy (e-prescribing)
+  primaryPharmacyNcpdp: z.string().optional(),
+  alternativePharmacyNcpdp: z.string().optional(),
   // registration type
   patientType: z.enum(["clinical", "legal"]).optional(),
   // legal case (only when patientType === "legal")

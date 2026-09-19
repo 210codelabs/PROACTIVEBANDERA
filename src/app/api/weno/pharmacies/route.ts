@@ -69,6 +69,7 @@ export async function GET(req: Request) {
   const zip = (sp.get("zip") || "").trim();
   const address = (sp.get("address") || "").trim();
   const npi = (sp.get("npi") || "").trim();
+  const sortZip = (sp.get("sortZip") || "").replace(/[^0-9]/g, "").slice(0, 5);
   const wantNppes = sp.get("nppes") !== "0";
 
   // A free-text value that is exactly 10 digits is treated as an NPI.
@@ -137,6 +138,25 @@ export async function GET(req: Request) {
     for (const t of tests) {
       if (!results.some((r) => r.ncpdpId === t.ncpdpId)) results.unshift({ ...t, isTest: true, source: "weno", routable: true });
     }
+  }
+
+  // Ranking: Weno-connected pharmacies first (they can actually receive
+  // e-scripts), then other Weno rows, then saved/local, then national registry.
+  const baseRank = (p: any) => (p.source === "weno" ? (p.wenoConnected ? 0 : 1) : p.source === "local" ? 2 : 3);
+  // ZIP-proximity rank (exact ZIP, then same ZIP3 area, then numeric closeness).
+  const zipRank = (zip: string | null | undefined, target: string) => {
+    const z = (zip || "").replace(/[^0-9]/g, "").slice(0, 5);
+    if (!z || !target) return 9_999_999;
+    if (z === target) return 0;
+    const a = parseInt(z, 10), b = parseInt(target, 10);
+    const num = Number.isFinite(a) && Number.isFinite(b) ? Math.abs(a - b) : 9_000_000;
+    if (z.slice(0, 3) === target.slice(0, 3)) return 1_000 + Math.min(num, 8_998_999);
+    return 100_000 + num;
+  };
+  if (sortZip) {
+    results.sort((a, b) => zipRank(a.zip, sortZip) - zipRank(b.zip, sortZip) || baseRank(a) - baseRank(b) || String(a.name).localeCompare(String(b.name)));
+  } else {
+    results.sort((a, b) => baseRank(a) - baseRank(b) || String(a.name).localeCompare(String(b.name)));
   }
 
   const pharmacies = results.map((p) => ({

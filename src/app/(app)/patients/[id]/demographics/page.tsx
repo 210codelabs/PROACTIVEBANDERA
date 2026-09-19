@@ -52,6 +52,7 @@ export default async function DemoPage({ params }: { params: Promise<{ id: strin
           primary={(p as any).primaryPharmacyNcpdp || null}
           alternative={(p as any).alternativePharmacyNcpdp || null}
           checkinFlag={Boolean((p as any).pharmacyCheckinFlag)}
+          patientZip={(p as any).postalCode || null}
           canEdit={["admin", "provider", "nurse", "frontdesk"].includes(user.role)}
         />
       </div>
