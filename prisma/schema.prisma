@@ -96,6 +96,14 @@ model LegalCase {
   claimNumber      String?
   adjuster         String?
   defendantInsurer String?
+  // PIP / personal-injury billing (auto insurer to bill)
+  pipInsurerName   String?
+  pipInsurerPayerId String?
+  pipPolicyNumber  String?
+  pipClaimNumber   String?
+  pipMedLimit      String?
+  pipInsuredName   String?
+  pipRelation      String?  // self | passenger | pedestrian | other-driver | other
   status           String    @default("intake") // intake | treating | negotiating | settled | closed
   lienAmountCents  Int?
   notes            String?

@@ -39,6 +39,13 @@ const Body = z.object({
   claimNumber: z.string().optional(),
   adjuster: z.string().optional(),
   defendantInsurer: z.string().optional(),
+  pipInsurerName: z.string().optional(),
+  pipInsurerPayerId: z.string().optional(),
+  pipPolicyNumber: z.string().optional(),
+  pipClaimNumber: z.string().optional(),
+  pipMedLimit: z.string().optional(),
+  pipInsuredName: z.string().optional(),
+  pipRelation: z.string().optional(),
 });
 
 function nextMrn() {
@@ -56,6 +63,7 @@ export async function POST(req: Request) {
     dob,
     patientType = "clinical",
     attorneyId, caseNumber, caseType, court, dateOfInjury, lawFirm, claimNumber, adjuster, defendantInsurer,
+    pipInsurerName, pipInsurerPayerId, pipPolicyNumber, pipClaimNumber, pipMedLimit, pipInsuredName, pipRelation,
     ...rest
   } = parsed.data;
 
@@ -82,6 +90,13 @@ export async function POST(req: Request) {
         claimNumber: claimNumber || null,
         adjuster: adjuster || null,
         defendantInsurer: defendantInsurer || null,
+        pipInsurerName: pipInsurerName || null,
+        pipInsurerPayerId: pipInsurerPayerId || null,
+        pipPolicyNumber: pipPolicyNumber || null,
+        pipClaimNumber: pipClaimNumber || null,
+        pipMedLimit: pipMedLimit || null,
+        pipInsuredName: pipInsuredName || null,
+        pipRelation: pipRelation || null,
       },
     });
   }

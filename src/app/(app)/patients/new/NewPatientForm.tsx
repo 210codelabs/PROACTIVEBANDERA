@@ -52,6 +52,12 @@ export default function NewPatientForm() {
   const [type, setType] = useState<"clinical" | "legal">("clinical");
   const [attorneys, setAttorneys] = useState<Attorney[]>([]);
   const [lawFirm, setLawFirm] = useState("");
+  const [caseType, setCaseType] = useState("personal_injury");
+  // PIP (personal-injury) auto insurer to bill
+  const [pipPayerName, setPipPayerName] = useState("");
+  const [pipPayerId, setPipPayerId] = useState("");
+  const [pipOther, setPipOther] = useState(false);
+  const showPip = ["personal_injury", "auto_accident"].includes(caseType);
 
   // Preferred pharmacy (e-prescribing)
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
@@ -232,7 +238,7 @@ export default function NewPatientForm() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <label className="block">
                 <span className="label">Case type</span>
-                <select name="caseType" className="input" defaultValue="personal_injury">
+                <select name="caseType" className="input" value={caseType} onChange={(e) => setCaseType(e.target.value)}>
                   {CASE_TYPES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
               </label>
@@ -264,6 +270,55 @@ export default function NewPatientForm() {
               <Field label="Adjuster" name="adjuster" />
               <Field label="Defendant / at-fault insurer" name="defendantInsurer" />
             </div>
+            {showPip && (
+              <div className="mt-3 rounded-lg border border-amber-300 bg-white/70 p-3">
+                <div className="text-sm font-semibold text-amber-900">PIP / Personal Injury — Auto insurer to bill</div>
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  In PIP cases the patient&apos;s own auto policy (Personal Injury Protection / MedPay) is billed first, regardless of fault. Search the auto insurer from Stedi (Progressive, Allstate, Farmers, GEICO, State Farm…), or choose “Otro” to type one that isn&apos;t listed.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+                  <label className="block sm:col-span-2 lg:col-span-1">
+                    <span className="label">Auto insurer (PIP) to bill</span>
+                    {pipOther ? (
+                      <input name="pipInsurerName" className="input" placeholder="Type the insurer name…" />
+                    ) : (
+                      <>
+                        <PayerAutocomplete
+                          value={pipPayerName}
+                          onChange={(v) => setPipPayerName(v)}
+                          onSelect={({ name, payerId }) => { setPipPayerName(name); setPipPayerId(payerId); }}
+                          placeholder="Search auto insurer (Stedi)…"
+                        />
+                        <input type="hidden" name="pipInsurerName" value={pipPayerName} />
+                        <input type="hidden" name="pipInsurerPayerId" value={pipPayerId} />
+                      </>
+                    )}
+                    <label className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
+                      <input type="checkbox" checked={pipOther} onChange={(e) => { setPipOther(e.target.checked); setPipPayerName(""); setPipPayerId(""); }} />
+                      Otro (introducir manualmente)
+                    </label>
+                  </label>
+                  <Field label="Policy number" name="pipPolicyNumber" />
+                  <Field label="PIP claim number" name="pipClaimNumber" />
+                  <Field label="PIP / MedPay limit" name="pipMedLimit" placeholder="e.g. $10,000" />
+                  <Field label="Policyholder / insured name" name="pipInsuredName" placeholder="If not the patient" />
+                  <label className="block">
+                    <span className="label">Patient&apos;s relation to the insured</span>
+                    <select name="pipRelation" className="input" defaultValue="">
+                      <option value="">— Select —</option>
+                      <option value="self">Self (named insured)</option>
+                      <option value="passenger">Passenger</option>
+                      <option value="pedestrian">Pedestrian</option>
+                      <option value="other-driver">Other driver</option>
+                      <option value="other">Other / household member</option>
+                    </select>
+                  </label>
+                </div>
+                <p className="text-[11px] text-amber-700 mt-2">
+                  Texas note: PIP is typically $2,500 (up to $10,000 if elected) and pays medical + 80% of lost wages regardless of fault. Exhaust PIP/MedPay first, then bill health insurance or assert a lien against the third-party settlement (tracked in the Legal Case tab).
+                </p>
+              </div>
+            )}
             <p className="text-[11px] text-amber-700 mt-2">Case tracking, documents, liens and offers are managed in the Legal Case tab after registration (Phase 2).</p>
           </fieldset>
         )}
