@@ -14,6 +14,7 @@ import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import RecordRequestBell from "@/components/RecordRequestBell";
 import QueuePanel from "@/components/QueuePanel";
 import AppointmentWidget from "@/components/AppointmentWidget";
+import DayAgendaWidget from "@/components/DayAgendaWidget";
 
 type NavItem = {
   label: string;
@@ -468,6 +469,7 @@ export default function Shell({
         </main>
       </div>
       <AppointmentWidget />
+      <DayAgendaWidget />
     </div>
   );
 }

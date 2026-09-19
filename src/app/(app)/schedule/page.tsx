@@ -190,7 +190,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
           </div>
         </header>
 
-        {view === "day" && <DayCalendar dayKey={dayKeyStr} appts={dayCal} copay={copayRec} balance={balanceRec} />}
+        {view === "day" && <DayCalendar dayKey={dayKeyStr} appts={dayCal} copay={copayRec} balance={balanceRec} providerId={providerId || undefined} />}
         {view === "staff" && <StaffDayCalendar dayKey={dayKeyStr} providers={providersShown} appts={dayCal} />}
         {view === "week" && <WeekCalendar days={weekDays} appts={calAppts} providerColors={providerColors} providerQuery={providerId ? `&providerId=${providerId}` : ""} />}
         {view === "month" && (

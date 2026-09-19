@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { colorForApptStatus } from "@/lib/utils";
-import { openApptWidget } from "@/lib/apptEvents";
+import { openApptWidget, openDayAgenda } from "@/lib/apptEvents";
 import {
   patchAppointment, buildSlotList, slotIsFree, toMin, GRID_START_HOUR, GRID_SLOTS, SLOT_PX, STATUS_DOT,
   type CalAppt,
@@ -88,6 +88,17 @@ export default function StaffDayCalendar({ dayKey, providers, appts: initial }: 
 
   return (
     <div className="relative overflow-x-auto">
+      <button
+        type="button"
+        onClick={() => openDayAgenda({ day: dayKey })}
+        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 border-b border-slate-200 bg-slate-50/70 hover:bg-brand-50/60 text-left"
+        title="Open the day agenda — appointments, open slots & waitlist"
+      >
+        <span className="text-sm font-semibold text-slate-800">
+          {new Date(`${dayKey}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+        </span>
+        <span className="text-[11px] font-semibold text-brand-600">Day agenda →</span>
+      </button>
       <div className="flex min-w-max">
         {/* time gutter */}
         <div className="w-20 shrink-0 border-r border-slate-100">

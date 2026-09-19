@@ -6,7 +6,7 @@ import {
   eachDayOfInterval, format, isSameDay, isSameMonth, parseISO,
 } from "date-fns";
 import { PROVIDER_PALETTE } from "./palette";
-import { openApptWidget } from "@/lib/apptEvents";
+import { openDayAgenda } from "@/lib/apptEvents";
 
 export type MAppt = {
   id: string; patientId: string; providerId: string;
@@ -116,8 +116,8 @@ export default function MonthCalendar({
               onDragOver={(e) => { e.preventDefault(); if (overDay !== key) setOverDay(key); }}
               onDragLeave={() => { if (overDay === key) setOverDay(null); }}
               onDrop={() => onDrop(key)}
-              onClick={() => openApptWidget({ mode: "new", day: key, providerId })}
-              title={`Click to add an appointment on ${format(d, "EEE, MMM d")}`}
+              onClick={() => openDayAgenda({ day: key, providerId })}
+              title={`Click to view ${format(d, "EEE, MMM d")} — appointments & open time slots`}
               className={`min-h-[116px] border-b border-r border-slate-100 p-1 cursor-pointer transition-colors ${inMonth ? "bg-white" : "bg-slate-50/60"} ${isOver ? "ring-2 ring-inset ring-brand-400 bg-brand-50/60" : ""}`}
             >
               <div className="flex items-center justify-between px-1">

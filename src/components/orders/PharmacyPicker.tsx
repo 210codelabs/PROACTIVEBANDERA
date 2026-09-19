@@ -49,39 +49,43 @@ export default function PharmacyPicker({
   onSelect: (pharmacy: Pharmacy | null) => void;
   compact?: boolean;
 }) {
-  const [f, setF] = useState({ name: "", city: "", state: "", zip: "", address: "" });
+  const [f, setF] = useState({ q: "", city: "", state: "", zip: "", address: "", npi: "" });
   const [showMore, setShowMore] = useState(false);
   const [results, setResults] = useState<Hit[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [importingId, setImportingId] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const hasCriteria = Boolean(f.name || f.city || f.state || f.zip || f.address);
+  const hasCriteria = Boolean(f.q || f.city || f.state || f.zip || f.address || f.npi);
 
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
-    if (!hasCriteria) { setResults([]); return; }
+    if (!hasCriteria) { setResults([]); setTotal(0); return; }
     debounce.current = setTimeout(async () => {
       setLoading(true);
       try {
         const p = new URLSearchParams();
-        if (f.name) p.set("name", f.name);
+        if (f.q) p.set("q", f.q);
         if (f.city) p.set("city", f.city);
         if (f.state) p.set("state", f.state);
         if (f.zip) p.set("zip", f.zip);
         if (f.address) p.set("address", f.address);
+        if (f.npi) p.set("npi", f.npi);
         const res = await fetch(`/api/weno/pharmacies?${p.toString()}`);
         const data = await res.json().catch(() => ({}));
-        setResults(Array.isArray(data.pharmacies) ? data.pharmacies : []);
+        const list = Array.isArray(data.pharmacies) ? data.pharmacies : [];
+        setResults(list);
+        setTotal(typeof data.total === "number" ? data.total : list.length);
         setOpen(true);
-      } catch { setResults([]); } finally { setLoading(false); }
+      } catch { setResults([]); setTotal(0); } finally { setLoading(false); }
     }, 260);
     return () => { if (debounce.current) clearTimeout(debounce.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f.name, f.city, f.state, f.zip, f.address]);
+  }, [f.q, f.city, f.state, f.zip, f.address, f.npi]);
 
-  function reset() { setF({ name: "", city: "", state: "", zip: "", address: "" }); setResults([]); }
+  function reset() { setF({ q: "", city: "", state: "", zip: "", address: "", npi: "" }); setResults([]); setTotal(0); }
 
   async function choose(h: Hit) {
     // National-registry (NPPES) hits have no NCPDP, so import them into the local
@@ -133,31 +137,42 @@ export default function PharmacyPicker({
   return (
     <div className="space-y-2 relative">
       <input
-        value={f.name}
-        onChange={(e) => setF((s) => ({ ...s, name: e.target.value }))}
+        value={f.q}
+        onChange={(e) => setF((s) => ({ ...s, q: e.target.value }))}
         onFocus={() => setOpen(true)}
-        placeholder="Search pharmacy by name or NCPDP…"
+        placeholder="Search pharmacy by name, NCPDP, or NPI…"
         className="input"
       />
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => setShowMore((v) => !v)} className="text-[11px] font-medium text-brand-700 hover:underline">
-          {showMore ? "Fewer fields" : "Search by address / city / state / zip"}
+          {showMore ? "Fewer fields" : "Search by address / city / state / zip / NPI"}
         </button>
         {hasCriteria && <button type="button" onClick={reset} className="text-[11px] text-slate-400 hover:underline">Clear</button>}
       </div>
       {showMore && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           <input className="input" placeholder="Address" value={f.address} onChange={(e) => setF((s) => ({ ...s, address: e.target.value }))} />
           <input className="input" placeholder="City" value={f.city} onChange={(e) => setF((s) => ({ ...s, city: e.target.value }))} />
           <input className="input" placeholder="State" value={f.state} onChange={(e) => setF((s) => ({ ...s, state: e.target.value.toUpperCase().slice(0, 2) }))} />
           <input className="input" placeholder="Zip" value={f.zip} onChange={(e) => setF((s) => ({ ...s, zip: e.target.value }))} />
+          <input className="input" placeholder="NPI" inputMode="numeric" value={f.npi} onChange={(e) => setF((s) => ({ ...s, npi: e.target.value.replace(/[^0-9]/g, "").slice(0, 10) }))} />
         </div>
       )}
 
       {open && hasCriteria && (
-        <div className={`rounded-lg ring-1 ring-slate-200 bg-white shadow-lg overflow-hidden ${compact ? "max-h-64" : "max-h-80"} overflow-y-auto divide-y divide-slate-100`}>
-          {loading && <div className="px-3 py-2 text-xs text-slate-500">Searching Weno directory + national registry…</div>}
-          {!loading && results.length === 0 && <div className="px-3 py-3 text-xs text-slate-500">No pharmacies match that search.</div>}
+        <div className={`rounded-lg ring-1 ring-slate-200 bg-white shadow-lg overflow-hidden`}>
+          {/* Sticky count header so staff can see the full match count and scroll. */}
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-[11px]">
+            <span className="text-slate-600">
+              {loading ? "Searching Weno directory + national registry…"
+                : results.length === 0 ? "No pharmacies match that search."
+                : total > results.length
+                  ? <>Showing <b>{results.length}</b> of <b>{total}</b> matches — refine city/zip/NPI to narrow</>
+                  : <><b>{results.length}</b> {results.length === 1 ? "match" : "matches"}</>}
+            </span>
+            <button type="button" onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600">Close</button>
+          </div>
+          <div className={`${compact ? "max-h-72" : "max-h-96"} overflow-y-auto divide-y divide-slate-100`}>
           {results.map((h, i) => (
             <button
               key={`${h.ncpdpId || h.npi || h.name}-${i}`}
@@ -174,6 +189,7 @@ export default function PharmacyPicker({
                 <div className="text-[11px] text-slate-500 truncate">
                   {[h.address, h.city, h.state, h.zip].filter(Boolean).join(", ")}
                   {h.ncpdpId && !String(h.ncpdpId).startsWith("nppes:") ? ` · NCPDP ${h.ncpdpId}` : ""}
+                  {h.npi ? ` · NPI ${h.npi}` : ""}
                   {h.wenoConnected ? " · ✓ Weno-connected" : ""}
                   {h.source === "nppes" ? " · not on Weno — will be added" : ""}
                 </div>
@@ -183,6 +199,7 @@ export default function PharmacyPicker({
               </span>
             </button>
           ))}
+          </div>
         </div>
       )}
     </div>

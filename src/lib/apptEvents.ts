@@ -4,6 +4,16 @@
 
 export const APPT_OPEN = "appt:open";
 export const APPT_CHANGED = "appt:changed";
+export const DAY_AGENDA_OPEN = "day-agenda:open";
+
+export type DayAgendaDetail = {
+  day: string;          // yyyy-MM-dd
+  providerId?: string;  // optional preselected provider
+};
+
+export function openDayAgenda(detail: DayAgendaDetail) {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(DAY_AGENDA_OPEN, { detail }));
+}
 
 export type ApptOpenDetail = {
   mode: "new" | "edit";

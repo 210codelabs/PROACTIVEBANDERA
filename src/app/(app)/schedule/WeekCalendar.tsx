@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PROVIDER_PALETTE } from "./palette";
-import { openApptWidget } from "@/lib/apptEvents";
+import { openDayAgenda } from "@/lib/apptEvents";
 import { patchAppointment, hasOverlap, toMin, STATUS_DOT, type CalAppt } from "./reschedule";
 
 type WeekDay = { key: string; dow: string; dom: string; isToday: boolean };
@@ -83,8 +83,8 @@ export default function WeekCalendar({ days, appts: initial, providerColors, pro
               onDragOver={(e) => { e.preventDefault(); if (overDay !== d.key) setOverDay(d.key); }}
               onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node) && overDay === d.key) setOverDay(null); }}
               onDrop={() => onDrop(d.key)}
-              onClick={() => openApptWidget({ mode: "new", day: d.key, providerId })}
-              title={`Click to add an appointment on ${d.dow} ${d.dom}`}
+              onClick={() => openDayAgenda({ day: d.key, providerId })}
+              title={`Click to view ${d.dow} ${d.dom} — appointments & open time slots`}
               className={`min-h-[240px] cursor-pointer transition-colors ${dragId && !isOver ? (free ? "bg-emerald-50/40" : "bg-rose-50/40") : ""} ${isOver ? (free ? "bg-emerald-50/70 ring-2 ring-inset ring-emerald-500" : "bg-rose-50/70 ring-2 ring-inset ring-rose-500") : ""}`}
             >
               <a href={dayHref(d.key)} onClick={(e) => e.stopPropagation()} className={`block px-2 py-2 border-b text-center hover:bg-slate-50 ${d.isToday ? "bg-brand-50 border-brand-200" : "border-slate-100"}`}>

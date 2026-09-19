@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { colorForApptStatus, colorForCategory } from "@/lib/utils";
-import { openApptWidget } from "@/lib/apptEvents";
+import { openApptWidget, openDayAgenda } from "@/lib/apptEvents";
 import CheckInButton from "@/components/billing/CheckInButton";
 import CopayButton from "@/components/billing/CopayButton";
 import {
@@ -17,11 +17,12 @@ type Toast = { kind: "ok" | "err"; text: string; undo?: () => void };
 
 // Rich single-day view: a 9AM–8PM Central time-slot grid where appointments can
 // be dragged to a different time (reschedule) and empty slots clicked to create.
-export default function DayCalendar({ dayKey, appts: initial, copay, balance }: {
+export default function DayCalendar({ dayKey, appts: initial, copay, balance, providerId }: {
   dayKey: string;
   appts: CalAppt[];
   copay: Record<string, string>;
   balance: Record<string, number>;
+  providerId?: string;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState<CalAppt[]>(initial);
@@ -91,7 +92,19 @@ export default function DayCalendar({ dayKey, appts: initial, copay, balance }: 
   }
 
   return (
-    <div className="grid grid-cols-12 divide-x divide-slate-100">
+    <>
+      <button
+        type="button"
+        onClick={() => openDayAgenda({ day: dayKey, providerId })}
+        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 border-b border-slate-200 bg-slate-50/70 hover:bg-brand-50/60 text-left"
+        title="Open the day agenda — appointments, open slots & waitlist"
+      >
+        <span className="text-sm font-semibold text-slate-800">
+          {new Date(`${dayKey}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+        </span>
+        <span className="text-[11px] font-semibold text-brand-600">Day agenda →</span>
+      </button>
+      <div className="grid grid-cols-12 divide-x divide-slate-100">
       <div className="col-span-2">
         {slots.map((s) => (
           <div key={s.hhmm} className="h-16 px-3 py-1 text-xs font-mono text-slate-500 border-b border-slate-100">{s.label}</div>
@@ -151,6 +164,7 @@ export default function DayCalendar({ dayKey, appts: initial, copay, balance }: 
           {toast.undo && <button onClick={toast.undo} className="text-brand-600 font-semibold hover:underline">Undo</button>}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
