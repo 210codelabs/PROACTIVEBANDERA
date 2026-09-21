@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { runWenoDailySync, getWenoSyncStatus } from "@/lib/weno/dailySync";
-import { syncWenoDirectory } from "@/lib/weno/directory";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,13 +27,14 @@ async function handle(req: Request) {
   const mode = url.searchParams.get("mode");
   try {
     if (mode === "full") {
-      const result = await syncWenoDirectory({ daily: false });
-      return NextResponse.json({ ok: true, mode: "full", result });
+      const result = await runWenoDailySync({ force: true, mode: "full" });
+      const status = await getWenoSyncStatus();
+      return NextResponse.json({ ok: true, mode: "full", result, status });
     }
-    // Force a run (this endpoint is an explicit trigger), incremental.
+    // Explicit trigger: auto-selects full-repair when sparse, else incremental.
     const result = await runWenoDailySync({ force: true });
     const status = await getWenoSyncStatus();
-    return NextResponse.json({ ok: true, mode: "daily", ran: result != null, result, status });
+    return NextResponse.json({ ok: true, mode: "auto", ran: result != null, result, status });
   } catch (e: unknown) {
     return NextResponse.json({ error: String((e as Error)?.message || e).slice(0, 300) }, { status: 502 });
   }
