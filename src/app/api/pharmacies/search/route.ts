@@ -1,48 +1,47 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { maybeDailyWenoSync } from "@/lib/weno/dailySync";
 
-// Curated fallback so pharmacy search keeps working even if the DB is
-// briefly unavailable in the serverless runtime.
-const FALLBACK_PHARMACIES = [
-  { id: "fallback-cvs", name: "CVS Pharmacy #4821", network: "weno", ncpdpId: "0512381", city: "San Antonio", state: "TX", phone: "(210) 555-0112", hours: "Mon-Sun 8a-10p", services: "drive-thru,delivery", preferred: true },
-  { id: "fallback-walgreens", name: "Walgreens #6610", network: "weno", ncpdpId: "0661102", city: "San Antonio", state: "TX", phone: "(210) 555-0144", hours: "24 hours", services: "24h,delivery", preferred: true },
-  { id: "fallback-inhouse", name: "Proactive Clinic In-House Dispensary", network: "internal", ncpdpId: "9000001", city: "San Antonio", state: "TX", phone: "(210) 555-0148", hours: "Mon-Fri 8a-6p", services: "in-house,compounding", preferred: true },
-];
+export const runtime = "nodejs";
 
+// Pharmacy search — SINGLE SOURCE OF TRUTH: the Weno national directory
+// (WenoPharmacy). No local table, no hardcoded fallback. Every pharmacy search
+// across the app resolves to this one authoritative, daily-synced list.
 export async function GET(req: Request) {
-  await requireSession();
+  try { await requireSession(); } catch { return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); }
+  maybeDailyWenoSync();
+
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get("q") || "").trim();
+  const ci = (v: string) => ({ contains: v, mode: "insensitive" as const });
 
-  try {
-    const pharmacies = await db.pharmacy.findMany({
-      where: {
-        active: true,
-        ...(q
-          ? {
-              OR: [
-                { name: { contains: q } },
-                { city: { contains: q } },
-                { state: { contains: q } },
-                { postalCode: { contains: q } },
-                { services: { contains: q } },
-                { ncpdpId: { contains: q } },
-              ],
-            }
-          : {}),
-      },
-      orderBy: [{ preferred: "desc" }, { name: "asc" }],
-      take: 25,
-    });
-    return NextResponse.json({ ok: true, pharmacies });
-  } catch {
-    const needle = q.toLowerCase();
-    const filtered = needle
-      ? FALLBACK_PHARMACIES.filter((p) =>
-          [p.name, p.city, p.state, p.services].some((v) => v.toLowerCase().includes(needle)),
-        )
-      : FALLBACK_PHARMACIES;
-    return NextResponse.json({ ok: true, pharmacies: filtered, fallback: true });
+  const where: any = { active: true };
+  if (q) {
+    where.OR = [
+      { name: ci(q) },
+      { city: ci(q) },
+      { state: { contains: q } },
+      { zip: { contains: q } },
+      { ncpdpId: { contains: q } },
+      { npi: { contains: q } },
+    ];
   }
+
+  const rows = await db.wenoPharmacy.findMany({ where, take: 25, orderBy: { name: "asc" } }).catch(() => []);
+  const pharmacies = rows.map((w: any) => ({
+    id: w.ncpdpId,
+    ncpdpId: w.ncpdpId,
+    name: w.name,
+    city: w.city,
+    state: w.state,
+    postalCode: w.zip,
+    phone: w.phone,
+    npi: w.npi,
+    network: (w.services || "").includes("weno") ? "weno" : "directory",
+    wenoConnected: (w.services || "").includes("weno"),
+    routable: true,
+    source: "weno",
+  }));
+  return NextResponse.json({ ok: true, pharmacies });
 }

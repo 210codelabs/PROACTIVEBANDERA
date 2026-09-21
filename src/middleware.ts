@@ -30,6 +30,7 @@ const PUBLIC_PREFIX = [
   "/api/internal/dot-reminders",
   "/api/internal/weno-apply-env",
   "/api/internal/credentialing-recheck",
+  "/api/cron",
   "/api/compare",
   "/api/v1",
   "/fhir",

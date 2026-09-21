@@ -7,6 +7,7 @@ import {
   openApptWidget, notifyApptChanged,
 } from "@/lib/apptEvents";
 import { PROVIDER_PALETTE } from "@/app/(app)/schedule/palette";
+import { clinicDayKey, clinicHHmm, clinicTimeLabel } from "@/lib/clinic";
 
 type Provider = { id: string; firstName: string; lastName: string; credential: string | null };
 type Slot = { time: string; label: string; free: boolean; min: number };
@@ -32,15 +33,13 @@ const STATUS_CHIP: Record<string, string> = {
 };
 
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return clinicDayKey(new Date());
 }
 function hhmmFromISO(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return clinicHHmm(iso);
 }
 function timeLabel(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return clinicTimeLabel(iso);
 }
 
 /**

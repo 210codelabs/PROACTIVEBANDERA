@@ -115,12 +115,23 @@ function PharmacySearch() {
     if (f.name) p.set("name", f.name);
     if (f.city) p.set("city", f.city);
     if (f.state) p.set("state", f.state);
-    if (f.postal) p.set("postal", f.postal);
-    const r = await fetch(`/api/pharmacies/nppes?${p.toString()}`);
+    if (f.postal) p.set("zip", f.postal);
+    const r = await fetch(`/api/weno/pharmacies?${p.toString()}`);
     const j = await r.json();
     setBusy(false);
     if (!r.ok) { setErr(j.error || "Search failed."); return; }
-    setResults(j.pharmacies || []);
+    const mapped: Pharmacy[] = (j.pharmacies || []).map((w: any) => ({
+      npi: w.npi || w.ncpdpId,
+      name: w.name,
+      taxonomy: w.wenoConnected ? "Pharmacy · Weno-connected" : "Pharmacy",
+      address1: w.address || "",
+      city: w.city || "",
+      state: w.state || "",
+      postal: w.zip || "",
+      phone: w.phone || "",
+      fax: "",
+    }));
+    setResults(mapped);
   }
 
   async function importPharmacy(ph: Pharmacy) {
@@ -140,7 +151,7 @@ function PharmacySearch() {
         </div>
         <div className="flex items-center gap-3 mt-3">
           <button disabled={busy} onClick={search} className="btn-primary">{busy ? "Searching…" : "Find pharmacies"}</button>
-          <span className="text-xs text-slate-400">Searches all US pharmacies in the NPPES registry. Import one to use it for e-prescribe routing.</span>
+          <span className="text-xs text-slate-400">Searches the Weno national pharmacy directory — the single source used everywhere in the app for e-prescribe routing.</span>
         </div>
         {err && <div className="text-sm text-rose-700 mt-2">{err}</div>}
       </div>

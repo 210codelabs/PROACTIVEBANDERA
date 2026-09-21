@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CLINIC_OPEN_TIME, CLINIC_CLOSE_TIME, CLINIC_HOURS_LABEL, formatClinic } from "@/lib/clinic";
+import { CLINIC_OPEN_TIME, CLINIC_CLOSE_TIME, CLINIC_HOURS_LABEL, formatClinic, clinicDayKey } from "@/lib/clinic";
 import ClinicTZBadge from "@/components/ClinicTZBadge";
 
 type Service = { id: string; name: string; category: string };
@@ -28,7 +28,7 @@ export default function PortalBookingForm({ services }: { services: Service[] })
   const [error, setError] = useState("");
   const [confirmation, setConfirmation] = useState<null | { number: string; when: string; location: string; service: string }>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = clinicDayKey(new Date());
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

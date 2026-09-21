@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { mapByIds } from "@/lib/safe-relations";
-import { clinicHoursError, minutesOfDay } from "@/lib/clinic";
+import { clinicHoursError, clinicMinutesOfDay, clinicHHmm, clinicDayKey, practiceWallClockToDate } from "@/lib/clinic";
 import { findConflict } from "@/lib/appointments";
 import { providerHoursError, nextAvailableSlot } from "@/lib/scheduling";
 import { createAndSendOffer } from "@/lib/waitlist/notify";
@@ -23,8 +23,8 @@ export async function GET(req: Request) {
   // Date filter. A date-only value (YYYY-MM-DD) is expanded so a single-day
   // query (from==to) covers the whole day instead of just midnight.
   if (from || to) {
-    const startOf = (v: string) => new Date(v.length === 10 ? `${v}T00:00:00.000` : v);
-    const endOf = (v: string) => new Date(v.length === 10 ? `${v}T23:59:59.999` : v);
+    const startOf = (v: string) => v.length === 10 ? practiceWallClockToDate(v, "00:00") : new Date(v);
+    const endOf = (v: string) => v.length === 10 ? new Date(practiceWallClockToDate(v, "00:00").getTime() + 24 * 3600 * 1000 - 1) : new Date(v);
     where.startsAt = { ...(from ? { gte: startOf(from) } : {}), ...(to ? { lte: endOf(to) } : {}) };
   }
 
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "missing fields" }, { status: 400 });
   }
   try {
-    let start = new Date(`${b.day}T${b.time}:00`);
+    let start = practiceWallClockToDate(b.day, b.time);
     let durationMin = 30;
     if (b.serviceTypeId) {
       const s = await db.serviceType.findUnique({ where: { id: b.serviceTypeId } });
@@ -92,9 +92,9 @@ export async function POST(req: Request) {
     let conflict = await findConflict(b.providerId, start, end);
 
     if (b.autoShift && (hoursBad() || (conflict && !b.allowDoubleBook))) {
-      const alt = await nextAvailableSlot(b.providerId, b.day, durationMin, minutesOfDay(start), provider?.workingHours);
+      const alt = await nextAvailableSlot(b.providerId, b.day, durationMin, clinicMinutesOfDay(start), provider?.workingHours);
       if (alt) {
-        start = new Date(`${b.day}T${alt}:00`);
+        start = practiceWallClockToDate(b.day, alt);
         end = new Date(start.getTime() + durationMin * 60000);
         shifted = true;
         conflict = await findConflict(b.providerId, start, end);
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
         status: "scheduled",
       },
     });
-    return NextResponse.json({ ok: true, appointment: appt, shifted, day: b.day, time: `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}` });
+    return NextResponse.json({ ok: true, appointment: appt, shifted, day: clinicDayKey(start), time: clinicHHmm(start) });
   } catch {
     return NextResponse.json({ error: "Scheduling is temporarily unavailable" }, { status: 503 });
   }
@@ -146,7 +146,7 @@ export async function PATCH(req: Request) {
     // Reschedule?
     let newStart: Date | null = null;
     if (b.startsAt) newStart = new Date(b.startsAt);
-    else if (b.day && b.time) newStart = new Date(`${b.day}T${b.time}:00`);
+    else if (b.day && b.time) newStart = practiceWallClockToDate(b.day, b.time);
 
     let shifted = false;
     if (newStart && !isNaN(newStart.getTime())) {
@@ -159,7 +159,7 @@ export async function PATCH(req: Request) {
       }
       const effProviderId = (data.providerId as string) || existing.providerId;
       const provider = await db.user.findUnique({ where: { id: effProviderId }, select: { workingHours: true } });
-      const dayStr = `${newStart.getFullYear()}-${String(newStart.getMonth() + 1).padStart(2, "0")}-${String(newStart.getDate()).padStart(2, "0")}`;
+      const dayStr = clinicDayKey(newStart);
 
       let endAt = new Date(newStart.getTime() + durationMin * 60000);
       const hoursBad = () => clinicHoursError(newStart as Date, endAt) || providerHoursError(provider?.workingHours, newStart as Date, endAt);
@@ -168,9 +168,9 @@ export async function PATCH(req: Request) {
       // Drag auto-shift: if the target time is out of hours or clashes, snap to
       // the closest open slot that day (unless the caller intends to double-book).
       if (b.autoShift && (hoursBad() || (clash && !b.allowDoubleBook))) {
-        const alt = await nextAvailableSlot(effProviderId, dayStr, durationMin, minutesOfDay(newStart), provider?.workingHours, existing.id);
+        const alt = await nextAvailableSlot(effProviderId, dayStr, durationMin, clinicMinutesOfDay(newStart), provider?.workingHours, existing.id);
         if (alt) {
-          newStart = new Date(`${dayStr}T${alt}:00`);
+          newStart = practiceWallClockToDate(dayStr, alt);
           endAt = new Date(newStart.getTime() + durationMin * 60000);
           shifted = true;
           clash = await findConflict(effProviderId, newStart, endAt, existing.id);
@@ -202,8 +202,8 @@ export async function PATCH(req: Request) {
     let waitlistOffer: any = null;
     if (data.status === "cancelled" && existing.status !== "cancelled") {
       const freedStart = existing.startsAt;
-      const freedDay = `${freedStart.getFullYear()}-${String(freedStart.getMonth() + 1).padStart(2, "0")}-${String(freedStart.getDate()).padStart(2, "0")}`;
-      const freedTime = `${String(freedStart.getHours()).padStart(2, "0")}:${String(freedStart.getMinutes()).padStart(2, "0")}`;
+      const freedDay = clinicDayKey(freedStart);
+      const freedTime = clinicHHmm(freedStart);
       const cand = await db.waitlist.findFirst({
         where: {
           AND: [
@@ -236,7 +236,7 @@ export async function PATCH(req: Request) {
       }
     }
 
-    return NextResponse.json({ ok: true, appointment: updated, shifted, waitlistOffer, day: `${st.getFullYear()}-${String(st.getMonth() + 1).padStart(2, "0")}-${String(st.getDate()).padStart(2, "0")}`, time: `${String(st.getHours()).padStart(2, "0")}:${String(st.getMinutes()).padStart(2, "0")}` });
+    return NextResponse.json({ ok: true, appointment: updated, shifted, waitlistOffer, day: clinicDayKey(st), time: clinicHHmm(st) });
   } catch {
     return NextResponse.json({ error: "Appointment updates are temporarily unavailable" }, { status: 503 });
   }

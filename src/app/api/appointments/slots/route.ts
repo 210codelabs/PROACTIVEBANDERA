@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { listOpenSlots, pickSuggestions } from "@/lib/scheduling";
+import { clinicDayKey, clinicMinutesOfDay } from "@/lib/clinic";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +23,9 @@ export async function GET(req: Request) {
     const provider = await db.user.findUnique({ where: { id: providerId }, select: { workingHours: true } });
     const { hours, slots } = await listOpenSlots(providerId, day, duration, provider?.workingHours, excludeId);
     // Suggest starting from "now" if the requested day is today, else from day open.
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = clinicDayKey(new Date());
     let fromMin = 0;
-    if (day === todayStr) { const now = new Date(); fromMin = now.getHours() * 60 + now.getMinutes(); }
+    if (day === todayStr) { fromMin = clinicMinutesOfDay(new Date()); }
     const suggestions = pickSuggestions(slots, 5, fromMin);
     // If nothing left later today, fall back to earliest free slots.
     const finalSuggestions = suggestions.length ? suggestions : pickSuggestions(slots, 5, 0);

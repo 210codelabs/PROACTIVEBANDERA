@@ -8,6 +8,30 @@
 export const CLINIC_TZ = "America/Chicago";
 export const CLINIC_TZ_LABEL = "Central Time";
 
+/**
+ * Convert a practice-timezone wall clock (day "YYYY-MM-DD" + time "HH:mm") into
+ * the correct absolute UTC Date instant, INDEPENDENT of the Node process TZ or
+ * the browser TZ. This is the ONLY safe way to persist appointment times: it is
+ * always America/Chicago regardless of where the server or user is.
+ */
+export function practiceWallClockToDate(day: string, time: string, tz: string = CLINIC_TZ): Date {
+  const [y, mo, da] = day.split("-").map(Number);
+  const [h, mi] = (time || "00:00").split(":").map(Number);
+  // First guess: treat the wall clock as if it were UTC.
+  const utcGuess = Date.UTC(y, (mo || 1) - 1, da || 1, h || 0, mi || 0, 0);
+  // See what that instant looks like in the practice timezone, then correct.
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(new Date(utcGuess));
+  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value || 0);
+  let hh = g("hour"); if (hh === 24) hh = 0;
+  const asTz = Date.UTC(g("year"), g("month") - 1, g("day"), hh, g("minute"), g("second"));
+  const offset = asTz - utcGuess; // how far ahead the tz is vs UTC at this instant
+  return new Date(utcGuess - offset);
+}
+
 export const CLINIC_OPEN_HOUR = 9; // 9:00 AM
 export const CLINIC_CLOSE_HOUR = 20; // 8:00 PM
 
@@ -32,13 +56,13 @@ export function minutesOfDay(d: Date): number {
  */
 export function clinicHoursError(start: Date, end?: Date | null): string | null {
   if (!(start instanceof Date) || isNaN(start.getTime())) return "Invalid appointment time.";
-  const s = minutesOfDay(start);
+  const s = clinicMinutesOfDay(start);
   if (s < CLINIC_OPEN_MIN || s >= CLINIC_CLOSE_MIN) {
     return `Appointments must start between ${CLINIC_HOURS_LABEL}.`;
   }
   if (end instanceof Date && !isNaN(end.getTime())) {
-    const sameDay = end.toDateString() === start.toDateString();
-    const e = minutesOfDay(end);
+    const sameDay = clinicDayKey(end) === clinicDayKey(start);
+    const e = clinicMinutesOfDay(end);
     if (!sameDay || e > CLINIC_CLOSE_MIN) {
       return `Appointments must end by ${CLINIC_CLOSE_HOUR - 12}:00 PM Central Time.`;
     }
@@ -90,6 +114,12 @@ export function clinicHHmm(d: Date | string | number): string {
 export function clinicMinutesOfDay(d: Date | string | number): number {
   const { h, mi } = clinicParts(d);
   return h * 60 + mi;
+}
+
+/** Day of week (0=Sun … 6=Sat) for a date, in the clinic timezone. */
+export function clinicWeekday(d: Date | string | number): number {
+  const { y, mo, da } = clinicParts(d);
+  return new Date(Date.UTC(y, mo - 1, da)).getUTCDay();
 }
 
 /** "h:mm a" (e.g. "2:30 PM") for a date, in the clinic timezone. */

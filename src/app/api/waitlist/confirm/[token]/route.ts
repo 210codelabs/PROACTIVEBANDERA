@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { findConflict } from "@/lib/appointments";
+import { practiceWallClockToDate } from "@/lib/clinic";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ token:
     return NextResponse.json({ error: "invalid-offer" }, { status: 400 });
   }
   try {
-    const start = new Date(`${e.offerDay}T${e.offerTime}:00`);
+    const start = practiceWallClockToDate(e.offerDay, e.offerTime);
     let durationMin = 30;
     if (e.offerServiceTypeId) {
       const s = await db.serviceType.findUnique({ where: { id: e.offerServiceTypeId } });

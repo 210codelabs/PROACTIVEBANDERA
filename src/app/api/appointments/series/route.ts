@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { addWeeks, addMonths, format } from "date-fns";
-import { clinicHoursError, minutesOfDay } from "@/lib/clinic";
+import { clinicHoursError, clinicMinutesOfDay, clinicHHmm, clinicDayKey, practiceWallClockToDate } from "@/lib/clinic";
 import { findConflict } from "@/lib/appointments";
 import { providerHoursError, nextAvailableSlot } from "@/lib/scheduling";
 
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     }
     const provider = await db.user.findUnique({ where: { id: providerId }, select: { workingHours: true } });
 
-    const base = new Date(`${day}T${time}:00`);
+    const base = practiceWallClockToDate(day, time);
     if (isNaN(base.getTime())) return NextResponse.json({ error: "Invalid start date/time" }, { status: 400 });
 
     const created: { id: string; day: string; time: string; shifted: boolean }[] = [];
@@ -46,8 +46,8 @@ export async function POST(req: Request) {
 
     for (let i = 0; i < occurrences; i++) {
       const occ = freq === "monthly" ? addMonths(base, i) : addWeeks(base, freq === "biweekly" ? i * 2 : i);
-      const dayStr = format(occ, "yyyy-MM-dd");
-      let start = new Date(`${dayStr}T${time}:00`);
+      const dayStr = clinicDayKey(occ);
+      let start = practiceWallClockToDate(dayStr, time);
       let end = new Date(start.getTime() + durationMin * 60000);
       let shifted = false;
 
@@ -56,9 +56,9 @@ export async function POST(req: Request) {
 
       if ((hoursBad() || (conflict && !allowDoubleBook))) {
         if (autoShift) {
-          const alt = await nextAvailableSlot(providerId, dayStr, durationMin, minutesOfDay(start), provider?.workingHours);
+          const alt = await nextAvailableSlot(providerId, dayStr, durationMin, clinicMinutesOfDay(start), provider?.workingHours);
           if (alt) {
-            start = new Date(`${dayStr}T${alt}:00`);
+            start = practiceWallClockToDate(dayStr, alt);
             end = new Date(start.getTime() + durationMin * 60000);
             shifted = true;
             conflict = await findConflict(providerId, start, end);
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
           seriesId,
         },
       });
-      created.push({ id: appt.id, day: dayStr, time: `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`, shifted });
+      created.push({ id: appt.id, day: dayStr, time: clinicHHmm(start), shifted });
     }
 
     return NextResponse.json({

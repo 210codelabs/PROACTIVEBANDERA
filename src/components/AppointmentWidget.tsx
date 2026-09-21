@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { APPT_OPEN, type ApptOpenDetail, notifyApptChanged } from "@/lib/apptEvents";
+import { clinicDayKey } from "@/lib/clinic";
 
 type Provider = { id: string; firstName: string; lastName: string; credential: string | null };
 type Service = { id: string; name: string; durationMin: number; category?: string };
@@ -10,8 +11,7 @@ type Slot = { time: string; label: string; free: boolean; min: number };
 type Hit = { id: string; mrn: string; firstName: string; lastName: string };
 
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return clinicDayKey(new Date());
 }
 function labelFor(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);

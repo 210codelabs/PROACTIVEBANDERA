@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { corsPreflight, handleApi, apiJson, apiError } from "@/lib/api/keys";
-import { clinicHoursError, minutesOfDay } from "@/lib/clinic";
+import { clinicHoursError, clinicMinutesOfDay, practiceWallClockToDate } from "@/lib/clinic";
 import { findConflict } from "@/lib/appointments";
 import { providerHoursError, nextAvailableSlot } from "@/lib/scheduling";
 
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
       const s = await db.serviceType.findUnique({ where: { id: b.serviceTypeId } });
       if (s) durationMin = s.durationMin;
     }
-    let start = new Date(`${b.day}T${b.time}:00`);
+    let start = practiceWallClockToDate(b.day, b.time);
     let end = new Date(start.getTime() + durationMin * 60000);
 
     const hoursBad = () => clinicHoursError(start, end) || providerHoursError(provider.workingHours, start, end);
@@ -89,9 +89,9 @@ export async function POST(req: Request) {
     let shifted = false;
 
     if (autoShift && (hoursBad() || conflict)) {
-      const alt = await nextAvailableSlot(b.providerId, b.day, durationMin, minutesOfDay(start), provider.workingHours);
+      const alt = await nextAvailableSlot(b.providerId, b.day, durationMin, clinicMinutesOfDay(start), provider.workingHours);
       if (alt) {
-        start = new Date(`${b.day}T${alt}:00`);
+        start = practiceWallClockToDate(b.day, alt);
         end = new Date(start.getTime() + durationMin * 60000);
         shifted = true;
         conflict = await findConflict(b.providerId, start, end);

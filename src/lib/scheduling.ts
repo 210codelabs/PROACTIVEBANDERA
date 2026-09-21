@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { CLINIC_OPEN_MIN, CLINIC_CLOSE_MIN } from "@/lib/clinic";
+import { CLINIC_OPEN_MIN, CLINIC_CLOSE_MIN, clinicMinutesOfDay, clinicWeekday, clinicDayKey, practiceWallClockToDate } from "@/lib/clinic";
 import { NON_BLOCKING_STATUSES } from "@/lib/appointments";
 
 // Per-provider working hours. Minutes-of-day (Central). If a provider has no
@@ -22,7 +22,7 @@ function coerceHours(raw: unknown): WorkingHours | null {
 /** Resolve a provider's open/close window (minutes) for a given date's weekday. */
 export function resolveDayHours(workingHours: unknown, date: Date): DayHours {
   const wh = coerceHours(workingHours);
-  const dow = String(date.getDay());
+  const dow = String(clinicWeekday(date));
   const d = wh?.[dow];
   if (!d) return { ...DEFAULT_DAY };
   const open = typeof d.open === "number" ? d.open : DEFAULT_DAY.open;
@@ -30,21 +30,17 @@ export function resolveDayHours(workingHours: unknown, date: Date): DayHours {
   return { open, close, closed: Boolean(d.closed) };
 }
 
-function minutesOfDay(d: Date): number {
-  return d.getHours() * 60 + d.getMinutes();
-}
-
 /**
  * Validate that [start, end) falls within the provider's working hours/day.
- * Returns an error message to surface, or null when valid.
- * Must run server-side (relies on the pinned Central process timezone).
+ * Returns an error message to surface, or null when valid. Timezone-explicit
+ * (America/Chicago) so it is correct regardless of server/browser TZ.
  */
 export function providerHoursError(workingHours: unknown, start: Date, end: Date): string | null {
   if (!(start instanceof Date) || isNaN(start.getTime())) return "Invalid appointment time.";
   const hours = resolveDayHours(workingHours, start);
   if (hours.closed) return "The provider is not available on that day.";
-  const s = minutesOfDay(start);
-  const e = end.toDateString() === start.toDateString() ? minutesOfDay(end) : hours.close + 1;
+  const s = clinicMinutesOfDay(start);
+  const e = clinicDayKey(end) === clinicDayKey(start) ? clinicMinutesOfDay(end) : hours.close + 1;
   if (s < hours.open || s >= hours.close || e > hours.close) {
     const lbl = (m: number) => {
       const hh = Math.floor(m / 60), mm = m % 60;
@@ -58,8 +54,8 @@ export function providerHoursError(workingHours: unknown, start: Date, end: Date
 
 /** All busy minute-intervals for a provider on a given yyyy-MM-dd (Central). */
 export async function getBusyIntervals(providerId: string, dayStr: string, excludeId?: string): Promise<Busy[]> {
-  const dayStart = new Date(`${dayStr}T00:00:00.000`);
-  const dayEnd = new Date(`${dayStr}T23:59:59.999`);
+  const dayStart = practiceWallClockToDate(dayStr, "00:00");
+  const dayEnd = new Date(dayStart.getTime() + 24 * 3600 * 1000 - 1);
   const rows = await db.appointment.findMany({
     where: {
       providerId,
@@ -69,7 +65,7 @@ export async function getBusyIntervals(providerId: string, dayStr: string, exclu
     },
     select: { startsAt: true, endsAt: true },
   }).catch(() => []);
-  return rows.map((r) => ({ s: minutesOfDay(r.startsAt), e: minutesOfDay(r.endsAt) }));
+  return rows.map((r) => ({ s: clinicMinutesOfDay(r.startsAt), e: clinicMinutesOfDay(r.endsAt) }));
 }
 
 function overlaps(startMin: number, durationMin: number, busy: Busy[]): boolean {
@@ -97,7 +93,7 @@ export async function listOpenSlots(
   workingHours: unknown,
   excludeId?: string,
 ): Promise<{ hours: DayHours; slots: Slot[]; busy: Busy[] }> {
-  const date = new Date(`${dayStr}T00:00:00.000`);
+  const date = practiceWallClockToDate(dayStr, "12:00");
   const hours = resolveDayHours(workingHours, date);
   const busy = await getBusyIntervals(providerId, dayStr, excludeId);
   const slots: Slot[] = [];

@@ -7,6 +7,7 @@ import {
 } from "date-fns";
 import { PROVIDER_PALETTE } from "./palette";
 import { openDayAgenda } from "@/lib/apptEvents";
+import { clinicDayKey, clinicHHmm, clinicTimeLabel } from "@/lib/clinic";
 
 export type MAppt = {
   id: string; patientId: string; providerId: string;
@@ -65,14 +66,14 @@ export default function MonthCalendar({
     if (!id) return;
     const appt = appts.find((a) => a.id === id);
     if (!appt) return;
-    const currentKey = format(parseISO(appt.startsAt), "yyyy-MM-dd");
+    const currentKey = clinicDayKey(appt.startsAt);
     if (currentKey === targetKey) return;
 
-    // Preserve time-of-day; only the date changes.
+    // Preserve time-of-day (in the practice timezone); only the date changes.
     const start = parseISO(appt.startsAt);
     const end = parseISO(appt.endsAt);
     const durMs = end.getTime() - start.getTime();
-    const time = format(start, "HH:mm");
+    const time = clinicHHmm(appt.startsAt);
     const newStart = parseISO(`${targetKey}T${time}:00`);
     const prev = appts;
     // optimistic update
@@ -106,8 +107,8 @@ export default function MonthCalendar({
         {days.map((d) => {
           const key = format(d, "yyyy-MM-dd");
           const inMonth = isSameMonth(d, month);
-          const today = isSameDay(d, new Date());
-          const list = appts.filter((a) => isSameDay(parseISO(a.startsAt), d))
+          const today = key === clinicDayKey(new Date());
+          const list = appts.filter((a) => clinicDayKey(a.startsAt) === key)
             .sort((x, y) => parseISO(x.startsAt).getTime() - parseISO(y.startsAt).getTime());
           const isOver = overDay === key;
           return (
@@ -140,7 +141,7 @@ export default function MonthCalendar({
                       className={`group flex items-center gap-1 rounded px-1 py-0.5 border-l-2 cursor-grab active:cursor-grabbing hover:brightness-95 ${c.bg} ${c.border} ${dragId === a.id ? "opacity-50" : ""}`}
                     >
                       <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${STATUS_DOT[a.status] || STATUS_DOT.scheduled}`} title={a.status} />
-                      <span className="text-[10px] text-slate-700 truncate">{format(parseISO(a.startsAt), "h:mm a")} {a.pLast}</span>
+                      <span className="text-[10px] text-slate-700 truncate">{clinicTimeLabel(a.startsAt)} {a.pLast}</span>
                       {coverage[a.patientId] && (
                         <span className={`ml-auto h-1.5 w-1.5 rounded-sm shrink-0 ${COVERAGE_DOT[coverage[a.patientId]] || COVERAGE_DOT.none}`} title={COVERAGE_LABEL[coverage[a.patientId]] || "Coverage"} />
                       )}

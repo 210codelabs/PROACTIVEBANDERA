@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
-import { clinicHoursError } from "@/lib/clinic";
+import { clinicHoursError, practiceWallClockToDate } from "@/lib/clinic";
 import { findConflict } from "@/lib/appointments";
 import { addDays, addWeeks, addMonths, format, parseISO } from "date-fns";
 
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   try {
     for (let i = 0; i < count; i++) {
       const dateStr = format(stepFn(base, i), "yyyy-MM-dd");
-      const start = new Date(`${dateStr}T${time}:00`);
+      const start = practiceWallClockToDate(dateStr, time);
       const end = new Date(start.getTime() + durationMin * 60000);
       const hoursErr = clinicHoursError(start, end);
       if (hoursErr) { skipped.push({ date: dateStr, reason: "outside clinic hours" }); continue; }

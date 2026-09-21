@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { addDays, format } from "date-fns";
-import { clinicHoursError, minutesOfDay } from "@/lib/clinic";
+import { clinicHoursError, clinicMinutesOfDay, clinicHHmm, clinicDayKey, practiceWallClockToDate } from "@/lib/clinic";
 import { findConflict } from "@/lib/appointments";
 import { providerHoursError, nextAvailableSlot } from "@/lib/scheduling";
 
@@ -56,18 +56,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ series
       const provider = await db.user.findUnique({ where: { id: providerId }, select: { workingHours: true } });
 
       const baseDate = shiftDays ? addDays(occ.startsAt, shiftDays) : occ.startsAt;
-      const dayStr = format(baseDate, "yyyy-MM-dd");
-      const hhmm = time || format(occ.startsAt, "HH:mm");
-      let start = new Date(`${dayStr}T${hhmm}:00`);
+      const dayStr = clinicDayKey(baseDate);
+      const hhmm = time || clinicHHmm(occ.startsAt);
+      let start = practiceWallClockToDate(dayStr, hhmm);
       let end = new Date(start.getTime() + durationMin * 60000);
 
       const hoursBad = () => clinicHoursError(start, end) || providerHoursError(provider?.workingHours, start, end);
       let clash = await findConflict(providerId, start, end, occ.id);
 
       if ((hoursBad() || (clash && !allowDoubleBook)) && autoShift) {
-        const alt = await nextAvailableSlot(providerId, dayStr, durationMin, minutesOfDay(start), provider?.workingHours, occ.id);
+        const alt = await nextAvailableSlot(providerId, dayStr, durationMin, clinicMinutesOfDay(start), provider?.workingHours, occ.id);
         if (alt) {
-          start = new Date(`${dayStr}T${alt}:00`);
+          start = practiceWallClockToDate(dayStr, alt);
           end = new Date(start.getTime() + durationMin * 60000);
           clash = await findConflict(providerId, start, end, occ.id);
         }
@@ -76,7 +76,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ series
       if (hoursBad()) { skipped.push({ day: dayStr, reason: "Outside working hours" }); continue; }
       if (clash && !allowDoubleBook) { skipped.push({ day: dayStr, reason: "Time already booked" }); continue; }
 
-      const wasShifted = format(start, "yyyy-MM-dd HH:mm") !== `${dayStr} ${hhmm}`;
+      const wasShifted = `${clinicDayKey(start)} ${clinicHHmm(start)}` !== `${dayStr} ${hhmm}`;
       await db.appointment.update({ where: { id: occ.id }, data: { startsAt: start, endsAt: end, providerId } });
       updated++;
       if (wasShifted) shiftedCount++;

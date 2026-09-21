@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getWenoOnlineConfig } from "@/lib/wenoOnline";
+import { maybeDailyWenoSync } from "@/lib/weno/dailySync";
 
 export const runtime = "nodejs";
 
@@ -61,6 +62,9 @@ async function searchNppesPharmacies(f: { name: string; city: string; state: str
 // Params: q (free text: name/city/NCPDP/NPI) | name | city | state | zip | address | npi | nppes=0 to skip NPPES.
 export async function GET(req: Request) {
   try { await requireSession(); } catch { return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); }
+  // Keep the national Weno directory fresh: kick a background daily sync if the
+  // directory is stale. Never blocks or affects this response.
+  maybeDailyWenoSync();
   const sp = new URL(req.url).searchParams;
   const q = (sp.get("q") || "").trim();
   const name = (sp.get("name") || "").trim();
@@ -98,21 +102,13 @@ export async function GET(req: Request) {
   const WENO_TAKE = 60;
 
   if (hasCriteria) {
-    const localAnd: any[] = [];
-    if (name) localAnd.push({ name: ci(name) });
-    if (city) localAnd.push({ city: ci(city) });
-    if (state) localAnd.push({ state: { contains: state } });
-    if (zip) localAnd.push({ postalCode: { contains: zip } });
-    if (address) localAnd.push({ addressLine1: ci(address) });
-    if (npi) localAnd.push({ npi: { contains: npi } });
-    if (q) localAnd.push({ OR: [{ name: ci(q) }, { city: ci(q) }, { postalCode: { contains: q } }, { ncpdpId: { contains: q } }, { npi: { contains: q } }] });
-
+    // SINGLE SOURCE OF TRUTH: the Weno national directory (WenoPharmacy) only.
+    // No local table, no NPPES — every pharmacy search across the app uses this
+    // one authoritative, daily-synced list.
     const wenoWhere = { active: true, AND: and } as any;
-    const [wenoRows, wenoTotal, localRows, nppesRows] = await Promise.all([
+    const [wenoRows, wenoTotal] = await Promise.all([
       db.wenoPharmacy.findMany({ where: wenoWhere, take: WENO_TAKE, orderBy: { name: "asc" } }).catch(() => []),
       db.wenoPharmacy.count({ where: wenoWhere }).catch(() => 0),
-      db.pharmacy.findMany({ where: { active: true, AND: localAnd }, take: 20, orderBy: [{ preferred: "desc" }, { name: "asc" }] }).catch(() => []),
-      wantNppes ? searchNppesPharmacies({ name: name || (qIsNpi ? "" : q), city, state, zip, npi: effNpi }) : Promise.resolve([]),
     ]);
     total = wenoTotal;
 
@@ -120,15 +116,6 @@ export async function GET(req: Request) {
       ncpdpId: w.ncpdpId, name: w.name, city: w.city, state: w.state, zip: w.zip, phone: w.phone, address: w.address, npi: w.npi,
       wenoConnected: (w.services || "").includes("weno"), isTest: (w.services || "").includes("test"), source: "weno", routable: true,
     }));
-    const seenNpi = new Set(results.map((r) => r.npi).filter(Boolean));
-    for (const lp of localRows as any[]) {
-      if (lp.ncpdpId && results.some((r) => r.ncpdpId === lp.ncpdpId)) continue;
-      results.push({ ncpdpId: lp.ncpdpId || lp.id, name: lp.name, city: lp.city, state: lp.state, zip: lp.postalCode, phone: lp.phone, address: lp.addressLine1, npi: lp.npi, source: "local", routable: Boolean(lp.ncpdpId) });
-    }
-    for (const n of nppesRows) {
-      if (n.npi && seenNpi.has(n.npi)) continue; // already have a routable Weno entry for this NPI
-      results.push(n);
-    }
   }
 
   // Merge test pharmacies (test env) matching the query.
