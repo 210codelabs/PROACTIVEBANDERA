@@ -50,9 +50,12 @@ export async function getWenoOnlineConfig(): Promise<WenoOnlineConfig> {
   const state = await readIntegrations();
   const p = state.providers["weno-online"];
   const c = p?.credentials || {};
-  const env = (String(c.ENVIRONMENT || "test").toLowerCase().startsWith("prod")
-    ? "production"
-    : "test") as "test" | "production";
+  // Default to PRODUCTION (live Weno Exchange) for a configured integration.
+  // Only run in TEST mode when explicitly set to "test" — otherwise a missing/
+  // drifted ENVIRONMENT value would silently route real Rx to Weno's TEST
+  // stream (invisible in the live Exchange logs).
+  const rawEnv = String(c.ENVIRONMENT || "").trim().toLowerCase();
+  const env = (rawEnv.startsWith("test") ? "test" : "production") as "test" | "production";
   const composeBase =
     (c.COMPOSE_URL_OVERRIDE || "").trim() || (env === "production" ? LIVE_BASE : TEST_BASE);
   return {

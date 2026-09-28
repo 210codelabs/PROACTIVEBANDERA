@@ -246,14 +246,17 @@ export class WenoIntegrationService {
   async getConfig(): Promise<WenoOnlineConfig> {
     if (this.cfg) return this.cfg;
     const base = await getWenoOnlineConfig();
-    const envEnv = (process.env.WENO_ENV || process.env.WENO_ONLINE_ENV || "").toLowerCase();
+    const envEnv = (process.env.WENO_ENV || process.env.WENO_ONLINE_ENV || process.env.ENVIRONMENT || "").toLowerCase();
+    // An explicit env var wins in either direction; otherwise use the DB config.
+    const environment: "test" | "production" =
+      envEnv.startsWith("test") ? "test" : envEnv.startsWith("prod") ? "production" : base.environment;
     const merged: WenoOnlineConfig = {
       ...base,
       ehrEncryptionKey: base.ehrEncryptionKey || process.env.WENO_ENCRYPTION_KEY || process.env.WENO_ONLINE_KEY || "",
       providerEmail: base.providerEmail || process.env.WENO_PRESCRIBER_EMAIL || process.env.WENO_ONLINE_EMAIL || "",
       providerPassword: base.providerPassword || process.env.WENO_PRESCRIBER_PASSWORD || process.env.WENO_ONLINE_PASSWORD || "",
       locationId: base.locationId || process.env.WENO_LOCATION_ID || process.env.WENO_ONLINE_LOCATION || "",
-      environment: base.environment || (envEnv.startsWith("prod") ? "production" : "test"),
+      environment,
     };
     this.cfg = merged;
     return merged;

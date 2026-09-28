@@ -51,8 +51,21 @@ export async function GET(req: Request, { params }: { params: Promise<{ patientI
       },
     }).catch(() => {});
 
-    // 4) Respond with the authenticated iFrame URL for direct rendering
-    return NextResponse.json({ iframeUrl, environment, orgTransactionId: orgTxId, prescriber: chosen?.label || null });
+    // 4) Respond with the authenticated iFrame URL for direct rendering.
+    // composeHost + testPatient are non-PHI diagnostics so staff/tests can
+    // confirm the Rx targets the LIVE exchange (online.wenoexchange.com, N),
+    // not the test stream (test.wenoexchange.com, Y).
+    let composeHost: string | null = null;
+    try { composeHost = new URL(iframeUrl).host; } catch {}
+    return NextResponse.json({
+      iframeUrl,
+      environment,
+      composeHost,
+      testPatient: environment === "production" ? "N" : "Y",
+      live: environment === "production",
+      orgTransactionId: orgTxId,
+      prescriber: chosen?.label || null,
+    });
   } catch (e: any) {
     // WenoPayloadError: 404 (patient not found) or 422 (missing critical fields).
     if (e instanceof WenoPayloadError) {
