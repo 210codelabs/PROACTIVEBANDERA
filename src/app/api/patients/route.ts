@@ -52,6 +52,8 @@ const Body = z.object({
   pipMedLimit: z.string().optional(),
   pipInsuredName: z.string().optional(),
   pipRelation: z.string().optional(),
+  legalNA: z.boolean().optional(),
+  pipNA: z.boolean().optional(),
 });
 
 function nextMrn() {
@@ -70,6 +72,7 @@ export async function POST(req: Request) {
     patientType = "clinical",
     attorneyId, caseNumber, caseType, court, dateOfInjury, lawFirm, claimNumber, adjuster, defendantInsurer,
     pipInsurerName, pipInsurerPayerId, pipPolicyNumber, pipClaimNumber, pipMedLimit, pipInsuredName, pipRelation,
+    legalNA, pipNA,
     ...rest
   } = parsed.data;
 
@@ -103,6 +106,8 @@ export async function POST(req: Request) {
         pipMedLimit: pipMedLimit || null,
         pipInsuredName: pipInsuredName || null,
         pipRelation: pipRelation || null,
+        legalNA: Boolean(legalNA),
+        pipNA: Boolean(pipNA),
       },
     });
   }

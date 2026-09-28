@@ -61,12 +61,22 @@ function Overview({ data, busy, patch, caseId, refresh }: any) {
   const relLabel: Record<string, string> = { self: "Self (insured)", passenger: "Passenger", pedestrian: "Pedestrian", "other-driver": "Other driver", other: "Other" };
   return (
     <div className="space-y-4">
-      {hasPip && (
+      {data.legalNA && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <span className="font-semibold">Legal / Attorney details marked Not Applicable at registration.</span> Complete the case type, attorney, claim and court fields below when the information is available.
+        </div>
+      )}
+      {(hasPip || data.pipNA) && (
         <div className="card card-pad space-y-3 border-amber-200 bg-amber-50/60">
           <div className="flex items-center gap-2">
             <span className="chip bg-amber-500 text-white ring-amber-500 text-[11px] font-semibold">PIP</span>
             <h3 className="font-semibold text-amber-900">Personal Injury Protection — auto insurer to bill</h3>
+            {data.pipNA && <span className="chip bg-slate-200 text-slate-600 ring-slate-300 text-[11px]">Not Applicable</span>}
           </div>
+          {data.pipNA ? (
+            <p className="text-xs text-amber-800">Marked Not Applicable at registration. Add the auto insurer and PIP policy details here when available — new claims will then auto-route to that insurer.</p>
+          ) : (
+          <>
           <p className="text-xs text-amber-800">
             This patient&apos;s own auto policy (PIP / MedPay) is billed first, regardless of fault. New claims for this patient auto-route to this insurer as the primary payer.
           </p>
@@ -79,6 +89,8 @@ function Overview({ data, busy, patch, caseId, refresh }: any) {
             <Info label="Policyholder / insured" value={data.pipInsuredName} />
             <Info label="Relationship to insured" value={data.pipRelation ? (relLabel[data.pipRelation] || data.pipRelation) : null} />
           </div>
+          </>
+          )}
         </div>
       )}
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

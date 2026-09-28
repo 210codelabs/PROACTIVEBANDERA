@@ -104,6 +104,9 @@ model LegalCase {
   pipMedLimit      String?
   pipInsuredName   String?
   pipRelation      String?  // self | passenger | pedestrian | other-driver | other
+  // "Not Applicable" flags — section deferred at registration, editable later
+  legalNA          Boolean  @default(false)
+  pipNA            Boolean  @default(false)
   status           String    @default("intake") // intake | treating | negotiating | settled | closed
   lienAmountCents  Int?
   notes            String?

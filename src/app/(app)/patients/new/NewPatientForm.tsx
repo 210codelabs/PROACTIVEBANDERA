@@ -57,6 +57,8 @@ export default function NewPatientForm() {
   const [pipPayerName, setPipPayerName] = useState("");
   const [pipPayerId, setPipPayerId] = useState("");
   const [pipOther, setPipOther] = useState(false);
+  const [legalNA, setLegalNA] = useState(false);
+  const [pipNA, setPipNA] = useState(false);
   const showPip = ["personal_injury", "auto_accident"].includes(caseType);
 
   // Preferred pharmacy (e-prescribing)
@@ -154,6 +156,7 @@ export default function NewPatientForm() {
       const fd = new FormData(form);
       const body: Record<string, unknown> = Object.fromEntries(fd.entries());
       body.patientType = type;
+      if (type === "legal") { body.legalNA = legalNA; body.pipNA = pipNA || legalNA; }
       if (pharmacy?.ncpdpId) body.primaryPharmacyNcpdp = pharmacy.ncpdpId;
       const res = await fetch("/api/patients", {
         method: "POST",
@@ -233,8 +236,15 @@ export default function NewPatientForm() {
         </fieldset>
 
         {type === "legal" && (
-          <fieldset className="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
-            <legend className="section-title px-1 text-amber-800">Legal / Attorney Case</legend>
+          <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div className="section-title px-1 text-amber-800">Legal / Attorney Case</div>
+              <label className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-white/70 border border-amber-300 rounded-md px-2 py-1">
+                <input type="checkbox" checked={legalNA} onChange={(e) => setLegalNA(e.target.checked)} />
+                Not Applicable — complete later
+              </label>
+            </div>
+            <fieldset disabled={legalNA} className={legalNA ? "opacity-50 pointer-events-none select-none" : ""}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <label className="block">
                 <span className="label">Case type</span>
@@ -272,7 +282,14 @@ export default function NewPatientForm() {
             </div>
             {showPip && (
               <div className="mt-3 rounded-lg border border-amber-300 bg-white/70 p-3">
-                <div className="text-sm font-semibold text-amber-900">PIP / Personal Injury — Auto insurer to bill</div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-amber-900">PIP / Personal Injury — Auto insurer to bill</div>
+                  <label className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-800 border border-amber-300 rounded-md px-2 py-1">
+                    <input type="checkbox" checked={pipNA} onChange={(e) => setPipNA(e.target.checked)} />
+                    Not Applicable — complete later
+                  </label>
+                </div>
+                <fieldset disabled={pipNA} className={pipNA ? "opacity-50 pointer-events-none select-none" : ""}>
                 <p className="text-[11px] text-amber-700 mt-0.5">
                   In PIP cases the patient&apos;s own auto policy (Personal Injury Protection / MedPay) is billed first, regardless of fault. Search the auto insurer from Stedi (Progressive, Allstate, Farmers, GEICO, State Farm…), or choose “Otro” to type one that isn&apos;t listed.
                 </p>
@@ -317,10 +334,14 @@ export default function NewPatientForm() {
                 <p className="text-[11px] text-amber-700 mt-2">
                   Texas note: PIP is typically $2,500 (up to $10,000 if elected) and pays medical + 80% of lost wages regardless of fault. Exhaust PIP/MedPay first, then bill health insurance or assert a lien against the third-party settlement (tracked in the Legal Case tab).
                 </p>
+                </fieldset>
+                {pipNA && <p className="text-[11px] text-amber-700 mt-1 italic">Marked Not Applicable — you can add the PIP insurer later from the patient&apos;s Legal Case tab.</p>}
               </div>
             )}
+            </fieldset>
+            {legalNA && <p className="text-[11px] text-amber-700 mt-2 italic">Legal / Attorney details marked Not Applicable — the patient will be saved and you can complete these later from the Legal Case tab.</p>}
             <p className="text-[11px] text-amber-700 mt-2">Case tracking, documents, liens and offers are managed in the Legal Case tab after registration (Phase 2).</p>
-          </fieldset>
+          </div>
         )}
 
         <Section title="Demographics">
