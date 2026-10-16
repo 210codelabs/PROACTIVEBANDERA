@@ -58,13 +58,12 @@ export const INTEGRATION_CATALOG: CapabilityDef[] = [
         key: "weno-online",
         name: "Weno EZ Integration",
         description:
-          "Weno EZ Integration e-prescribing: opens Weno's ComposeRx screen pre-filled with the patient using your 'EHR Encryption Key', embedded directly inside the EHR. Production launch requires a Weno account, provider/location mapping, IP allowlisting and Weno certification.",
+          "Weno EZ Integration e-prescribing: opens Weno's ComposeRx screen pre-filled with the patient using your 'EHR Encryption Key', embedded directly inside the EHR. Locked to PRODUCTION: every prescription is sent live to Weno Exchange (online.wenoexchange.com).",
         docsUrl: "https://wenoexchange.com/wp-content/uploads/2025/08/EZ_Integration_Overview.pdf",
         docsLabel: "Weno EZ Integration overview + dashboard",
         authMode: "credentials",
         fields: [
           { key: "EHR_ENCRYPTION_KEY", label: "EHR Encryption Key", type: "password", required: true, placeholder: "from Weno dashboard → Developers", help: "The encryption key Weno assigns to your account (Manage Account → Developers). Used to encrypt the ComposeRx launch payload. Paste it EXACTLY as shown in Weno — special characters matter." },
-          { key: "ENVIRONMENT", label: "Environment", type: "text", required: true, placeholder: "test | production", help: "'test' sends every Rx as a Weno test patient; 'production' sends live. Stay on test until Weno certifies you." },
           { key: "PROVIDER_EMAIL", label: "Weno Provider Email / Username", type: "text", required: true, placeholder: "prescriber@clinic.com", help: "The prescriber's Weno login email. Passed as 'useremail' and inside the encrypted payload." },
           { key: "PROVIDER_PASSWORD", label: "Weno Provider Password", type: "password", required: true, placeholder: "••••••••", help: "The prescriber's Weno password. Only an MD5 of it is embedded in the launch token; the plaintext is never sent in the URL." },
           { key: "LOCATION_ID", label: "Weno Location ID", type: "text", required: true, placeholder: "L12345", help: "The Weno location the prescriber is assigned to (starts with 'L'). From your Weno account registration." },
@@ -73,7 +72,7 @@ export const INTEGRATION_CATALOG: CapabilityDef[] = [
           { key: "PRESCRIBER_FIRST_NAME", label: "Registered Prescriber First Name", type: "text", required: false, placeholder: "Jane" },
           { key: "PRESCRIBER_LAST_NAME", label: "Registered Prescriber Last Name", type: "text", required: false, placeholder: "Doe" },
           { key: "WENO_USER_ID", label: "Weno User ID (optional)", type: "text", required: false, placeholder: "U1234", help: "The Weno user identifier (starts with 'U'), if provided during registration. Used for account mapping/support." },
-          { key: "COMPOSE_URL_OVERRIDE", label: "ComposeRx URL Override (optional)", type: "text", required: false, placeholder: "https://test.wenoexchange.com/en/NewRx/ComposeRx", help: "Only set if Weno gives you a non-default launch URL. Otherwise derived from Environment." },
+          { key: "COMPOSE_URL_OVERRIDE", label: "ComposeRx URL Override (optional)", type: "text", required: false, placeholder: "https://online.wenoexchange.com/en/NewRx/ComposeRx", help: "Only set if Weno gives you a non-default PRODUCTION launch URL. Weno EZ Integration is locked to production (live Weno Exchange, TestPatient=N); test/sandbox hosts are ignored." },
         ],
       },
     ],

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getWenoOnlineConfig, isWenoOnlineConfigured } from "@/lib/wenoOnline";
+import { pruneLegacyWenoStore } from "@/lib/integrations/store";
 
 export const runtime = "nodejs";
 
@@ -9,7 +10,11 @@ export const runtime = "nodejs";
 // environment. Never returns secrets.
 export async function GET() {
   try { await requireSession(); } catch { return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); }
+  // Self-heal any stored test/sandbox value (idempotent; production-locked).
+  await pruneLegacyWenoStore().catch(() => null);
   const online = await getWenoOnlineConfig();
+  let composeHost = "";
+  try { composeHost = new URL(online.composeBase).host; } catch { /* ignore */ }
 
   // POLICY: this clinic has a single supervising prescriber who signs/approves
   // every e-prescription regardless of which staff member is logged in (access
@@ -39,6 +44,9 @@ export async function GET() {
     enabled: online.enabled,
     configured: isWenoOnlineConfigured(online),
     environment: online.environment,
+    live: true,
+    testPatient: "N",
+    composeHost,
     epcs: false,
     online: {
       enabled: online.enabled,

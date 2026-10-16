@@ -3,7 +3,6 @@
 // and the boot-time auto-apply. No node-only imports here so it stays portable.
 export const WENO_ONLINE_ENV_MAP: Record<string, string> = {
   EHR_ENCRYPTION_KEY: "WENO_ONLINE_KEY",
-  ENVIRONMENT: "WENO_ONLINE_ENV",
   PROVIDER_EMAIL: "WENO_ONLINE_EMAIL",
   PROVIDER_PASSWORD: "WENO_ONLINE_PASSWORD",
   LOCATION_ID: "WENO_ONLINE_LOCATION",

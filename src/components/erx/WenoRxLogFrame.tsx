@@ -38,7 +38,7 @@ export default function WenoRxLogFrame() {
     <div className="card overflow-hidden">
       <div className="px-4 py-2 border-b border-slate-200 flex items-center justify-between">
         <span className="text-sm font-semibold text-slate-800">Weno Rx Log</span>
-        <span className={`chip ring-1 ${state.environment === "production" ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-amber-50 text-amber-800 ring-amber-200"}`}>{state.environment === "production" ? "Live" : "Sandbox / Test"}</span>
+        <span data-testid="weno-env-badge" className="chip ring-1 bg-emerald-50 text-emerald-800 ring-emerald-200">Live · Production</span>
       </div>
       <iframe title="Weno Rx Log" src={state.url} className="w-full" style={{ height: "78vh", border: "0" }} allow="clipboard-write" />
     </div>

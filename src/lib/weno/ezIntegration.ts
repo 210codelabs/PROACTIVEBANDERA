@@ -6,6 +6,7 @@ import {
   encryptWenoData,
   isWenoOnlineConfigured,
   WenoOnlineError,
+  liveComposeUrl,
   type WenoOnlineConfig,
 } from "@/lib/wenoOnline";
 
@@ -246,10 +247,9 @@ export class WenoIntegrationService {
   async getConfig(): Promise<WenoOnlineConfig> {
     if (this.cfg) return this.cfg;
     const base = await getWenoOnlineConfig();
-    const envEnv = (process.env.WENO_ENV || process.env.WENO_ONLINE_ENV || process.env.ENVIRONMENT || "").toLowerCase();
-    // An explicit env var wins in either direction; otherwise use the DB config.
-    const environment: "test" | "production" =
-      envEnv.startsWith("test") ? "test" : envEnv.startsWith("prod") ? "production" : base.environment;
+    // LOCKED TO PRODUCTION: env vars (WENO_ENV / WENO_ONLINE_ENV / ENVIRONMENT)
+    // and stored settings can no longer switch Weno EZ to test/sandbox.
+    const environment: "test" | "production" = "production";
     const merged: WenoOnlineConfig = {
       ...base,
       ehrEncryptionKey: base.ehrEncryptionKey || process.env.WENO_ENCRYPTION_KEY || process.env.WENO_ONLINE_KEY || "",
@@ -443,7 +443,7 @@ export class WenoIntegrationService {
       UserEmail: creds.userEmail,
       MD5Password: creds.md5Password,
       LocationID: creds.locationId,
-      TestPatient: cfg.environment === "production" ? "N" : "Y",
+      TestPatient: "N", // locked to production
       PatientType: "Human",
       OrgPatientID: pt.OrgPatientID,
       LastName: pt.LastName,
@@ -558,9 +558,7 @@ export class WenoIntegrationService {
     }
 
     const data = encryptWenoData(JSON.stringify(payload), cfg.ehrEncryptionKey);
-    const base =
-      (process.env.WENO_COMPOSE_URL || "").trim() ||
-      "https://online.wenoexchange.com/en/NewRx/ComposeRx";
+    const base = liveComposeUrl(process.env.WENO_COMPOSE_URL || cfg.composeBase);
     const u = new URL(base);
     u.searchParams.set("useremail", payload.UserEmail);
     u.searchParams.set("data", data); // URLSearchParams applies the required encoding
@@ -600,7 +598,7 @@ export class WenoIntegrationService {
     const data = encryptWenoData(JSON.stringify(reqObj), cfg.ehrEncryptionKey);
 
     const composeBase =
-      (process.env.WENO_COMPOSE_URL || "").trim() || "https://online.wenoexchange.com/en/NewRx/ComposeRx";
+      liveComposeUrl(process.env.WENO_COMPOSE_URL);
     const origin = new URL(composeBase).origin;
     const syncBase = (process.env.WENO_SYNC_URL || "").trim() || `${origin}/en/EPCS/DownloadNewRxSyncDataVal`;
     const u = new URL(syncBase);
@@ -634,7 +632,7 @@ export class WenoIntegrationService {
       cfg.ehrEncryptionKey,
     );
     const composeBase =
-      (process.env.WENO_COMPOSE_URL || "").trim() || "https://online.wenoexchange.com/en/NewRx/ComposeRx";
+      liveComposeUrl(process.env.WENO_COMPOSE_URL);
     const origin = new URL(composeBase).origin;
     const base = (process.env.WENO_RXLOG_URL || "").trim() || `${origin}/en/EPCS/RxLog`;
     const u = new URL(base);

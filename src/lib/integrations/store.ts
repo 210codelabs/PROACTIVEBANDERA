@@ -93,7 +93,9 @@ export async function readIntegrations(): Promise<IntegrationsState> {
   try {
     const row = await db.appSetting.findUnique({ where: { key: INTEGRATIONS_KEY } });
     if (!row) return defaultState();
-    return withDefaults(row.value as Partial<IntegrationsState> | null);
+    const raw: any = row.value;
+    const val = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return withDefaults(val as Partial<IntegrationsState> | null);
   } catch {
     return defaultState();
   }
@@ -116,7 +118,9 @@ async function writeIntegrations(state: IntegrationsState): Promise<void> {
 export async function pruneLegacyWenoStore(): Promise<{ removedExchange: boolean; clearedValidation: boolean }> {
   try {
     const row = await db.appSetting.findUnique({ where: { key: INTEGRATIONS_KEY } });
-    const v: any = row?.value;
+    // Tolerate a JSON-string value (e.g. written by an external tool).
+    const raw: any = row?.value;
+    const v: any = typeof raw === "string" ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : raw;
     if (!v?.providers) return { removedExchange: false, clearedValidation: false };
     let removedExchange = false;
     let clearedValidation = false;
@@ -126,9 +130,18 @@ export async function pruneLegacyWenoStore(): Promise<{ removedExchange: boolean
     }
     const wo = v.providers["weno-online"];
     const msg = wo?.validation?.message ? String(wo.validation.message) : "";
-    if (msg && /(Weno Online|Weno Exchange|test\.wenoexchange\.com)/i.test(msg)) {
+    if (msg && /(Weno Online|Weno Exchange|test\.wenoexchange\.com|sandbox|for test\b)/i.test(msg)) {
       wo.validation = { status: "untested", message: "", checkedAt: null, subServices: {} };
       clearedValidation = true;
+    }
+    // Weno EZ Integration is LOCKED TO PRODUCTION: normalise any stored
+    // test/sandbox ENVIRONMENT value and drop test-host ComposeRx overrides so
+    // no screen (or launch) can ever report/route to sandbox again.
+    if (wo?.credentials) {
+      const envVal = String(wo.credentials.ENVIRONMENT || "");
+      if (envVal !== "production") { wo.credentials.ENVIRONMENT = "production"; clearedValidation = true; }
+      const ov = String(wo.credentials.COMPOSE_URL_OVERRIDE || "");
+      if (ov && /(test|sandbox|staging|demo)/i.test(ov)) { wo.credentials.COMPOSE_URL_OVERRIDE = ""; clearedValidation = true; }
     }
     if (removedExchange || clearedValidation) {
       await db.appSetting.update({ where: { key: INTEGRATIONS_KEY }, data: { value: v } });

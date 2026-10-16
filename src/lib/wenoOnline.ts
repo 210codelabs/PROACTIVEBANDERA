@@ -44,20 +44,38 @@ export class WenoOnlineError extends Error {
 }
 
 const LIVE_BASE = "https://online.wenoexchange.com/en/NewRx/ComposeRx";
-const TEST_BASE = "https://test.wenoexchange.com/en/NewRx/ComposeRx";
+
+/** Weno EZ Integration always runs against the live (production) exchange. */
+export const WENO_ENVIRONMENT = "production" as const;
+
+/**
+ * Returns a LIVE ComposeRx URL. A configured override/env value is honoured
+ * only when it points at a non-test Weno host; any test/sandbox URL is
+ * replaced by the live production endpoint.
+ */
+export function liveComposeUrl(candidate?: string | null): string {
+  const raw = String(candidate || "").trim();
+  if (!raw) return LIVE_BASE;
+  try {
+    const u = new URL(raw);
+    if (/(^|\.)(test|sandbox|staging|demo)[.-]/i.test(u.host) || /sandbox/i.test(u.host)) return LIVE_BASE;
+    // A bare origin (e.g. https://online.wenoexchange.com) -> full ComposeRx path.
+    if (u.pathname === "/" || u.pathname === "") return `${u.origin}/en/NewRx/ComposeRx`;
+    return raw;
+  } catch {
+    return LIVE_BASE;
+  }
+}
 
 export async function getWenoOnlineConfig(): Promise<WenoOnlineConfig> {
   const state = await readIntegrations();
   const p = state.providers["weno-online"];
   const c = p?.credentials || {};
-  // Default to PRODUCTION (live Weno Exchange) for a configured integration.
-  // Only run in TEST mode when explicitly set to "test" — otherwise a missing/
-  // drifted ENVIRONMENT value would silently route real Rx to Weno's TEST
-  // stream (invisible in the live Exchange logs).
-  const rawEnv = String(c.ENVIRONMENT || "").trim().toLowerCase();
-  const env = (rawEnv.startsWith("test") ? "test" : "production") as "test" | "production";
-  const composeBase =
-    (c.COMPOSE_URL_OVERRIDE || "").trim() || (env === "production" ? LIVE_BASE : TEST_BASE);
+  // Weno EZ Integration is LOCKED TO PRODUCTION. No DB value, env var or
+  // override can switch it to test/sandbox: every Rx goes to the live Weno
+  // Exchange (online.wenoexchange.com) with TestPatient=N.
+  const env = WENO_ENVIRONMENT;
+  const composeBase = liveComposeUrl(c.COMPOSE_URL_OVERRIDE);
   return {
     enabled: Boolean(p?.enabled),
     environment: env,
@@ -137,7 +155,7 @@ export function buildComposeRxUrl(
     UserEmail: email,
     MD5Password: crypto.createHash("md5").update(cfg.providerPassword, "utf8").digest("hex"),
     LocationID: cfg.locationId,
-    TestPatient: cfg.environment === "test" ? "Y" : "N",
+    TestPatient: "N", // locked to production
     PatientType: "Human",
     OrgPatientID: patient.id || "",
     LastName: patient.lastName || "",
