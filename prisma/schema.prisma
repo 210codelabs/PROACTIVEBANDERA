@@ -3,6 +3,9 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Production runs on Alpine (musl) arm64 with OpenSSL 3.x. Bundle every
+  // engine we may run on so the query engine always loads (preview = glibc).
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x", "linux-arm64-openssl-3.0.x", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {

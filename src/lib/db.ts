@@ -62,6 +62,38 @@ function withPool(url: string): string {
   }
 }
 
+/**
+ * Production runs on Alpine (musl) arm64 with OpenSSL 3. Prisma's OpenSSL
+ * detection can fail there and "default to openssl-1.1.x", trying to load an
+ * engine that needs libssl.so.1.1 (absent) -> every query throws. Pin the
+ * correct OpenSSL-3 engine explicitly when we're on musl and it exists.
+ */
+function pinPrismaEngine() {
+  try {
+    if (process.env.PRISMA_QUERY_ENGINE_LIBRARY) return;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require("node:fs") as typeof import("node:fs");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require("node:path") as typeof import("node:path");
+    const isMusl = fs.existsSync("/etc/alpine-release") || fs.readdirSync("/lib").some((f) => f.startsWith("ld-musl"));
+    if (!isMusl) return;
+    const file = process.arch === "arm64"
+      ? "libquery_engine-linux-musl-arm64-openssl-3.0.x.so.node"
+      : "libquery_engine-linux-musl-openssl-3.0.x.so.node";
+    const dirs = [
+      path.join(process.cwd(), "node_modules", ".prisma", "client"),
+      path.join(process.cwd(), "node_modules", "@prisma", "client"),
+      path.join(process.cwd(), ".next", "server"),
+      path.join(process.cwd(), "prisma"),
+    ];
+    for (const d of dirs) {
+      const p = path.join(d, file);
+      if (fs.existsSync(p)) { process.env.PRISMA_QUERY_ENGINE_LIBRARY = p; return; }
+    }
+  } catch { /* fall back to Prisma's own detection */ }
+}
+pinPrismaEngine();
+
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
