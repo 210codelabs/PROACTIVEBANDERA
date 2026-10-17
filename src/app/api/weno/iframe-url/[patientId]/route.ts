@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { purgeWenoTestPharmacies } from "@/lib/weno/directory";
 import { WenoIntegrationService, WenoOnlineError, WenoPayloadError, resolvePrescriberOverride } from "@/lib/weno/ezIntegration";
 
 export const runtime = "nodejs";
@@ -36,9 +37,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ patientI
 
   // 3) Build the encrypted, authenticated iFrame URL from the 45-field payload.
   try {
+    // Production clean-up: never let a Weno TEST pharmacy be pre-selected.
+    await purgeWenoTestPharmacies();
     const svc = new WenoIntegrationService();
     const orgTxId = crypto.randomUUID().replace(/-/g, "");
-    const { iframeUrl, environment } = await svc.buildLaunchUrl(patientId, user.id, chosen?.override);
+    const { iframeUrl, environment, account } = await svc.buildLaunchUrl(patientId, user.id, chosen?.override);
 
     // Audit WITHOUT the URL (it embeds PHI + credential-derived material).
     await db.auditLog.create({
@@ -65,6 +68,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ patientI
       live: environment === "production",
       orgTransactionId: orgTxId,
       prescriber: chosen?.label || null,
+      // Which Weno login ComposeRx opens as (masked email + Location ID) and
+      // where it came from: prescriber | ops-settings | env.
+      wenoAccount: account,
     });
   } catch (e: any) {
     // WenoPayloadError: 404 (patient not found) or 422 (missing critical fields).

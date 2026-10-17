@@ -170,6 +170,13 @@ const SAMPLE_PATIENT = {
   AlternativePharmacyNCPCP: "1234567",
 };
 
+// PRODUCTION ONLY: a Weno TEST pharmacy NCPDP is never sent to ComposeRx
+// (it would pre-select / restrict Weno to its test pharmacy).
+function livePharmacy(v: unknown): string {
+  const n = String(v ?? "").trim();
+  return n && n !== "1234567" ? n : "";
+}
+
 // [patient field key, human label] used to report exactly which field is missing.
 const REQUIRED_PATIENT_FIELDS: ReadonlyArray<readonly [string, string]> = [
   ["firstName", "First name"],
@@ -304,41 +311,42 @@ export class WenoIntegrationService {
   }
 
   /**
-   * Resolve the three Weno account credentials for the payload, PREFERRING
-   * environment variables (never hardcoded). The password is MD5-hashed before
-   * injection; if the env var already holds a 32-char hex MD5 it is used as-is.
-   *   UserEmail   <- WENO_USER_EMAIL | WENO_PRESCRIBER_EMAIL | WENO_ONLINE_EMAIL | cfg
-   *   LocationID  <- WENO_LOCATION_ID | WENO_ONLINE_LOCATION | cfg
-   *   MD5Password <- WENO_MD5_PASSWORD (already hashed) | md5(WENO_PASSWORD |
-   *                  WENO_PRESCRIBER_PASSWORD | WENO_ONLINE_PASSWORD | cfg)
+   * Resolve the three Weno account credentials for the payload.
+   * PRECEDENCE (source of truth = what the admin set in Ops Settings):
+   *   1) the selected prescriber's own Weno login (Prescribe-as override)
+   *   2) Admin -> Ops Settings / Connections -> Weno EZ Integration (DB)
+   *   3) server env vars — ONLY as a fallback for fields left empty in (2)
+   * Previously env vars won over Ops Settings, so a stale certification-era
+   * TEST prescriber/location in the deploy env silently replaced the live
+   * prescriber (ComposeRx showed a TEST prescriber + only test pharmacies).
+   * Email + password always come from the SAME source so they stay paired.
    */
-  resolveCredentials(cfg: WenoOnlineConfig, override?: PrescriberOverride): { userEmail: string; md5Password: string; locationId: string } {
-    const userEmail = str(
-      override?.email ||
-        process.env.WENO_USER_EMAIL ||
-        process.env.WENO_PRESCRIBER_EMAIL ||
-        process.env.WENO_ONLINE_EMAIL ||
-        cfg.providerEmail,
-    );
-    const locationId = str(
-      override?.locationId || process.env.WENO_LOCATION_ID || process.env.WENO_ONLINE_LOCATION || cfg.locationId,
-    );
+  resolveCredentials(cfg: WenoOnlineConfig, override?: PrescriberOverride): { userEmail: string; md5Password: string; locationId: string; source: "prescriber" | "ops-settings" | "env" } {
+    const envEmail = str(process.env.WENO_USER_EMAIL || process.env.WENO_PRESCRIBER_EMAIL || process.env.WENO_ONLINE_EMAIL);
+    const envPlain = str(process.env.WENO_PASSWORD || process.env.WENO_PRESCRIBER_PASSWORD || process.env.WENO_ONLINE_PASSWORD);
+    const envPreHashed = str(process.env.WENO_MD5_PASSWORD);
+    const envLocation = str(process.env.WENO_LOCATION_ID || process.env.WENO_ONLINE_LOCATION);
+    const hash = (v: string) => (MD5_HEX.test(v) ? v.toLowerCase() : md5(v));
 
-    const preHashed = str(process.env.WENO_MD5_PASSWORD);
-    const plain = str(
-      override?.password ||
-        process.env.WENO_PASSWORD ||
-        process.env.WENO_PRESCRIBER_PASSWORD ||
-        process.env.WENO_ONLINE_PASSWORD ||
-        cfg.providerPassword,
-    );
+    let source: "prescriber" | "ops-settings" | "env";
+    let userEmail = "";
     let md5Password = "";
-    // A per-prescriber password (override) always wins and is hashed here.
-    if (override?.password) md5Password = MD5_HEX.test(override.password) ? override.password.toLowerCase() : md5(override.password);
-    else if (preHashed && MD5_HEX.test(preHashed)) md5Password = preHashed.toLowerCase();
-    else if (plain) md5Password = MD5_HEX.test(plain) ? plain.toLowerCase() : md5(plain);
-
-    return { userEmail, md5Password, locationId };
+    if (override?.email && override?.password) {
+      source = "prescriber";
+      userEmail = str(override.email);
+      md5Password = hash(str(override.password));
+    } else if (str(cfg.providerEmail)) {
+      source = "ops-settings";
+      userEmail = str(cfg.providerEmail);
+      const pw = str(cfg.providerPassword);
+      md5Password = pw ? hash(pw) : envPreHashed && MD5_HEX.test(envPreHashed) ? envPreHashed.toLowerCase() : envPlain ? hash(envPlain) : "";
+    } else {
+      source = "env";
+      userEmail = envEmail;
+      md5Password = envPreHashed && MD5_HEX.test(envPreHashed) ? envPreHashed.toLowerCase() : envPlain ? hash(envPlain) : "";
+    }
+    const locationId = str(override?.locationId || cfg.locationId || envLocation);
+    return { userEmail, md5Password, locationId, source };
   }
 
   /**
@@ -400,8 +408,8 @@ export class WenoIntegrationService {
           CountryCode: str(p.country) || "US",
           PrimaryPhone: digits(p.phone),
           PatientEmail: str(p.email),
-          PrimaryPharmacyNCPCP: str(p.primaryPharmacyNcpdp),
-          AlternativePharmacyNCPCP: str(p.alternativePharmacyNcpdp),
+          PrimaryPharmacyNCPCP: livePharmacy(p.primaryPharmacyNcpdp),
+          AlternativePharmacyNCPCP: livePharmacy(p.alternativePharmacyNcpdp),
         }
       : { ...SAMPLE_PATIENT, CountryCode: "US" };
 
@@ -540,9 +548,12 @@ export class WenoIntegrationService {
     patientId: string,
     providerId?: string | null,
     override?: PrescriberOverride,
-  ): Promise<{ iframeUrl: string; environment: "test" | "production" }> {
+  ): Promise<{ iframeUrl: string; environment: "test" | "production"; account: { source: string; email: string; locationId: string } }> {
     const { payload, environment } = await this.buildPrescriptionPayload(patientId, providerId, override);
     const cfg = await this.getConfig();
+    const src = this.resolveCredentials(cfg, override).source;
+    const em = String(payload.UserEmail || "");
+    const masked = em.replace(/^(.{2}).*(@.*)$/, "$1***$2");
 
     if (!cfg.ehrEncryptionKey) {
       throw new WenoOnlineError(
@@ -562,7 +573,8 @@ export class WenoIntegrationService {
     const u = new URL(base);
     u.searchParams.set("useremail", payload.UserEmail);
     u.searchParams.set("data", data); // URLSearchParams applies the required encoding
-    return { iframeUrl: u.toString(), environment };
+    // Non-secret diagnostics: which Weno account/location ComposeRx opens as.
+    return { iframeUrl: u.toString(), environment, account: { source: src, email: masked, locationId: String(payload.LocationID || "") } };
   }
 
   /**

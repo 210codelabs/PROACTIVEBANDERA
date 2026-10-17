@@ -5,7 +5,7 @@ import React, { useEffect, useState } from "react";
 type State =
   | { kind: "loading" }
   | { kind: "error"; message: string; missing?: string[] }
-  | { kind: "ready"; url: string; environment: string };
+  | { kind: "ready"; url: string; environment: string; account?: { source: string; email: string; locationId: string } };
 
 type Prescriber = {
   id: string;
@@ -49,7 +49,7 @@ export default function WenoEzFrame({ patientId }: { patientId: string }) {
         setState({ kind: "error", message: d.error || "Could not open Weno prescribing.", missing: d.missing });
         return;
       }
-      setState({ kind: "ready", url: d.iframeUrl, environment: d.environment });
+      setState({ kind: "ready", url: d.iframeUrl, environment: d.environment, account: d.wenoAccount });
     } catch {
       setState({ kind: "error", message: "Weno prescribing is temporarily unavailable." });
     }
@@ -108,6 +108,11 @@ export default function WenoEzFrame({ patientId }: { patientId: string }) {
             <span className="text-sm font-semibold text-slate-800">Weno e-Prescribing (EZ Integration)</span>
             <span data-testid="weno-env-badge" className="chip ring-1 bg-emerald-50 text-emerald-800 ring-emerald-200">Live · Production</span>
           </div>
+          {state.account && (
+            <div data-testid="weno-account-line" className="px-4 py-1.5 border-b border-slate-100 bg-slate-50 text-[11px] text-slate-500">
+              Weno login: <span className="font-mono">{state.account.email || "—"}</span> · Location ID <span className="font-mono">{state.account.locationId || "—"}</span> · from {state.account.source === "prescriber" ? "this prescriber's Weno login" : state.account.source === "ops-settings" ? "Ops Settings (Weno EZ Integration)" : "server environment"}
+            </div>
+          )}
           <iframe
             title="Weno ComposeRx"
             src={state.url}

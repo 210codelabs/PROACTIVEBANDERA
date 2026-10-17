@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { purgeWenoTestPharmacies } from "@/lib/weno/directory";
 import { maybeDailyWenoSync } from "@/lib/weno/dailySync";
 
 export const runtime = "nodejs";
@@ -28,7 +29,9 @@ export async function GET(req: Request) {
     ];
   }
 
-  const rows = await db.wenoPharmacy.findMany({ where, take: 25, orderBy: { name: "asc" } }).catch(() => []);
+  await purgeWenoTestPharmacies();
+  const rows = (await db.wenoPharmacy.findMany({ where, take: 25, orderBy: { name: "asc" } }).catch(() => []))
+    .filter((w: any) => !String(w.services || "").includes("test") && w.ncpdpId !== "1234567" && !/\btest pharmacy\b/i.test(String(w.name || "")));
   const pharmacies = rows.map((w: any) => ({
     id: w.ncpdpId,
     ncpdpId: w.ncpdpId,

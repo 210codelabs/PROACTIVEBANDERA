@@ -3,14 +3,10 @@ import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getWenoOnlineConfig } from "@/lib/wenoOnline";
 import { maybeDailyWenoSync } from "@/lib/weno/dailySync";
+import { purgeWenoTestPharmacies } from "@/lib/weno/directory";
 
 export const runtime = "nodejs";
 
-// Weno EZ TEST pharmacy so clinicians always have a valid destination while the
-// integration is in test mode.
-const WENO_TEST_PHARMACIES = [
-  { ncpdpId: "1234567", name: "Weno Test Pharmacy", city: "Test City", state: "TX", zip: "78201", phone: "(210) 555-0100" },
-];
 
 // Query the NPPES national registry for PHARMACY organizations (NPI-2). This has
 // no NCPDP ID (so it can't route a ComposeRx destination), but it lets staff
@@ -65,6 +61,7 @@ export async function GET(req: Request) {
   // Keep the national Weno directory fresh: kick a background daily sync if the
   // directory is stale. Never blocks or affects this response.
   maybeDailyWenoSync();
+  void purgeWenoTestPharmacies();
   const sp = new URL(req.url).searchParams;
   const q = (sp.get("q") || "").trim();
   const name = (sp.get("name") || "").trim();
@@ -118,14 +115,8 @@ export async function GET(req: Request) {
     }));
   }
 
-  // Merge test pharmacies (test env) matching the query.
-  if (environment === "test") {
-    const needle = (q || name || city).toLowerCase();
-    const tests = WENO_TEST_PHARMACIES.filter((p) => !needle || p.name.toLowerCase().includes(needle) || p.ncpdpId.includes(needle) || (p.city || "").toLowerCase().includes(needle));
-    for (const t of tests) {
-      if (!results.some((r) => r.ncpdpId === t.ncpdpId)) results.unshift({ ...t, isTest: true, source: "weno", routable: true });
-    }
-  }
+  // PRODUCTION ONLY: Weno TEST pharmacies are never offered for selection.
+  results = results.filter((r) => !r.isTest && r.ncpdpId !== "1234567" && !/\btest pharmacy\b/i.test(String(r.name || "")));
 
   // Ranking: Weno-connected pharmacies first (they can actually receive
   // e-scripts), then other Weno rows, then saved/local, then national registry.

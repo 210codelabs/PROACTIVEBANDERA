@@ -81,6 +81,9 @@ export async function syncWenoDirectory(opts?: { daily?: boolean }): Promise<Wen
     if (!ncpdp) { skipped++; continue; }
     if (clean(C(r, "Deleted"))) { deletedIds.push(ncpdp); continue; }
     if (!name) { skipped++; continue; }
+    // PRODUCTION ONLY: never store Weno TEST pharmacies — they must never be
+    // selectable for a live prescription.
+    if (truthy(C(r, "Test_Pharmacy")) || /\btest pharmacy\b/i.test(name)) { deletedIds.push(ncpdp); skipped++; continue; }
     const a1 = clean(C(r, "Address_Line_1")), a2 = clean(C(r, "Address_Line_2"));
     const svc = [truthy(C(r, "On_WENO")) ? "weno" : null, truthy(C(r, "Test_Pharmacy")) ? "test" : null, truthy(C(r, "24HR")) ? "24hr" : null].filter(Boolean).join(",") || null;
     records.push({
@@ -117,6 +120,7 @@ export async function syncWenoDirectory(opts?: { daily?: boolean }): Promise<Wen
       await db.wenoPharmacy.upsert({ where: { ncpdpId: rec.ncpdpId }, create: rec, update: rec }).then(() => upserted++).catch(() => {});
     }
     if (deletedIds.length) {
+      await clearPatientPharmacyRefs(deletedIds.filter(Boolean)).catch(() => 0);
       const del = await db.wenoPharmacy.deleteMany({ where: { ncpdpId: { in: deletedIds } } });
       removed = del.count ?? 0;
     }
@@ -124,4 +128,35 @@ export async function syncWenoDirectory(opts?: { daily?: boolean }): Promise<Wen
 
   const total = await db.wenoPharmacy.count();
   return { ok: true, mode: daily ? "daily" : "full", total, parsed: records.length, upserted, removed, skipped, fileName: csvName };
+}
+
+/** NCPDPs that are Weno TEST pharmacies (never routable in production). */
+export const WENO_TEST_NCPDPS = ["1234567"];
+
+async function clearPatientPharmacyRefs(ncpdps: string[]): Promise<number> {
+  if (!ncpdps.length) return 0;
+  const a = await db.patient.updateMany({ where: { primaryPharmacyNcpdp: { in: ncpdps } } as any, data: { primaryPharmacyNcpdp: null } as any }).catch(() => ({ count: 0 }));
+  const b = await db.patient.updateMany({ where: { alternativePharmacyNcpdp: { in: ncpdps } } as any, data: { alternativePharmacyNcpdp: null } as any }).catch(() => ({ count: 0 }));
+  return (a.count || 0) + (b.count || 0);
+}
+
+let purgedOnce: Promise<{ removed: number; patientsCleared: number }> | null = null;
+/**
+ * Production clean-up (idempotent, runs once per process): removes every Weno
+ * TEST pharmacy from the directory and clears any patient primary/alternative
+ * pharmacy that points at one, so ComposeRx never pre-selects a test pharmacy.
+ */
+export function purgeWenoTestPharmacies(force = false) {
+  if (purgedOnce && !force) return purgedOnce;
+  purgedOnce = (async () => {
+    const rows = await db.wenoPharmacy.findMany({
+      where: { OR: [{ services: { contains: "test" } }, { name: { contains: "test pharmacy", mode: "insensitive" } }, { ncpdpId: { in: WENO_TEST_NCPDPS } }] },
+      select: { ncpdpId: true },
+    }).catch(() => [] as { ncpdpId: string }[]);
+    const ids = Array.from(new Set([...WENO_TEST_NCPDPS, ...rows.map((r) => r.ncpdpId)]));
+    const del = rows.length ? await db.wenoPharmacy.deleteMany({ where: { ncpdpId: { in: ids } } }).catch(() => ({ count: 0 })) : { count: 0 };
+    const patientsCleared = await clearPatientPharmacyRefs(ids).catch(() => 0);
+    return { removed: del.count || 0, patientsCleared };
+  })().catch(() => ({ removed: 0, patientsCleared: 0 }));
+  return purgedOnce;
 }
