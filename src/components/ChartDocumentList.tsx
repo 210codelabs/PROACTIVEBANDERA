@@ -11,7 +11,12 @@ export type ChartDoc = {
   file: { mime: string; fileName: string | null } | null;
   meta: Record<string, any> | null; // signed consent / intake metadata
   text: string | null;
+  note?: string | null;
+  uploadedBy?: string | null;
 };
+
+const kindLabel = (mime: string) =>
+  mime === "application/pdf" ? "PDF" : mime.startsWith("image/") ? "Image" : mime.includes("word") ? "Word" : mime === "text/csv" ? "CSV" : mime.startsWith("text/") ? "Text" : "File";
 
 export default function ChartDocumentList({ patientId, docs }: { patientId: string; docs: ChartDoc[] }) {
   const [open, setOpen] = useState<PreviewDoc | null>(null);
@@ -43,7 +48,8 @@ export default function ChartDocumentList({ patientId, docs }: { patientId: stri
                     <div className={`truncate font-medium ${clickable ? "text-brand-700 group-hover:underline" : "text-slate-800"}`}>{d.title}</div>
                     <div className="text-xs text-slate-500">
                       {d.createdLabel}
-                      {d.file && <> · {d.file.mime === "application/pdf" ? "PDF" : "Image"}{d.file.fileName ? ` · ${d.file.fileName}` : ""}</>}
+                      {d.file && <> · {kindLabel(d.file.mime)}{d.file.fileName ? ` · ${d.file.fileName}` : ""}</>}
+                      {d.uploadedBy && <> · by {d.uploadedBy}</>}
                     </div>
                   </div>
                 </button>
@@ -54,9 +60,10 @@ export default function ChartDocumentList({ patientId, docs }: { patientId: stri
                       <a href={`/api/patients/${patientId}/documents/${d.id}/file?download=1`} className="rounded-md bg-red-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-700">Download</a>
                     </>
                   )}
-                  <span className="chip bg-slate-100 text-slate-600 ring-slate-200 capitalize">{d.category || "other"}</span>
+                  <span className="chip bg-slate-100 text-slate-600 ring-slate-200">{d.category || "other"}</span>
                 </div>
               </div>
+              {d.note && <p className="mt-1 text-sm text-slate-600">{d.note}</p>}
               {meta ? (
                 <details className="mt-2">
                   <summary className="cursor-pointer text-sm font-medium text-brand-700 hover:text-brand-900">View signed intake</summary>

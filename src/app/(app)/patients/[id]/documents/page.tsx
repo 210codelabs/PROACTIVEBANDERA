@@ -4,7 +4,8 @@ import PatientChart, { loadPatientCtx } from "@/components/PatientChart";
 import PatientIntakePanel, { IntakeDoc } from "@/components/PatientIntakePanel";
 import { fmtDate } from "@/lib/utils";
 import ChartDocumentList from "@/components/ChartDocumentList";
-import { extractDocumentFile } from "@/lib/documentFile";
+import ChartDocumentUpload from "@/components/ChartDocumentUpload";
+import { extractDocumentFile, DOC_CATEGORIES } from "@/lib/documentFile";
 
 function parseBody(body: string | null): Record<string, any> | null {
   if (!body) return null;
@@ -33,6 +34,7 @@ export default async function DocumentsPage({ params }: { params: Promise<{ id: 
   return (
     <PatientChart user={user} {...ctx} active="documents">
       {dataUnavailable && <div className="card card-pad mb-3 border-amber-200 bg-amber-50 text-amber-900">Documents are temporarily unavailable.</div>}
+      <ChartDocumentUpload patientId={id} />
       <PatientIntakePanel patientId={id} intakeDocs={intakeDocs} />
       <section className="card">
         <header className="px-4 py-3 border-b border-slate-200 font-semibold">Documents ({docs.length})</header>
@@ -43,14 +45,16 @@ export default async function DocumentsPage({ params }: { params: Promise<{ id: 
             patientId={id}
             docs={docs.map((d) => {
               const f = extractDocumentFile(d.body);
-              const isConsent = d.category === "consent";
+              const isConsent = d.category === "consent" && !f;
               const j = !f && !isConsent ? parseBody(d.body) : null;
               return {
                 id: d.id,
                 title: d.title,
-                category: d.category || null,
+                category: DOC_CATEGORIES.find((c) => c.value === d.category)?.label || d.category || null,
                 createdLabel: fmtDate(d.createdAt),
                 file: f ? { mime: f.mime, fileName: f.fileName } : null,
+                note: f?.note || null,
+                uploadedBy: f?.uploadedByName || null,
                 meta: isConsent ? parseBody(d.body) : null,
                 // Never ship raw base64 / JSON blobs to the client as text.
                 text: f || isConsent || j ? null : (d.body ? String(d.body).slice(0, 400) : null),

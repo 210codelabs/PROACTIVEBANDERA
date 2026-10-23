@@ -23,6 +23,7 @@ export default function DocumentPreviewModal({ patientId, doc, onClose }: { pati
   const src = `/api/patients/${patientId}/documents/${doc.id}/file`;
   const isPdf = doc.mime === "application/pdf";
   const isImage = doc.mime.startsWith("image/");
+  const isText = doc.mime === "text/plain" || doc.mime === "text/csv";
 
   // Portal to <body> so the popup sits above the sticky header / side widgets.
   return createPortal(
@@ -53,6 +54,8 @@ export default function DocumentPreviewModal({ patientId, doc, onClose }: { pati
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={src} alt={doc.title} className="max-h-[80vh] max-w-full rounded shadow" data-testid="doc-preview-img" />
             </div>
+          ) : isText ? (
+            <iframe title={doc.title} src={src} className="h-full w-full border-0 bg-white" data-testid="doc-preview-text" />
           ) : (
             <div className="p-6 text-sm text-slate-600">Preview isn&apos;t available for this file type. Use Download to open it.</div>
           )}
