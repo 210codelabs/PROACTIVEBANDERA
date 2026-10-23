@@ -13,6 +13,7 @@ export type ChartDoc = {
   text: string | null;
   note?: string | null;
   uploadedBy?: string | null;
+  legalCase?: { id: string; caseNumber: string | null } | null;
 };
 
 const kindLabel = (mime: string) =>
@@ -59,6 +60,11 @@ export default function ChartDocumentList({ patientId, docs }: { patientId: stri
                       <button type="button" onClick={openIt} className="chip bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 text-xs" data-testid={`doc-view-${d.id}`}>View</button>
                       <a href={`/api/patients/${patientId}/documents/${d.id}/file?download=1`} className="rounded-md bg-red-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-700">Download</a>
                     </>
+                  )}
+                  {d.legalCase && (
+                    <a href={`/patients/${patientId}/legal`} data-testid={`doc-legal-link-${d.id}`} className="chip bg-violet-50 text-violet-700 ring-1 ring-violet-200 text-xs hover:bg-violet-100">
+                      ⚖ Linked to {d.legalCase.caseNumber ? `case ${d.legalCase.caseNumber}` : "Legal / PIP case"}
+                    </a>
                   )}
                   <span className="chip bg-slate-100 text-slate-600 ring-slate-200">{d.category || "other"}</span>
                 </div>

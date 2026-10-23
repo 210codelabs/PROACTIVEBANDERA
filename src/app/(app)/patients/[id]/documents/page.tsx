@@ -21,6 +21,11 @@ export default async function DocumentsPage({ params }: { params: Promise<{ id: 
   try {
     docs = await db.document.findMany({ where: { patientId: id }, orderBy: { createdAt: "desc" } });
   } catch { dataUnavailable = true; }
+  const legalCases = await db.legalCase.findMany({
+    where: { patientId: id },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, caseNumber: true, caseType: true, status: true, lawFirm: true, pipInsurerName: true, attorney: { select: { name: true, firm: true } } },
+  }).catch(() => [] as any[]);
 
   const intakeDocs: IntakeDoc[] = docs
     .filter((d) => ["intake", "intake-followup", "intake-upload"].includes(d.category || ""))
@@ -34,7 +39,14 @@ export default async function DocumentsPage({ params }: { params: Promise<{ id: 
   return (
     <PatientChart user={user} {...ctx} active="documents">
       {dataUnavailable && <div className="card card-pad mb-3 border-amber-200 bg-amber-50 text-amber-900">Documents are temporarily unavailable.</div>}
-      <ChartDocumentUpload patientId={id} />
+      <ChartDocumentUpload
+        patientId={id}
+        legalCases={legalCases.map((c: any) => ({
+          id: c.id,
+          open: !["closed", "settled"].includes(c.status),
+          label: [c.caseNumber ? `Case ${c.caseNumber}` : "Legal case", String(c.caseType || "").replace(/_/g, " "), c.attorney?.firm || c.lawFirm || c.attorney?.name || c.pipInsurerName || null, c.status].filter(Boolean).join(" · "),
+        }))}
+      />
       <PatientIntakePanel patientId={id} intakeDocs={intakeDocs} />
       <section className="card">
         <header className="px-4 py-3 border-b border-slate-200 font-semibold">Documents ({docs.length})</header>
@@ -55,6 +67,7 @@ export default async function DocumentsPage({ params }: { params: Promise<{ id: 
                 file: f ? { mime: f.mime, fileName: f.fileName } : null,
                 note: f?.note || null,
                 uploadedBy: f?.uploadedByName || null,
+                legalCase: f?.linkedLegalCaseId ? { id: f.linkedLegalCaseId, caseNumber: f.linkedLegalCaseNumber } : null,
                 meta: isConsent ? parseBody(d.body) : null,
                 // Never ship raw base64 / JSON blobs to the client as text.
                 text: f || isConsent || j ? null : (d.body ? String(d.body).slice(0, 400) : null),

@@ -36,6 +36,47 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const catLabel = DOC_CATEGORIES.find((c) => c.value === category)?.label || "Document";
   const title = (String(b.title || "").trim() || `${catLabel} — ${fileName.replace(/\.[^.]+$/, "")}`).slice(0, 200);
 
+  // --- Attorney Case Linking ------------------------------------------------
+  // Attorney letters (or any upload with an explicit legalCaseId) are also
+  // attached to the patient's Legal / PIP case. Explicit legalCaseId must
+  // belong to this patient; otherwise the most recently updated OPEN case is
+  // used. "none" opts out.
+  const wantLink = category === "attorney-letter" || (b.legalCaseId && b.legalCaseId !== "none");
+  let linkedCase: { id: string; caseNumber: string | null; caseType: string } | null = null;
+  if (wantLink && b.legalCaseId !== "none") {
+    if (b.legalCaseId) {
+      linkedCase = await db.legalCase.findFirst({ where: { id: String(b.legalCaseId), patientId: id }, select: { id: true, caseNumber: true, caseType: true } }).catch(() => null);
+      if (!linkedCase) return NextResponse.json({ error: "That legal case does not belong to this patient." }, { status: 400 });
+    } else {
+      linkedCase = await db.legalCase.findFirst({
+        where: { patientId: id, status: { notIn: ["closed", "settled"] } },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, caseNumber: true, caseType: true },
+      }).catch(() => null);
+    }
+  }
+  let caseDocumentId: string | null = null;
+  if (linkedCase) {
+    const actor = `${user.firstName} ${user.lastName}`.trim() || (user as any).email || "staff";
+    const cd = await db.caseDocument.create({
+      data: {
+        legalCaseId: linkedCase.id,
+        name: fileName,
+        category: category === "attorney-letter" ? "correspondence" : category === "medical-records" || category === "lab-report" || category === "imaging" ? "medical" : category === "insurance" ? "billing" : "other",
+        mimeType: mime,
+        size: bytes,
+        dataBase64: b64,
+        uploadedBy: actor,
+      },
+      select: { id: true },
+    });
+    caseDocumentId = cd.id;
+    await db.caseEvent.create({
+      data: { legalCaseId: linkedCase.id, type: "document", title: `Document uploaded from chart: ${fileName}`, actor },
+    }).catch(() => {});
+    await db.legalCase.update({ where: { id: linkedCase.id }, data: { updatedAt: new Date() } }).catch(() => {});
+  }
+
   const doc = await db.document.create({
     data: {
       patientId: id,
@@ -51,14 +92,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         size: bytes,
         note: String(b.note || "").slice(0, 1000) || undefined,
         fileDataUrl: b.dataUrl,
+        linkedLegalCaseId: linkedCase?.id || undefined,
+        linkedLegalCaseNumber: linkedCase?.caseNumber || undefined,
+        linkedCaseDocumentId: caseDocumentId || undefined,
         submittedAt: new Date().toISOString(),
       }),
     },
   });
 
   await db.auditLog.create({
-    data: { userId: user.id, action: "document.upload", resource: "Document", resourceId: doc.id, meta: JSON.stringify({ patientId: id, category, mime, size: bytes }) },
+    data: { userId: user.id, action: "document.upload", resource: "Document", resourceId: doc.id, meta: JSON.stringify({ patientId: id, category, mime, size: bytes, legalCaseId: linkedCase?.id || null }) },
   }).catch(() => {});
 
-  return NextResponse.json({ ok: true, id: doc.id, title, category });
+  return NextResponse.json({
+    ok: true, id: doc.id, title, category,
+    linkedLegalCase: linkedCase ? { id: linkedCase.id, caseNumber: linkedCase.caseNumber, caseDocumentId } : null,
+  });
 }

@@ -22,7 +22,10 @@ function mimeFor(f: File): string {
   return ({ pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", txt: "text/plain", csv: "text/csv" } as Record<string, string>)[ext || ""] || "";
 }
 
-export default function ChartDocumentUpload({ patientId }: { patientId: string }) {
+type CaseOpt = { id: string; label: string; open: boolean };
+
+export default function ChartDocumentUpload({ patientId, legalCases = [] }: { patientId: string; legalCases?: CaseOpt[] }) {
+  const defaultCase = legalCases.find((c) => c.open)?.id || "";
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState("lab-report");
@@ -33,6 +36,11 @@ export default function ChartDocumentUpload({ patientId }: { patientId: string }
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number; pct: number } | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Legal / PIP case to attach to. "" = not linked; attorney letters default to the open case.
+  const [caseId, setCaseId] = useState<string>("");
+  const isAttorney = category === "attorney-letter";
+  // caseId: "" = automatic (attorney letters -> open case), "none" = opted out, else explicit case.
+  const effectiveCase = caseId === "none" ? "" : caseId || (isAttorney ? defaultCase : "");
 
   function pick(list: FileList | null) {
     if (!list) return;
@@ -76,13 +84,14 @@ export default function ChartDocumentUpload({ patientId }: { patientId: string }
         // Normalise data URL mime (some browsers emit application/octet-stream).
         const dataUrl = raw.replace(/^data:[^;]*;base64,/, `data:${mime};base64,`);
         await send(
-          { category, fileName: f.name, dataUrl, note, title: files.length === 1 ? title : (title ? `${title} (${i + 1})` : "") },
+          { category, fileName: f.name, dataUrl, note, title: files.length === 1 ? title : (title ? `${title} (${i + 1})` : ""), legalCaseId: effectiveCase || "none" },
           (pct) => setProgress({ done: i, total: files.length, pct }),
         );
         ok++;
       }
-      setMsg({ ok: true, text: `Uploaded ${ok} document${ok === 1 ? "" : "s"} to the chart.` });
-      setFiles([]); setTitle(""); setNote("");
+      const linkedLabel = effectiveCase ? legalCases.find((c) => c.id === effectiveCase)?.label : null;
+      setMsg({ ok: true, text: `Uploaded ${ok} document${ok === 1 ? "" : "s"} to the chart${linkedLabel ? ` and attached to ${linkedLabel}` : ""}.` });
+      setFiles([]); setTitle(""); setNote(""); setCaseId("");
       if (inputRef.current) inputRef.current.value = "";
       router.refresh();
     } catch (e: any) {
@@ -115,6 +124,22 @@ export default function ChartDocumentUpload({ patientId }: { patientId: string }
           <input data-testid="doc-upload-note" className="input w-full" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Received from Smith & Co. law firm" />
         </label>
       </div>
+      {(isAttorney || legalCases.length > 0) && (
+        <div className={`rounded-lg px-3 py-2 text-sm ring-1 ${isAttorney ? "bg-violet-50 ring-violet-200" : "bg-slate-50 ring-slate-200"}`} data-testid="doc-upload-legal">
+          {legalCases.length === 0 ? (
+            <span className="text-violet-800">This patient has no Legal / PIP case yet — the letter will be saved to the chart only. Create a case on the Legal tab to link future letters.</span>
+          ) : (
+            <label className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-slate-800">⚖ Attach to Legal / PIP case:</span>
+              <select data-testid="doc-upload-case" className="input min-w-[260px] flex-1" value={effectiveCase || "none"} onChange={(e) => setCaseId(e.target.value)}>
+                <option value="none">Don&apos;t link — chart only</option>
+                {legalCases.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+              {isAttorney && effectiveCase && <span className="text-[11px] text-violet-700">Attorney letters are attached automatically.</span>}
+            </label>
+          )}
+        </div>
+      )}
       <div
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
