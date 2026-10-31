@@ -27,7 +27,7 @@ export const CLINIC_LOCATIONS: ClinicLocation[] = [
   },
   {
     id: "sa-austin-hwy",
-    name: "San Antonio — Austin Hwy",
+    name: "San Antonio",
     street: "1533 Austin Hwy",
     suite: "Suite 103",
     cityLine: "San Antonio, TX 78218",
@@ -49,7 +49,7 @@ export const CLINIC_LOCATIONS: ClinicLocation[] = [
   },
   {
     id: "sa-bandera",
-    name: "San Antonio — Bandera Rd",
+    name: "San Antonio",
     street: "8103 Bandera Rd",
     suite: "Suite 102",
     cityLine: "San Antonio, TX 78250",
@@ -81,3 +81,5 @@ export function closestClinic(pos: { lat: number; lng: number }): { clinic: Clin
 }
 
 export const telHref = (p: string) => `tel:+1${p.replace(/\D/g, "")}`;
+
+export const findClinic = (id?: string | null) => CLINIC_LOCATIONS.find((c) => c.id === id) || null;

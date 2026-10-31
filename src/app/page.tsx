@@ -517,7 +517,7 @@ function ContactAndHours({ L }: { L: LandingDict }) {
             location: L.location, ourClinics: L.ourClinics, selectedClinic: L.selectedClinic, findingClinic: L.findingClinic,
             milesAway: L.milesAway, navigateTo: L.navigateTo, useMyLocation: L.useMyLocation, phone: L.phone, hours: L.hours,
             hoursWeek: L.hoursWeek, hoursSat: L.hoursSat, hoursSun: L.hoursSun, insuranceTitle: L.insuranceTitle,
-            insuranceDesc: L.insuranceDesc, scheduleVisit: L.scheduleVisit,
+            insuranceDesc: L.insuranceDesc, scheduleVisit: L.scheduleVisit, bookHere: L.bookHere,
           }}
         />
       </div>

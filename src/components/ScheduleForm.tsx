@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { CLINIC_LOCATIONS, findClinic } from "@/lib/clinicLocations";
 
 type Lang = "en" | "es";
 
@@ -26,6 +27,7 @@ const T: Record<Lang, Record<string, string>> = {
     disclaimer: "As a new patient you don't need a Medical Record Number (MRN). Your MRN is created and activated in person at the clinic during your first visit. This form submits a request; our team will contact you to confirm.",
     mrn: "Medical Record Number (MRN)", dob: "Date of birth", first: "First name", last: "Last name",
     phone: "Phone", email: "Email", service: "Service of interest", select: "Select…",
+    clinic: "Clinic location", clinicPick: "Choose a clinic…", clinicReq: "Please choose a clinic location.", bookingAt: "Booking at",
     prefDate: "Preferred date", prefTime: "Preferred time", notes: "Notes (optional)",
     submit: "Submit request", submitting: "Submitting…",
     received: "Request received", yourConf: "Your confirmation number is",
@@ -44,6 +46,7 @@ const T: Record<Lang, Record<string, string>> = {
     disclaimer: "Como paciente nuevo no necesita un Número de Registro Médico (MRN). Su MRN se crea y activa en persona en la clínica durante su primera visita. Este formulario envía una solicitud; nuestro equipo se comunicará para confirmar.",
     mrn: "Número de Registro Médico (MRN)", dob: "Fecha de nacimiento", first: "Nombre", last: "Apellido",
     phone: "Teléfono", email: "Correo electrónico", service: "Servicio de interés", select: "Seleccione…",
+    clinic: "Clínica", clinicPick: "Elija una clínica…", clinicReq: "Por favor elija una clínica.", bookingAt: "Agendando en",
     prefDate: "Fecha preferida", prefTime: "Hora preferida", notes: "Notas (opcional)",
     submit: "Enviar solicitud", submitting: "Enviando…",
     received: "Solicitud recibida", yourConf: "Su número de confirmación es",
@@ -54,26 +57,30 @@ const T: Record<Lang, Record<string, string>> = {
   },
 };
 
-export default function ScheduleForm({ lang = "en" }: { lang?: Lang }) {
+export default function ScheduleForm({ lang = "en", initialLocation = "" }: { lang?: Lang; initialLocation?: string }) {
   const t = T[lang];
   const [mode, setMode] = useState<"choice" | "new" | "existing">("choice");
   const [form, setForm] = useState<Record<string, string>>({});
+  // Clinic chosen on the landing page ("Book at this clinic") or here.
+  const [clinicId, setClinicId] = useState<string>(findClinic(initialLocation)?.id || "");
+  const clinic = findClinic(clinicId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState<{ confirmation: string; priorityCheckin: boolean; emailStatus?: string } | null>(null);
+  const [done, setDone] = useState<{ confirmation: string; priorityCheckin: boolean; emailStatus?: string; clinic?: string } | null>(null);
 
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
   async function submit(patientType: "new" | "existing") {
+    if (!clinicId) { setError(t.clinicReq); return; }
     setBusy(true); setError("");
     try {
       const resp = await fetch("/api/appointments/request", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...form, patientType, lang }),
+        body: JSON.stringify({ ...form, patientType, lang, location: clinicId }),
       });
       const j = await resp.json();
       if (!resp.ok) { setError(j.error || t.errGeneric); setBusy(false); return; }
-      setDone({ confirmation: j.confirmation, priorityCheckin: j.priorityCheckin, emailStatus: j.emailStatus });
+      setDone({ confirmation: j.confirmation, priorityCheckin: j.priorityCheckin, emailStatus: j.emailStatus, clinic: clinic ? `${clinic.name} — ${clinic.address}` : undefined });
     } catch { setError(t.errNetwork); }
     setBusy(false);
   }
@@ -88,6 +95,7 @@ export default function ScheduleForm({ lang = "en" }: { lang?: Lang }) {
         {done.priorityCheckin && (
           <div className="inline-block rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-3 py-1 mb-2">{t.priorityChip}</div>
         )}
+        {done.clinic && <p className="text-sm font-medium text-slate-700 mb-1" data-testid="booking-done-clinic">{t.bookingAt}: {done.clinic}</p>}
         <p className="text-sm text-slate-500">{t.contactSoon}</p>
         {done.emailStatus === "sent" && <p className="text-sm text-emerald-600 mt-1">{t.emailSent}</p>}
         <a href="/" className="btn-primary inline-block mt-4">{t.home}</a>
@@ -95,8 +103,21 @@ export default function ScheduleForm({ lang = "en" }: { lang?: Lang }) {
     );
   }
 
+  const clinicBanner = (
+    <div className="max-w-3xl mx-auto mb-4 rounded-xl bg-white ring-1 ring-slate-200 p-3 flex flex-wrap items-center gap-3" data-testid="booking-clinic">
+      <span className="text-sm font-semibold text-slate-800">{t.clinic}:</span>
+      <select data-testid="booking-clinic-select" className="input flex-1 min-w-[240px]" value={clinicId} onChange={(e) => setClinicId(e.target.value)}>
+        <option value="">{t.clinicPick}</option>
+        {CLINIC_LOCATIONS.map((c) => <option key={c.id} value={c.id}>{c.name} — {c.street}, {c.suite}, {c.cityLine}</option>)}
+      </select>
+      {clinic && <a href={`tel:+1${clinic.phones[0].replace(/\D/g, "")}`} className="text-sm text-brand-700 font-medium hover:underline">{clinic.phones[0]}</a>}
+    </div>
+  );
+
   if (mode === "choice") {
     return (
+      <>
+      {clinicBanner}
       <div className="grid sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
         <button onClick={() => { setForm({}); setError(""); setMode("new"); }} className="card card-pad text-left hover:ring-2 hover:ring-brand-300 transition">
           <div className="text-lg font-bold text-slate-900">{t.newTitle}</div>
@@ -109,12 +130,15 @@ export default function ScheduleForm({ lang = "en" }: { lang?: Lang }) {
           <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200 mt-3">{t.existingStart}</span>
         </button>
       </div>
+      </>
     );
   }
 
   const services = mode === "new" ? SERVICES[lang].new : SERVICES[lang].existing;
 
   return (
+    <>
+    {clinicBanner}
     <div className="card card-pad max-w-2xl mx-auto">
       <button onClick={() => setMode("choice")} className="text-sm text-brand-700 hover:underline mb-3">{t.change}</button>
       <h2 className="text-lg font-bold text-slate-900">{mode === "new" ? t.newFormTitle : t.existingFormTitle}</h2>
@@ -152,5 +176,6 @@ export default function ScheduleForm({ lang = "en" }: { lang?: Lang }) {
         {busy ? t.submitting : t.submit}
       </button>
     </div>
+    </>
   );
 }

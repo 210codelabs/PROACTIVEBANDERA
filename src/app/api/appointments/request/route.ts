@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { sendBookingConfirmation } from "@/lib/email";
 import { CLINIC_OPEN_MIN, CLINIC_CLOSE_MIN, CLINIC_HOURS_LABEL } from "@/lib/clinic";
+import { findClinic } from "@/lib/clinicLocations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,11 @@ export async function POST(req: Request) {
     priorityCheckin = true;
   }
 
+  // Clinic location (optional for API clients; the public form requires it).
+  const locRaw = String(b?.location || b?.clinicLocation || "").trim();
+  const clinic = locRaw ? findClinic(locRaw) : null;
+  if (locRaw && !clinic) return NextResponse.json({ error: "Unknown clinic location." }, { status: 400 });
+
   // Ensure a unique confirmation number.
   let confirmation = genConfirmation();
   for (let i = 0; i < 5; i++) {
@@ -65,6 +71,7 @@ export async function POST(req: Request) {
       mrn: patientType === "existing" ? mrn : null,
       matchedPatientId,
       serviceInterest: String(b?.serviceInterest || "").trim() || null,
+      clinicLocation: clinic?.id || null,
       preferredDate: String(b?.preferredDate || "").trim() || null,
       preferredTime: String(b?.preferredTime || "").trim() || null,
       message: String(b?.message || "").trim() || null,
@@ -88,12 +95,13 @@ export async function POST(req: Request) {
           fromUserId: sender.id,
           toUserId: recipient?.id ?? null,
           patientId: matchedPatientId,
-          subject: `New website appointment request — ${who} [${created.confirmation}]${priorityCheckin ? " ★PRIORITY" : ""}`,
+          subject: `New website appointment request — ${who}${clinic ? ` @ ${clinic.cityLine.split(",")[0]} (${clinic.street})` : ""} [${created.confirmation}]${priorityCheckin ? " ★PRIORITY" : ""}`,
           body: [
             `A new "Book a Visit" request was submitted from the website.`,
             ``,
             `Confirmation: ${created.confirmation}`,
             `Patient: ${who} (${kind})`,
+            clinic ? `Clinic: ${clinic.name} — ${clinic.address} · ${clinic.phones.join(" / ")}` : ``,
             created.mrn ? `MRN: ${created.mrn}` : ``,
             created.phone ? `Phone: ${created.phone}` : ``,
             created.email ? `Email: ${created.email}` : ``,
@@ -128,7 +136,10 @@ export async function POST(req: Request) {
     try { await db.appointmentRequest.update({ where: { id: created.id }, data: { emailStatus } }); } catch { /* non-fatal */ }
   }
 
-  return NextResponse.json({ ok: true, confirmation: created.confirmation, priorityCheckin, emailStatus });
+  return NextResponse.json({
+    ok: true, confirmation: created.confirmation, priorityCheckin, emailStatus,
+    clinic: clinic ? { id: clinic.id, name: clinic.name, address: clinic.address, phones: clinic.phones } : null,
+  });
 }
 
 // GET (STAFF): list requests for the front desk.

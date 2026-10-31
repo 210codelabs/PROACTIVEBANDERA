@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { findClinic } from "@/lib/clinicLocations";
 
 type Req = {
   id: string; patientType: string; firstName: string; lastName: string; phone?: string; email?: string;
-  dob?: string; mrn?: string; serviceInterest?: string; preferredDate?: string; preferredTime?: string;
+  dob?: string; mrn?: string; serviceInterest?: string; clinicLocation?: string | null; preferredDate?: string; preferredTime?: string;
   message?: string; priorityCheckin: boolean; status: string; confirmation: string; createdAt: string;
   appointmentId?: string | null; scheduledStartsAt?: string | null;
 };
@@ -70,9 +71,12 @@ export default function AppointmentRequestsList() {
                 {r.mrn && <span>MRN: {r.mrn}</span>}
                 {r.phone && <span>☎ {r.phone}</span>}
                 {r.email && <span>✉ {r.email}</span>}
+                {r.clinicLocation && findClinic(r.clinicLocation) && (
+                  <span className="font-medium text-brand-800" data-testid={`req-clinic-${r.id}`}>📍 {findClinic(r.clinicLocation)!.name} — {findClinic(r.clinicLocation)!.street}</span>
+                )}
                 {r.serviceInterest && <span>Service: {r.serviceInterest}</span>}
                 {(r.preferredDate || r.preferredTime) && <span>Preferred: {r.preferredDate} {r.preferredTime}</span>}
-                {r.scheduledStartsAt && <span className="text-indigo-700 font-medium">Scheduled: {new Date(r.scheduledStartsAt).toLocaleString()}</span>}
+                {r.scheduledStartsAt && <span className="text-indigo-700 font-medium">Scheduled: {new Date(r.scheduledStartsAt).toLocaleString("en-US", { timeZone: "America/Chicago" })}</span>}
               </div>
               {r.message && <div className="text-sm text-slate-500 mt-1 italic">“{r.message}”</div>}
             </div>

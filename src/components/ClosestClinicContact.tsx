@@ -20,6 +20,7 @@ type L = {
   insuranceTitle: string;
   insuranceDesc: string;
   scheduleVisit: string;
+  bookHere: string;
 };
 
 const PIN = "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z";
@@ -94,6 +95,9 @@ export default function ClosestClinicContact({ L }: { L: L }) {
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-700 mb-1">{selected.name}{mi(selected.id) ? ` · ${mi(selected.id)}` : ""}</p>
             <p className="text-sm text-slate-600" data-testid="closest-clinic-address">{selected.street}, {selected.suite}</p>
             <p className="text-sm text-slate-600">{selected.cityLine}</p>
+            <a href={`/book?location=${selected.id}`} data-testid="book-at-clinic" className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-brand-700">
+              {L.bookHere}
+            </a>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center hover:shadow-lg hover:-translate-y-0.5 transition-all">
             <div className="mx-auto mb-4 w-fit"><Emblem d={PHONE} /></div>
@@ -121,10 +125,12 @@ export default function ClosestClinicContact({ L }: { L: L }) {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {CLINIC_LOCATIONS.map((c) => (
-              <button
+              <div
                 key={c.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedId(c.id)}
+                onKeyDown={(e) => { if (e.key === "Enter") setSelectedId(c.id); }}
                 data-testid={`clinic-card-${c.id}`}
                 className={`rounded-2xl border bg-white p-5 text-center transition-all hover:shadow-lg ${selectedId === c.id ? "border-brand-400 ring-2 ring-brand-200" : "border-slate-200"}`}
               >
@@ -133,7 +139,10 @@ export default function ClosestClinicContact({ L }: { L: L }) {
                 <p className="text-sm text-slate-600">{c.street}, {c.suite}</p>
                 <p className="text-sm text-slate-600 mb-2">{c.cityLine}</p>
                 <Phones c={c} />
-              </button>
+                <a href={`/book?location=${c.id}`} onClick={(e) => e.stopPropagation()} data-testid={`book-at-${c.id}`} className="mt-3 inline-flex items-center rounded-full bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700">
+                  {L.bookHere}
+                </a>
+              </div>
             ))}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
               <div className="mx-auto mb-3 w-fit"><Emblem d={CLOCK} /></div>
@@ -159,6 +168,7 @@ export default function ClosestClinicContact({ L }: { L: L }) {
             className={`rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${selectedId === c.id ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"}`}
           >
             {c.name}
+            <span className={`ml-1 font-normal ${selectedId === c.id ? "text-white/80" : "text-slate-400"}`}>{c.street}</span>
             {geo.state === "found" && geo.closestId === c.id ? " ★" : ""}
             {mi(c.id) ? ` · ${mi(c.id)}` : ""}
           </button>

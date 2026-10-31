@@ -11,7 +11,7 @@ const H: Record<Lang, { title: string; subtitle: string; home: string }> = {
   es: { title: "Agendar una Visita", subtitle: "Solicite una cita en línea. Pacientes nuevos y actuales bienvenidos.", home: "← Inicio" },
 };
 
-export default function BookClient({ initialLang = "en" }: { initialLang?: Lang }) {
+export default function BookClient({ initialLang = "en", initialLocation = "" }: { initialLang?: Lang; initialLocation?: string }) {
   const [lang, setLang] = useState<Lang>(initialLang);
   const h = H[lang];
 
@@ -42,7 +42,7 @@ export default function BookClient({ initialLang = "en" }: { initialLang?: Lang 
         <div className="mb-3 flex justify-end">
           <ClinicTZBadge showHours />
         </div>
-        <ScheduleForm lang={lang} />
+        <ScheduleForm lang={lang} initialLocation={initialLocation} />
       </div>
     </main>
   );

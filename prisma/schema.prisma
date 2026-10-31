@@ -33,6 +33,7 @@ model AppointmentRequest {
   mrn              String?
   matchedPatientId String?
   serviceInterest  String?
+  clinicLocation   String?  // clinic id from src/lib/clinicLocations.ts
   preferredDate    String?
   preferredTime    String?
   message          String?
