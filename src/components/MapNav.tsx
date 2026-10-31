@@ -4,11 +4,14 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const CLINIC = {
+export type MapClinic = { lat: number; lng: number; label: string; address: string; name?: string };
+
+const DEFAULT_CLINIC: MapClinic = {
   lat: 29.50485,
   lng: -98.64155,
   label: "Proactive Clinic — 8103 Bandera Rd, Suite 102, San Antonio, TX 78250",
   address: "8103 Bandera Rd, Suite 102, San Antonio, TX 78250",
+  name: "San Antonio — Bandera Rd",
 };
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -55,7 +58,10 @@ function has3dSupport(): boolean {
   }
 }
 
-export default function MapNav() {
+export default function MapNav({ clinic = DEFAULT_CLINIC }: { clinic?: MapClinic }) {
+  // Destination clinic (closest / selected). Ref so map callbacks always see the latest.
+  const clinicRef = useRef<MapClinic>(clinic);
+  clinicRef.current = clinic;
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [status, setStatus] = useState<string>("");
@@ -96,7 +102,7 @@ export default function MapNav() {
 
   const openDirectionsTab = () => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-      CLINIC.address
+      clinicRef.current.address
     )}&travelmode=driving`;
     window.open(url, "_blank", "noopener");
   };
@@ -151,7 +157,7 @@ export default function MapNav() {
       setStatus("");
       setFallbackSrc(
         `https://maps.google.com/maps?saddr=&daddr=${encodeURIComponent(
-          CLINIC.address
+          clinicRef.current.address
         )}&t=h&output=embed`
       );
       setError("3D maps unavailable — showing standard directions.");
@@ -165,7 +171,7 @@ export default function MapNav() {
       setStatus("");
       setFallbackSrc(
         `https://maps.google.com/maps?saddr=&daddr=${encodeURIComponent(
-          CLINIC.address
+          clinicRef.current.address
         )}&t=h&output=embed`
       );
       setError("Photorealistic 3D Tiles not enabled for this key — showing standard directions.");
@@ -192,7 +198,7 @@ export default function MapNav() {
               const ds = new routesLib.DirectionsService();
               const res = await ds.route({
                 origin,
-                destination: CLINIC.address,
+                destination: clinicRef.current.address,
                 travelMode: google.maps.TravelMode.DRIVING,
               });
               const route = res.routes[0];
@@ -223,7 +229,7 @@ export default function MapNav() {
       const saddr = r ? `${r.origin.lat},${r.origin.lng}` : "";
       setFallbackSrc(
         `https://maps.google.com/maps?saddr=${encodeURIComponent(saddr)}&daddr=${encodeURIComponent(
-          CLINIC.address
+          clinicRef.current.address
         )}&t=h&output=embed`
       );
       if (!r) {
@@ -236,9 +242,22 @@ export default function MapNav() {
       return;
     }
 
+    // Refine the clinic pin from its street address (best effort).
+    try {
+      const geocoder = new google.maps.Geocoder();
+      const g: any = await Promise.race([
+        geocoder.geocode({ address: clinicRef.current.address }),
+        new Promise((r) => setTimeout(() => r(null), 3000)),
+      ]);
+      const loc = g?.results?.[0]?.geometry?.location;
+      if (loc) clinicRef.current = { ...clinicRef.current, lat: loc.lat(), lng: loc.lng() };
+    } catch {
+      /* keep stored coordinates */
+    }
+
     // Build the 3D map centered on the clinic.
     const map3d = new Map3DElement({
-      center: { lat: CLINIC.lat, lng: CLINIC.lng, altitude: 30 },
+      center: { lat: clinicRef.current.lat, lng: clinicRef.current.lng, altitude: 30 },
       range: 1500,
       tilt: 60,
       heading: 0,
@@ -255,9 +274,9 @@ export default function MapNav() {
     // Destination marker.
     try {
       const destMarker = new Marker3DElement({
-        position: { lat: CLINIC.lat, lng: CLINIC.lng, altitude: 20 },
+        position: { lat: clinicRef.current.lat, lng: clinicRef.current.lng, altitude: 20 },
         altitudeMode: AltitudeMode.RELATIVE_TO_GROUND,
-        label: "Proactive Clinic",
+        label: clinicRef.current.name ? `Proactive Clinic — ${clinicRef.current.name}` : "Proactive Clinic",
       });
       map3d.append(destMarker);
     } catch {
@@ -269,7 +288,7 @@ export default function MapNav() {
       setStatus("");
       map3d.flyCameraTo({
         endCamera: {
-          center: { lat: CLINIC.lat, lng: CLINIC.lng, altitude: 30 },
+          center: { lat: clinicRef.current.lat, lng: clinicRef.current.lng, altitude: 30 },
           tilt: 62,
           range: 800,
           heading: 0,
@@ -316,9 +335,10 @@ export default function MapNav() {
     flyAlong(google, map3d, path);
   }, [flyAlong]);
 
-  // (Re)initialize when the panel opens.
+  // (Re)initialize when the panel opens or the destination clinic changes.
   useEffect(() => {
     if (open && !minimized) {
+      cleanup();
       // slight delay so the host div has size
       const t = setTimeout(() => initNav(), 120);
       return () => clearTimeout(t);
@@ -327,7 +347,7 @@ export default function MapNav() {
       cleanup();
     }
     return undefined;
-  }, [open, minimized, initNav, cleanup]);
+  }, [open, minimized, initNav, cleanup, clinic.address]);
 
   // Drag handlers
   const onDragStart = (e: React.MouseEvent) => {
@@ -364,8 +384,9 @@ export default function MapNav() {
         aria-label="Open 3D navigation to the clinic"
       >
         <iframe
-          title="Proactive Clinic location map"
-          src="https://maps.google.com/maps?saddr=&daddr=8103%20Bandera%20Rd,%20Suite%20102,%20San%20Antonio,%20TX%2078250&t=h&output=embed"
+          key={clinic.address}
+          title={`Proactive Clinic location map — ${clinic.address}`}
+          src={`https://maps.google.com/maps?saddr=&daddr=${encodeURIComponent(clinic.address)}&t=h&output=embed`}
           className="w-full h-full min-h-[300px] pointer-events-none"
           style={{ border: 0 }}
           loading="lazy"
@@ -403,7 +424,7 @@ export default function MapNav() {
               </span>
               <div className="min-w-0">
                 <div className="text-sm font-semibold leading-tight">3D Navigation</div>
-                <div className="truncate text-[11px] text-slate-400">to Proactive Clinic</div>
+                <div className="truncate text-[11px] text-slate-400">to Proactive Clinic{clinic.name ? ` — ${clinic.name}` : ""}</div>
               </div>
             </div>
             <div className="flex items-center gap-1">

@@ -2,7 +2,7 @@ import Link from "next/link";
 import LandingLoginForm from "./LandingLoginForm";
 import HeroAuth from "@/components/HeroAuth";
 import LandingHeader from "@/components/LandingHeader";
-import MapNav from "@/components/MapNav";
+import ClosestClinicContact from "@/components/ClosestClinicContact";
 import { getT } from "@/lib/i18n/server";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -504,21 +504,7 @@ export function PortalAccess({ L, t }: { L: LandingDict; t: (k: string) => strin
 }
 
 function ContactAndHours({ L }: { L: LandingDict }) {
-  const cards = [
-    {
-      title: L.location, icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z",
-      icon2: "M15 11a3 3 0 11-6 0 3 3 0 016 0z",
-      body: (<><p className="text-sm text-slate-600">8103 Bandera Rd, Suite 102</p><p className="text-sm text-slate-600">San Antonio, TX 78250</p></>),
-    },
-    {
-      title: L.phone, icon: "M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z",
-      body: (<><a href="tel:+12105002914" className="text-sm text-brand-700 font-medium hover:underline">(210) 500-2914</a><p className="text-xs text-slate-500 mt-1">Se habla español</p></>),
-    },
-    {
-      title: L.hours, icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
-      body: (<><p className="text-sm text-slate-600">{L.hoursWeek}</p><p className="text-sm text-slate-600">{L.hoursSat}</p><p className="text-sm text-slate-500">{L.hoursSun}</p></>),
-    },
-  ];
+  // Closest clinic via browser geolocation; falls back to all 4 clinics.
   return (
     <section id="contact" className="py-16 sm:py-24 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -526,29 +512,14 @@ function ContactAndHours({ L }: { L: LandingDict }) {
           <div className="text-sm font-bold text-brand-700 uppercase tracking-wider mb-2">{L.contactKicker}</div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-brand-900">{L.contactTitle}</h2>
         </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          {cards.map((c) => {
-            return (
-              <div key={c.title} className="rounded-2xl border border-slate-200 bg-white p-6 text-center hover:shadow-lg hover:-translate-y-0.5 transition-all">
-                <div className="mx-auto mb-4 w-fit">
-                  <Emblem d={c.icon} d2={c.icon2} />
-                </div>
-                <h3 className="font-bold text-brand-900 mb-1">{c.title}</h3>
-                {c.body}
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-8 grid lg:grid-cols-5 gap-6 items-stretch">
-          <div className="lg:col-span-3 rounded-2xl overflow-hidden border border-slate-200 shadow-sm min-h-[300px]">
-            <MapNav />
-          </div>
-          <div className="lg:col-span-2 rounded-2xl border border-brand-100 bg-brand-50 p-6 flex flex-col justify-center">
-            <h3 className="font-bold text-brand-900 mb-2">{L.insuranceTitle}</h3>
-            <p className="text-sm text-slate-600">{L.insuranceDesc}</p>
-            <a href="/demo" className="btn-primary mt-5 self-start">{L.scheduleVisit}</a>
-          </div>
-        </div>
+        <ClosestClinicContact
+          L={{
+            location: L.location, ourClinics: L.ourClinics, selectedClinic: L.selectedClinic, findingClinic: L.findingClinic,
+            milesAway: L.milesAway, navigateTo: L.navigateTo, useMyLocation: L.useMyLocation, phone: L.phone, hours: L.hours,
+            hoursWeek: L.hoursWeek, hoursSat: L.hoursSat, hoursSun: L.hoursSun, insuranceTitle: L.insuranceTitle,
+            insuranceDesc: L.insuranceDesc, scheduleVisit: L.scheduleVisit,
+          }}
+        />
       </div>
     </section>
   );
