@@ -209,6 +209,11 @@ model User {
   npi            String?  // for providers
   dea            String?  // DEA number (providers)
   licenseNo      String?  // state professional license (e.g., PT/DPT license)
+  fmcsaLicenseState String?
+  fmcsaNrcmeNumber String?
+  fmcsaExaminerVerified Boolean @default(false)
+  fmcsaExaminerVerifiedAt DateTime?
+  fmcsaExaminerVerifiedBy String?
   credential     String?  // MD, DO, NP, PA, RN, DPT, etc.
   specialty      String?
   active         Boolean  @default(true)
@@ -272,7 +277,8 @@ model Patient {
   ecEmail        String?
 
   // registration type
-  patientType    String   @default("clinical") // clinical | legal
+  patientType    String   @default("clinical") // clinical | legal | dot
+  dotRegistration Json?
 
   // status
   status         String   @default("active") // active | inactive | deceased
@@ -1490,8 +1496,8 @@ model EnterpriseInvoice {
 // DOT / FMCSA commercial-driver medical examination (MCSA-5875 report + MCSA-5876 MEC card).
 model DotExam {
   id            String   @id @default(cuid()) @map("_id")
-  enterpriseId  String
-  employeeId    String
+  enterpriseId  String?
+  employeeId    String?
   patientId     String?
   driverName    String
   status        String   @default("driver_pending") // driver_pending | exam_pending | completed
@@ -1522,6 +1528,21 @@ model DotExam {
   examinerLicenseState String?
   examinerSignature    String?
   examDate             DateTime?
+  isLocked             Boolean  @default(false)
+  signedAt             DateTime?
+  signedByUserId       String?
+  signedByName         String?
+  signedDocumentHash   String?
+  formVersion          String?
+  templateHash         String?
+  mecIssuedAt          DateTime?
+  mecSignedByUserId    String?
+  mecDocumentHash      String?
+  employerMecDocId     String?
+  reportingStatus      String   @default("not_submitted") // not_submitted | due | reported | correction_required | verified
+  reportedAt           DateTime?
+  reportedByUserId     String?
+  reportingReference   String?
 
   carrier       Json?
 
@@ -1540,7 +1561,7 @@ model DotExam {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  enterprise    EnterpriseAccount @relation(fields: [enterpriseId], references: [id])
+  enterprise    EnterpriseAccount? @relation(fields: [enterpriseId], references: [id])
   @@index([enterpriseId])
   @@index([employeeId])
   @@index([patientId])

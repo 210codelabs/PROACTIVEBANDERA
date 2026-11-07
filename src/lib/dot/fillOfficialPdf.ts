@@ -14,7 +14,12 @@ function readTemplate(file: string): Uint8Array {
 
 function d(val?: any): string {
   if (!val) return "";
-  try { return new Date(val).toLocaleDateString("en-US"); } catch { return ""; }
+  try {
+    const raw = val instanceof Date ? val.toISOString().slice(0, 10) : String(val);
+    const date = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+    if (date) return `${date[2]}/${date[3]}/${date[1]}`;
+    return new Date(val).toLocaleDateString("en-US");
+  } catch { return ""; }
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -58,7 +63,7 @@ const PE_MAP: Record<string, string> = {
   neurological: "neuroButton", skin: "skinButton",
 };
 
-export async function fillMcsa5875(exam: any): Promise<Uint8Array> {
+export async function fillMcsa5875(exam: any, flatten = false): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(readTemplate("mcsa-5875.pdf"), { ignoreEncryption: true });
   const form = pdf.getForm();
   const { text, radio, check, drop } = mkHelpers(form);
@@ -132,13 +137,17 @@ export async function fillMcsa5875(exam: any): Promise<Uint8Array> {
   // Medical examiner
   text("examName", exam.examinerName); text("nationalRegister", exam.examinerNrcme);
   text("certNumber", exam.examinerLicense); drop("medicalState", exam.examinerLicenseState);
+  text("examSignature", exam.examinerSignature); text("driverSignature", exam.driverSignature);
+  text("examNameState", exam.examinerName); text("nationalRegisterState", exam.examinerNrcme);
+  text("certNumberState", exam.examinerLicense);
   text("signatureDate", d(exam.driverSignedAt || exam.examDate));
 
-  try { form.updateFieldAppearances(); } catch { /* noop */ }
+  form.updateFieldAppearances();
+  if (flatten) form.flatten();
   return pdf.save();
 }
 
-export async function fillMcsa5876(exam: any): Promise<Uint8Array> {
+export async function fillMcsa5876(exam: any, flatten = false): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(readTemplate("mcsa-5876.pdf"), { ignoreEncryption: true });
   const form = pdf.getForm();
   const { text, check, drop } = mkHelpers(form);
@@ -155,6 +164,7 @@ export async function fillMcsa5876(exam: any): Promise<Uint8Array> {
   text("examName", exam.examinerName); text("examNumber", exam.examinerLicense);
   text("examRegistry", exam.examinerNrcme); drop("examState", exam.examinerLicenseState);
   drop("examStateTwo", exam.examinerLicenseState);
+  text("examSignature", exam.examinerSignature); text("driverSignature", exam.driverSignature);
 
   const restr: string[] = exam.restrictions || [];
   check("lensBox", restr.includes("corrective_lenses"));
@@ -163,6 +173,7 @@ export async function fillMcsa5876(exam: any): Promise<Uint8Array> {
   check("intraBox", restr.includes("driving_exempt_intracity"));
   check("waiverBox", restr.includes("vision_exemption") || restr.includes("diabetes_exemption"));
 
-  try { form.updateFieldAppearances(); } catch { /* noop */ }
+  form.updateFieldAppearances();
+  if (flatten) form.flatten();
   return pdf.save();
 }

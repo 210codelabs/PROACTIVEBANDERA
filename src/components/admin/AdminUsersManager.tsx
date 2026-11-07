@@ -14,6 +14,10 @@ type UserRecord = {
   credential: string | null;
   specialty: string | null;
   npi: string | null;
+  fmcsaNrcmeNumber: string | null;
+  fmcsaLicenseState: string | null;
+  fmcsaExaminerVerified: boolean;
+  fmcsaExaminerVerifiedAt: string | null;
   active: boolean;
   createdAt: string;
 };
@@ -37,6 +41,9 @@ type EditForm = {
   credential: string;
   specialty: string;
   npi: string;
+  fmcsaNrcmeNumber: string;
+  fmcsaLicenseState: string;
+  fmcsaExaminerVerified: boolean;
   temporaryPassword: string;
 };
 
@@ -167,6 +174,9 @@ export default function AdminUsersManager({ initialUsers }: { initialUsers: User
       credential: user.credential ?? "",
       specialty: user.specialty ?? "",
       npi: user.npi ?? "",
+      fmcsaNrcmeNumber: user.fmcsaNrcmeNumber ?? "",
+      fmcsaLicenseState: user.fmcsaLicenseState ?? "",
+      fmcsaExaminerVerified: user.fmcsaExaminerVerified,
       temporaryPassword: "",
     });
   }
@@ -192,6 +202,9 @@ export default function AdminUsersManager({ initialUsers }: { initialUsers: User
       credential: editForm.credential.trim() ? editForm.credential.trim() : null,
       specialty: editForm.specialty.trim() ? editForm.specialty.trim() : null,
       npi: editForm.npi.trim() ? editForm.npi.trim() : null,
+      fmcsaNrcmeNumber: editForm.fmcsaNrcmeNumber.trim() ? editForm.fmcsaNrcmeNumber.trim() : null,
+      fmcsaLicenseState: editForm.fmcsaLicenseState.trim() ? editForm.fmcsaLicenseState.trim().toUpperCase() : null,
+      fmcsaExaminerVerified: editForm.fmcsaExaminerVerified,
     };
     if (editForm.temporaryPassword.trim()) {
       payload.temporaryPassword = editForm.temporaryPassword.trim();
@@ -528,7 +541,7 @@ export default function AdminUsersManager({ initialUsers }: { initialUsers: User
               </div>
               <div>
                 <label className="label">{t("adminUsers.credential")}</label>
-                <input data-testid="edit-credential" className="input" value={editForm.credential} onChange={(e) => setEditForm((f) => f && { ...f, credential: e.target.value })} />
+                <input data-testid="edit-credential" className="input" value={editForm.credential} onChange={(e) => setEditForm((f) => f && { ...f, credential: e.target.value, fmcsaExaminerVerified: false })} />
               </div>
               <div>
                 <label className="label">{t("adminUsers.npi")}</label>
@@ -537,6 +550,22 @@ export default function AdminUsersManager({ initialUsers }: { initialUsers: User
                   <button type="button" disabled={verifying} onClick={() => verifyNpi(editForm.npi, (v) => setEditForm((f) => f && { ...f, ...v }))} className="btn-secondary text-xs whitespace-nowrap">{verifying ? "…" : "Verify NPI"}</button>
                 </div>
               </div>
+              {editForm.role === "provider" && (
+                <>
+                  <div>
+                    <label className="label">FMCSA National Registry number</label>
+                    <input className="input" value={editForm.fmcsaNrcmeNumber} onChange={(e) => setEditForm((f) => f && { ...f, fmcsaNrcmeNumber: e.target.value, fmcsaExaminerVerified: false })} />
+                  </div>
+                  <div>
+                    <label className="label">FMCSA license state</label>
+                    <input className="input" maxLength={2} value={editForm.fmcsaLicenseState} onChange={(e) => setEditForm((f) => f && { ...f, fmcsaLicenseState: e.target.value.toUpperCase(), fmcsaExaminerVerified: false })} />
+                  </div>
+                  <label className="md:col-span-2 flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
+                    <input type="checkbox" checked={editForm.fmcsaExaminerVerified} onChange={(e) => setEditForm((f) => f && { ...f, fmcsaExaminerVerified: e.target.checked })} />
+                    <span>FMCSA examiner credentials independently verified by clinic administrator in the National Registry.</span>
+                  </label>
+                </>
+              )}
               <div>
                 <label className="label">{t("adminUsers.resetPassword")}</label>
                 <input data-testid="edit-password" className="input" placeholder={t("adminUsers.keepCurrent")} value={editForm.temporaryPassword} onChange={(e) => setEditForm((f) => f && { ...f, temporaryPassword: e.target.value })} />

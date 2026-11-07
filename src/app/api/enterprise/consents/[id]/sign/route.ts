@@ -16,6 +16,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const consent = await db.enterpriseConsent.findUnique({ where: { id } });
   if (!consent) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (s.role !== "super_admin" && consent.enterpriseId !== s.enterpriseId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (consent.formKey === "dot_mec_release") {
+    return NextResponse.json({ error: "This DOT certificate release must be signed by the employee through employee self-service." }, { status: 403 });
+  }
   const parse = Body.safeParse(await req.json().catch(() => ({})));
   if (!parse.success) return NextResponse.json({ error: "Signature is required" }, { status: 400 });
   const b = parse.data;

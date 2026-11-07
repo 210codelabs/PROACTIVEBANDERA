@@ -52,6 +52,18 @@ export const CONSENT_FORMS: FormTemplate[] = [
       "{{company}} for the purpose of employment compliance. I understand I may revoke this authorization in " +
       "writing at any time, except to the extent action has already been taken in reliance on it.",
   },
+  {
+    key: "dot_mec_release",
+    title: "DOT Medical Examiner's Certificate Release Authorization",
+    summary: "Driver authorization to release only the issued MCSA-5876 certificate to the named employer.",
+    signerRole: "employee",
+    body:
+      "I, {{employee}}, authorize ProactiveClinics to disclose only my issued FMCSA Medical Examiner's " +
+      "Certificate (MCSA-5876) to {{company}} for commercial-driver qualification administration. This " +
+      "authorization does not permit release of my Medical Examination Report (MCSA-5875), medical history, " +
+      "examination findings, or other clinical records. I may revoke this authorization in writing, except " +
+      "to the extent action has already been taken in reliance on it.",
+  },
 ];
 
 export function formByKey(key: string): FormTemplate | undefined {

@@ -6,7 +6,7 @@ export default async function NewPatientPage() {
   const user = await requireSession();
   return (
     <Shell user={user} pageTitle="New Patient">
-      <NewPatientForm />
+      <NewPatientForm allowDotSample={process.env.NODE_ENV !== "production" && user.role === "admin"} />
     </Shell>
   );
 }

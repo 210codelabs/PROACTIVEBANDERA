@@ -50,6 +50,9 @@ export async function PATCH(req: Request) {
       licenseNo: clean(b.licenseNo),
       credential: clean(b.credential),
       specialty: clean(b.specialty),
+      fmcsaExaminerVerified: false,
+      fmcsaExaminerVerifiedAt: null,
+      fmcsaExaminerVerifiedBy: null,
     },
   });
 

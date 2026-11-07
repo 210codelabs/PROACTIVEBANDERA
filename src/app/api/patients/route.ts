@@ -34,7 +34,16 @@ const Body = z.object({
   primaryPharmacyNcpdp: z.string().optional(),
   alternativePharmacyNcpdp: z.string().optional(),
   // registration type
-  patientType: z.enum(["clinical", "legal"]).optional(),
+  patientType: z.enum(["clinical", "legal", "dot"]).optional(),
+  dotRegistration: z.object({
+    licenseNumber: z.string().min(1),
+    licenseState: z.string().min(2),
+    hasCdl: z.enum(["yes", "no"]),
+    cdlClass: z.string().optional(),
+    employerName: z.string().optional(),
+    examReason: z.enum(["certification", "renewal", "follow_up", "return_to_duty"]),
+    paymentResponsibility: z.enum(["self_pay", "employer", "mixed"]),
+  }).optional(),
   // legal case (only when patientType === "legal")
   attorneyId: z.string().optional(),
   caseNumber: z.string().optional(),
@@ -70,11 +79,19 @@ export async function POST(req: Request) {
   const {
     dob,
     patientType = "clinical",
+    dotRegistration,
     attorneyId, caseNumber, caseType, court, dateOfInjury, lawFirm, claimNumber, adjuster, defendantInsurer,
     pipInsurerName, pipInsurerPayerId, pipPolicyNumber, pipClaimNumber, pipMedLimit, pipInsuredName, pipRelation,
     legalNA, pipNA,
     ...rest
   } = parsed.data;
+
+  if (patientType === "dot" && !dotRegistration) {
+    return NextResponse.json({ error: "DOT driver and examination-request details are required." }, { status: 400 });
+  }
+  if (patientType === "dot" && dotRegistration && ["employer", "mixed"].includes(dotRegistration.paymentResponsibility) && !dotRegistration.employerName?.trim()) {
+    return NextResponse.json({ error: "Employer name is required for employer-sponsored billing." }, { status: 400 });
+  }
 
   const patient = await db.patient.create({
     data: {
@@ -82,6 +99,7 @@ export async function POST(req: Request) {
       dob: new Date(dob),
       mrn: nextMrn(),
       patientType,
+      dotRegistration: dotRegistration || undefined,
     },
   });
 

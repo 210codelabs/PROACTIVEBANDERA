@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getEnterpriseSession } from "@/lib/enterpriseAuth";
 import { computeDerived, outcomeFromFlags } from "@/lib/dot/apply";
 import { syncDotExamToChart } from "@/lib/enterprise/chartSync";
+import { employerDotExamSummary } from "@/lib/dot/access";
 
 export const runtime = "nodejs";
 
@@ -19,28 +20,34 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const r = await scopedExam(id);
   if ("error" in r) return NextResponse.json({ error: r.error }, { status: r.status });
-  return NextResponse.json({ exam: r.exam });
+  if (r.s.role === "super_admin") return NextResponse.json({ exam: r.exam });
+  const authorization = await db.enterpriseConsent.findFirst({
+    where: { enterpriseId: r.exam.enterpriseId || undefined, employeeId: r.exam.employeeId || undefined, patientId: r.exam.patientId || undefined, formKey: "dot_mec_release", status: "signed" },
+    select: { id: true },
+  });
+  return NextResponse.json({ exam: employerDotExamSummary(r.exam, Boolean(authorization)) });
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const r = await scopedExam(id);
   if ("error" in r) return NextResponse.json({ error: r.error }, { status: r.status });
+  if (r.s.role !== "super_admin") {
+    return NextResponse.json({ error: "Clinical examination updates are not available to employer users." }, { status: 403 });
+  }
+  if (r.exam.isLocked || r.exam.signedAt) {
+    return NextResponse.json({ error: "This examination is signed and locked. Use the authorized amendment workflow." }, { status: 409 });
+  }
   const body = await req.json().catch(() => ({}));
 
   const FIELDS = [
-    "driverInfo", "healthHistory", "driverSignature",
+    "driverInfo",
     "vitals", "vision", "hearing", "urinalysis", "physicalExam",
     "certMonths", "restrictions", "determinationFlags",
-    "examinerName", "examinerNrcme", "examinerLicense", "examinerLicenseState", "examinerSignature",
   ] as const;
   const data: any = {};
   for (const f of FIELDS) if (f in body) data[f] = body[f];
   if ("examDate" in body) data.examDate = body.examDate ? new Date(body.examDate) : null;
-  if ("driverSignedAt" in body || "driverSignature" in body) {
-    if (body.driverSignature) data.driverSignedAt = new Date();
-  }
-
   // Merge current + incoming for derivation.
   const merged: any = { ...r.exam, ...data };
   const derived = computeDerived(merged);
@@ -49,17 +56,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   data.bpCategory = derived.bpCategory;
   data.expiresOn = derived.expiresOn;
 
-  // Status / outcome transitions.
+  // Draft determinations do not finalize or authorize reporting.
   const oc = outcomeFromFlags(merged.determinationFlags);
   if (oc) data.outcome = oc;
-  if (merged.determinationFlags && (merged.examinerName || data.examinerName)) {
-    data.status = "completed";
-  } else if (merged.driverSignature) {
-    data.status = merged.status === "completed" ? "completed" : "exam_pending";
-  }
-  if (data.outcome && data.outcome !== "pending" && data.outcome !== "incomplete") {
-    data.transmissionStatus = r.exam.transmissionStatus === "exported" ? "exported" : "ready";
-  }
 
   const exam = await db.dotExam.update({ where: { id }, data });
   // Real-time sync of vitals / medications into the linked EMR patient chart.

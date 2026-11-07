@@ -44,12 +44,13 @@ type PADraft = {
 };
 const EMPTY_PA: PADraft = { serviceType: "", cptCodes: "", diagnosisCodes: "", units: "", startDate: "", endDate: "", notes: "" };
 
-export default function NewPatientForm() {
+export default function NewPatientForm({ allowDotSample = false }: { allowDotSample?: boolean }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [loading, setLoading] = useState(false);
+  const [sampleLoading, setSampleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [type, setType] = useState<"clinical" | "legal">("clinical");
+  const [type, setType] = useState<"clinical" | "legal" | "dot">("clinical");
   const [attorneys, setAttorneys] = useState<Attorney[]>([]);
   const [lawFirm, setLawFirm] = useState("");
   const [caseType, setCaseType] = useState("personal_injury");
@@ -156,6 +157,17 @@ export default function NewPatientForm() {
       const fd = new FormData(form);
       const body: Record<string, unknown> = Object.fromEntries(fd.entries());
       body.patientType = type;
+      if (type === "dot") {
+        body.dotRegistration = {
+          licenseNumber: fd.get("dotLicenseNumber"),
+          licenseState: fd.get("dotLicenseState"),
+          hasCdl: fd.get("dotHasCdl"),
+          cdlClass: fd.get("dotCdlClass"),
+          employerName: fd.get("dotEmployerName"),
+          examReason: fd.get("dotExamReason"),
+          paymentResponsibility: fd.get("dotPaymentResponsibility"),
+        };
+      }
       if (type === "legal") { body.legalNA = legalNA; body.pipNA = pipNA || legalNA; }
       if (pharmacy?.ncpdpId) body.primaryPharmacyNcpdp = pharmacy.ncpdpId;
       const res = await fetch("/api/patients", {
@@ -209,13 +221,30 @@ export default function NewPatientForm() {
     }
   }
 
+  async function createDotSample() {
+    setSampleLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/dot-sample", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not create sample DOT patient");
+      router.push(`/patients/${data.patientId}/dot`);
+      router.refresh();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not create sample DOT patient");
+    } finally {
+      setSampleLoading(false);
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+      {allowDotSample && <div className="xl:col-span-3 flex justify-end"><button type="button" className="btn-secondary" onClick={createDotSample} disabled={sampleLoading}>{sampleLoading ? "Creating sample…" : "Create sample DOT patient"}</button></div>}
       <form ref={formRef} onSubmit={onSubmit} onChange={() => { setInsSig(readInsurance().sig); setPharmZip((formRef.current ? (new FormData(formRef.current).get("postalCode") as string) : "") || ""); }} className="card card-pad space-y-6 xl:col-span-2">
         {/* Registration type */}
         <fieldset>
           <legend className="section-title mb-2">Registration type</legend>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() => setType("clinical")}
@@ -232,8 +261,63 @@ export default function NewPatientForm() {
               <div className="font-semibold text-slate-900">Physical Rehabilitation — Legal / Attorney Case</div>
               <div className="text-xs text-slate-500 mt-1">Personal injury, auto accident or workers&apos; comp — linked to an attorney / law firm.</div>
             </button>
+            <button
+              type="button"
+              onClick={() => setType("dot")}
+              className={`text-left rounded-xl border p-4 transition ${type === "dot" ? "border-sky-500 ring-2 ring-sky-200 bg-sky-50/60" : "border-slate-200 hover:border-sky-300"}`}
+            >
+              <div className="font-semibold text-slate-900">FMCSA DOT Patient</div>
+              <div className="text-xs text-slate-500 mt-1">Standard patient chart with commercial-driver exam registration.</div>
+            </button>
           </div>
         </fieldset>
+
+        {type === "dot" && (
+          <section className="rounded-xl border border-sky-200 bg-sky-50/40 p-4">
+            <h2 className="section-title mb-3 text-sky-900">DOT driver registration</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <Field label="Commercial driver license number" name="dotLicenseNumber" required />
+              <RefSelect type="usState" label="License state" name="dotLicenseState" emit="code" showCode required />
+              <label className="block">
+                <span className="label">CDL / CLP</span>
+                <select name="dotHasCdl" className="input" defaultValue="yes" required>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="label">CDL class (if applicable)</span>
+                <select name="dotCdlClass" className="input" defaultValue="">
+                  <option value="">— Select —</option>
+                  <option value="A">Class A</option>
+                  <option value="B">Class B</option>
+                  <option value="C">Class C</option>
+                  <option value="CLP">CLP</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="label">Examination request</span>
+                <select name="dotExamReason" className="input" defaultValue="certification" required>
+                  <option value="certification">Certification</option>
+                  <option value="renewal">Renewal</option>
+                  <option value="follow_up">Follow-up</option>
+                  <option value="return_to_duty">Return to duty</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="label">Payment responsibility</span>
+                <select name="dotPaymentResponsibility" className="input" defaultValue="self_pay" required>
+                  <option value="self_pay">Patient / self-pay</option>
+                  <option value="employer">Employer-sponsored</option>
+                  <option value="mixed">Shared responsibility</option>
+                </select>
+              </label>
+              <div className="sm:col-span-2 lg:col-span-3">
+                <Field label="Employer / carrier name (if applicable)" name="dotEmployerName" />
+              </div>
+            </div>
+          </section>
+        )}
 
         {type === "legal" && (
           <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
@@ -423,7 +507,7 @@ export default function NewPatientForm() {
         {error && <div className="rounded bg-rose-50 text-rose-700 ring-1 ring-rose-200 px-3 py-2 text-sm">{error}</div>}
         <div className="flex justify-end gap-2">
           <button type="button" onClick={() => router.back()} className="btn-secondary">Cancel</button>
-          <button type="submit" disabled={loading} className="btn-primary">{loading ? "Saving…" : `Create ${type === "legal" ? "Legal" : "Clinical"} Patient`}</button>
+          <button type="submit" disabled={loading} className="btn-primary">{loading ? "Saving…" : `Create ${type === "legal" ? "Legal" : type === "dot" ? "DOT" : "Clinical"} Patient`}</button>
         </div>
       </form>
 

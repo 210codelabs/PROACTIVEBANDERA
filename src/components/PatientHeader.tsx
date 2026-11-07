@@ -75,6 +75,7 @@ export function PatientTabs({ patientId, active }: { patientId: string; active: 
     { id: "documents", label: "Documents", href: `/patients/${patientId}/documents` },
     { id: "vitals", label: "Vitals", href: `/patients/${patientId}/vitals` },
     { id: "encounters", label: "Encounters", href: `/patients/${patientId}/encounters` },
+    { id: "dot", label: "FMCSA DOT", href: `/patients/${patientId}/dot` },
     { id: "orders", label: "Orders", href: `/patients/${patientId}/orders` },
     { id: "billing", label: "Billing", href: `/patients/${patientId}/billing` },
     { id: "documents", label: "Documents", href: `/patients/${patientId}/documents` },

@@ -27,6 +27,10 @@ const UpdateUserBody = z.object({
   credential: z.string().nullable().optional(),
   specialty: z.string().nullable().optional(),
   npi: z.string().nullable().optional(),
+  licenseNo: z.string().nullable().optional(),
+  fmcsaNrcmeNumber: z.string().nullable().optional(),
+  fmcsaLicenseState: z.string().nullable().optional(),
+  fmcsaExaminerVerified: z.boolean().optional(),
   temporaryPassword: z.string().min(6).optional(),
 });
 
@@ -43,6 +47,10 @@ export async function GET() {
       credential: true,
       specialty: true,
       npi: true,
+      fmcsaNrcmeNumber: true,
+      fmcsaLicenseState: true,
+      fmcsaExaminerVerified: true,
+      fmcsaExaminerVerifiedAt: true,
       active: true,
       createdAt: true,
     },
@@ -95,15 +103,38 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  await requireAdminSession();
+  const admin = await requireAdminSession();
   const body = await req.json().catch(() => ({}));
   const parse = UpdateUserBody.safeParse(body);
   if (!parse.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
 
   const { id, temporaryPassword, email, ...rest } = parse.data;
+  const currentUser = await db.user.findUnique({ where: { id } });
+  if (!currentUser) return NextResponse.json({ error: "User not found." }, { status: 404 });
   const data: Record<string, unknown> = { ...rest };
   if (email) data.email = email.toLowerCase();
   if (temporaryPassword) data.passwordHash = await bcrypt.hash(temporaryPassword, 10);
+  const verifyingExaminer = parse.data.fmcsaExaminerVerified === true;
+  if (verifyingExaminer && (
+    (parse.data.role || currentUser.role) !== "provider" ||
+    !(parse.data.fmcsaNrcmeNumber ?? currentUser.fmcsaNrcmeNumber ?? "").trim() ||
+    !(parse.data.fmcsaLicenseState ?? currentUser.fmcsaLicenseState ?? "").trim() ||
+    !(parse.data.licenseNo ?? currentUser.licenseNo ?? "").trim() ||
+    !(parse.data.credential ?? currentUser.credential ?? "").trim()
+  )) {
+    return NextResponse.json({ error: "A provider role, NRCME number, license state, license number, and credential are required before verification." }, { status: 400 });
+  }
+  const examinerCredentialsChanged = ["fmcsaNrcmeNumber", "fmcsaLicenseState", "licenseNo", "credential", "role"]
+    .some((key) => key in parse.data);
+  if (verifyingExaminer) {
+    data.fmcsaExaminerVerified = true;
+    data.fmcsaExaminerVerifiedAt = new Date();
+    data.fmcsaExaminerVerifiedBy = admin.id;
+  } else if (parse.data.fmcsaExaminerVerified === false || examinerCredentialsChanged) {
+    data.fmcsaExaminerVerified = false;
+    data.fmcsaExaminerVerifiedAt = null;
+    data.fmcsaExaminerVerifiedBy = null;
+  }
 
   try {
     const next = await db.user.update({
@@ -118,10 +149,25 @@ export async function PATCH(req: Request) {
         credential: true,
         specialty: true,
         npi: true,
+        fmcsaNrcmeNumber: true,
+        fmcsaLicenseState: true,
+        fmcsaExaminerVerified: true,
+        fmcsaExaminerVerifiedAt: true,
         active: true,
         createdAt: true,
       },
     });
+    if (examinerCredentialsChanged || "fmcsaExaminerVerified" in parse.data) {
+      await db.auditLog.create({
+        data: {
+          userId: admin.id,
+          action: verifyingExaminer ? "verify" : "update",
+          resource: "FMCSAExaminerCredential",
+          resourceId: id,
+          meta: JSON.stringify({ verified: verifyingExaminer, nrcmeNumber: next.fmcsaNrcmeNumber, licenseState: next.fmcsaLicenseState }),
+        },
+      });
+    }
     return NextResponse.json({ ok: true, user: next });
   } catch (e: unknown) {
     if ((e as { code?: string })?.code === "P2002") {

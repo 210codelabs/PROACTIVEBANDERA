@@ -24,9 +24,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const c = await db.enterpriseConsent.findFirst({ where: { employeeId: s.employeeId, documentId: id } });
     if (c) allowed = true;
   }
+  if (!allowed) {
+    const exam = await db.dotExam.findFirst({
+      where: { employerMecDocId: id, employeeId: s.employeeId, enterpriseId: s.enterpriseId },
+    });
+    if (exam?.mecIssuedAt) {
+      const authorization = await db.enterpriseConsent.findFirst({
+        where: { enterpriseId: s.enterpriseId, employeeId: s.employeeId, patientId: exam.patientId || undefined, formKey: "dot_mec_release", status: "signed" },
+        select: { id: true },
+      });
+      if (authorization) allowed = true;
+    }
+  }
   if (!allowed) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const buf = Buffer.from(doc.dataBase64, "base64");
+  await db.auditLog.create({ data: { action: "download", resource: "DotMECEmployee", resourceId: id } }).catch(() => {});
   return new NextResponse(buf, {
     headers: {
       "Content-Type": doc.mimeType,

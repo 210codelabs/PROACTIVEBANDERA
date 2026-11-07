@@ -17,6 +17,10 @@ export default async function AdminUsersPage() {
       credential: true,
       specialty: true,
       npi: true,
+      fmcsaNrcmeNumber: true,
+      fmcsaLicenseState: true,
+      fmcsaExaminerVerified: true,
+      fmcsaExaminerVerifiedAt: true,
       active: true,
       createdAt: true,
     },
@@ -30,6 +34,7 @@ export default async function AdminUsersPage() {
           initialUsers={users.map((u) => ({
             ...u,
             role: u.role as "provider" | "nurse" | "frontdesk" | "billing" | "admin" | "physical_therapist",
+            fmcsaExaminerVerifiedAt: u.fmcsaExaminerVerifiedAt?.toISOString() || null,
             createdAt: u.createdAt.toISOString(),
           }))}
         />

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { formByKey, renderFormBody } from "@/lib/enterprise/forms";
 import { buildConsentPdf } from "@/lib/enterprise/consentPdf";
+import { publishAuthorizedMec } from "@/lib/dot/shareMec";
 
 // Shared consent e-sign routine used by both the company-admin sign route and
 // the employee self-service sign route. Generates a signed PDF (best-effort),
@@ -50,5 +51,12 @@ export async function signConsentRecord(opts: {
     where: { id: opts.consentId },
     data: { status: "signed", signatureText: opts.signatureText, signerName, signedAt, documentId },
   });
+  if (updated.formKey === "dot_mec_release") {
+    const exams = await db.dotExam.findMany({
+      where: { enterpriseId: updated.enterpriseId, employeeId: updated.employeeId || undefined, patientId: updated.patientId || undefined, mecIssuedAt: { not: null } },
+      select: { id: true },
+    });
+    await Promise.all(exams.map((exam) => publishAuthorizedMec(exam.id).catch(() => null)));
+  }
   return { ok: true, consent: updated, documentId };
 }

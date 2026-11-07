@@ -144,10 +144,10 @@ export default function DotPanel({ isSuper, companyId }: { isSuper: boolean; com
                   <tr key={e.id} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="px-3 py-2 font-medium text-slate-800">{e.driverName}</td>
                     <td className="px-3 py-2 text-slate-600">{STATUS_LABEL[e.status] || e.status}</td>
-                    <td className="px-3 py-2"><span className={`rounded px-2 py-0.5 text-xs ${outcomeColor(e.outcome)}`}>{OUTCOME_LABEL[e.outcome] || e.outcome}</span></td>
-                    <td className={`px-3 py-2 ${exp?.cls || "text-slate-400"}`}>{exp ? `${exp.text}${exp.days < 0 ? " (expired)" : exp.days <= 30 ? ` (${exp.days}d)` : ""}` : "—"}</td>
+                    <td className="px-3 py-2">{isSuper && e.outcome ? <span className={`rounded px-2 py-0.5 text-xs ${outcomeColor(e.outcome)}`}>{OUTCOME_LABEL[e.outcome] || e.outcome}</span> : "—"}</td>
+                    <td className={`px-3 py-2 ${isSuper ? exp?.cls || "text-slate-400" : "text-slate-400"}`}>{isSuper && exp ? `${exp.text}${exp.days < 0 ? " (expired)" : exp.days <= 30 ? ` (${exp.days}d)` : ""}` : "—"}</td>
                     <td className="px-3 py-2 text-xs text-slate-500">{e.transmissionStatus === "exported" ? "Exported" : e.transmissionStatus === "ready" ? "Ready" : "—"}</td>
-                    <td className="px-3 py-2 text-right"><button onClick={() => setDetail(e)} className="text-brand-600 hover:underline">Open</button></td>
+                    <td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-3">{e.mecDocumentId && <a href={`/api/enterprise/documents/${e.mecDocumentId}`} className="text-xs font-medium text-brand-700 hover:underline">MEC</a>}<button onClick={() => setDetail(e)} className="text-brand-600 hover:underline">Open</button></div></td>
                   </tr>
                 );
               })}
@@ -190,12 +190,12 @@ export default function DotPanel({ isSuper, companyId }: { isSuper: boolean; com
         </div>
       )}
 
-      {detail && <ExamDrawer exam={detail} onClose={() => setDetail(null)} onSaved={(e) => { setDetail(e); load(); flash("Saved."); }} />}
+      {detail && <ExamDrawer exam={detail} isSuper={isSuper} onClose={() => setDetail(null)} onSaved={(e) => { setDetail(e); load(); flash("Saved."); }} />}
     </div>
   );
 }
 
-function ExamDrawer({ exam: initial, onClose, onSaved }: { exam: Exam; onClose: () => void; onSaved: (e: Exam) => void }) {
+function ExamDrawer({ exam: initial, isSuper, onClose, onSaved }: { exam: Exam; isSuper: boolean; onClose: () => void; onSaved: (e: Exam) => void }) {
   const [exam, setExam] = useState<Exam>(initial);
   const [saving, setSaving] = useState(false);
   const [suggested, setSuggested] = useState<number | null>(null);
@@ -235,6 +235,21 @@ function ExamDrawer({ exam: initial, onClose, onSaved }: { exam: Exam; onClose: 
     else alert(d.error || "Failed");
   };
   const alerts: any[] = exam.alerts || [];
+
+  if (!isSuper) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={onClose}>
+        <div className="bg-white w-full max-w-lg h-full p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+            <div><h3 className="font-semibold text-slate-900">{exam.driverName}</h3><p className="mt-1 text-sm text-slate-600">Examination status: {STATUS_LABEL[exam.status] || exam.status}</p></div>
+            <button onClick={onClose} className="btn-secondary">Close</button>
+          </div>
+          <p className="mt-4 text-sm text-slate-600">Clinical examination details are not available in the employer portal.</p>
+          {exam.mecDocumentId && <a className="mt-4 inline-flex btn-primary" href={`/api/enterprise/documents/${exam.mecDocumentId}`}>Download authorized MCSA-5876</a>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={onClose}>

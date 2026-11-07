@@ -46,10 +46,10 @@ export async function POST(req: Request) {
 
     if (!configured) { skipped++; continue; }
 
-    if (!companiesCache.has(e.enterpriseId)) {
+    if (e.enterpriseId && !companiesCache.has(e.enterpriseId)) {
       companiesCache.set(e.enterpriseId, await db.enterpriseAccount.findUnique({ where: { id: e.enterpriseId } }));
     }
-    const company = companiesCache.get(e.enterpriseId);
+    const company = e.enterpriseId ? companiesCache.get(e.enterpriseId) : null;
     const companyEmail = company?.contactEmail || company?.billingEmail || "";
     const driverEmail = (e.driverInfo as any)?.email || "";
     const companyName = company?.companyName || "your company";
