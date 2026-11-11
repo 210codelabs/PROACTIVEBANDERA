@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CLINIC_LOCATIONS, findClinic } from "@/lib/clinicLocations";
+import BookingIntake from "@/components/BookingIntake";
 
 type Lang = "en" | "es";
 
@@ -18,40 +19,40 @@ const SERVICES: Record<Lang, { new: string[]; existing: string[] }> = {
 
 const T: Record<Lang, Record<string, string>> = {
   en: {
-    newTitle: "New Patient", newDesc: "First time here? Share a few basics and we'll reach out to schedule your first visit.",
+    newTitle: "New Patient", newDesc: "Reserve your first visit. Your information will be verified at the clinic.",
     newStart: "Start →",
     existingTitle: "Current Patient", existingDesc: "Already have an MRN? Verify your identity for more services and", priority: "priority check-in",
     existingStart: "Verify & schedule →",
     change: "← Change patient type",
-    newFormTitle: "New Patient — Request a Visit", existingFormTitle: "Current Patient — Request a Visit",
-    disclaimer: "As a new patient you don't need a Medical Record Number (MRN). Your MRN is created and activated in person at the clinic during your first visit. This form submits a request; our team will contact you to confirm.",
-    mrn: "Medical Record Number (MRN)", dob: "Date of birth", first: "First name", last: "Last name",
+    newFormTitle: "New Patient — Book a Visit", existingFormTitle: "Current Patient — Book a Visit",
+    disclaimer: "Your appointment will be reserved. Your identity and insurance information will be reviewed by clinic staff at your first visit.",
+    mrn: "Medical Record Number (MRN)", dob: "Date of birth", zip: "ZIP code", first: "First name", last: "Last name", lookup: "Find my booking ID", lookupOk: "Booking ID found. It can only be used to book this appointment.", lookupError: "Unable to verify your details. Please contact the clinic.",
     phone: "Phone", email: "Email", service: "Service of interest", select: "Select…",
     clinic: "Clinic location", clinicPick: "Choose a clinic…", clinicReq: "Please choose a clinic location.", bookingAt: "Booking at",
-    prefDate: "Preferred date", prefTime: "Preferred time", notes: "Notes (optional)",
-    submit: "Submit request", submitting: "Submitting…",
-    received: "Request received", yourConf: "Your confirmation number is",
+    prefDate: "Appointment date", prefTime: "Appointment time (Central Time)", notes: "Notes (optional)", booked: "Booked", selectTime: "Choose a time…", availabilityError: "Availability is temporarily unavailable.",
+    submit: "Book appointment", submitting: "Booking…",
+    received: "Appointment booked", yourConf: "Your confirmation number is",
     priorityChip: "★ Priority check-in as a current patient",
-    contactSoon: "Our front desk will contact you shortly to confirm your appointment. Please save your confirmation number.",
+    contactSoon: "Your appointment is reserved. Our staff will verify your information and insurance at your visit. Please save your confirmation number.",
     emailSent: "A confirmation email is on its way.", home: "Back to home",
     errGeneric: "Something went wrong. Please try again.", errNetwork: "Network error. Please try again.",
   },
   es: {
-    newTitle: "Paciente Nuevo", newDesc: "¿Primera vez aquí? Comparta algunos datos y nos comunicaremos para agendar su primera visita.",
+    newTitle: "Paciente Nuevo", newDesc: "Reserve su primera visita. Sus datos se verificarán en la clínica.",
     newStart: "Comenzar →",
     existingTitle: "Paciente Actual", existingDesc: "¿Ya tiene un MRN? Verifique su identidad para más servicios y", priority: "registro prioritario",
     existingStart: "Verificar y agendar →",
     change: "← Cambiar tipo de paciente",
-    newFormTitle: "Paciente Nuevo — Solicitar una Visita", existingFormTitle: "Paciente Actual — Solicitar una Visita",
-    disclaimer: "Como paciente nuevo no necesita un Número de Registro Médico (MRN). Su MRN se crea y activa en persona en la clínica durante su primera visita. Este formulario envía una solicitud; nuestro equipo se comunicará para confirmar.",
-    mrn: "Número de Registro Médico (MRN)", dob: "Fecha de nacimiento", first: "Nombre", last: "Apellido",
+    newFormTitle: "Paciente Nuevo — Reservar una Visita", existingFormTitle: "Paciente Actual — Reservar una Visita",
+    disclaimer: "Su cita será reservada. El personal de la clínica revisará su identidad y seguro en su primera visita.",
+    mrn: "Número de Registro Médico (MRN)", dob: "Fecha de nacimiento", zip: "Código postal", first: "Nombre", last: "Apellido", lookup: "Buscar mi identificador de reserva", lookupOk: "Identificador encontrado. Solo se puede usar para reservar esta cita.", lookupError: "No se pudieron verificar sus datos. Comuníquese con la clínica.",
     phone: "Teléfono", email: "Correo electrónico", service: "Servicio de interés", select: "Seleccione…",
     clinic: "Clínica", clinicPick: "Elija una clínica…", clinicReq: "Por favor elija una clínica.", bookingAt: "Agendando en",
-    prefDate: "Fecha preferida", prefTime: "Hora preferida", notes: "Notas (opcional)",
-    submit: "Enviar solicitud", submitting: "Enviando…",
-    received: "Solicitud recibida", yourConf: "Su número de confirmación es",
+    prefDate: "Fecha de la cita", prefTime: "Hora de la cita (hora central)", notes: "Notas (opcional)", booked: "Ocupado", selectTime: "Elija una hora…", availabilityError: "La disponibilidad no está disponible temporalmente.",
+    submit: "Reservar cita", submitting: "Reservando…",
+    received: "Cita reservada", yourConf: "Su número de confirmación es",
     priorityChip: "★ Registro prioritario como paciente actual",
-    contactSoon: "Nuestra recepción se comunicará con usted en breve para confirmar su cita. Guarde su número de confirmación.",
+    contactSoon: "Su cita está reservada. Nuestro personal verificará sus datos y seguro durante su visita. Guarde su número de confirmación.",
     emailSent: "Un correo de confirmación va en camino.", home: "Volver al inicio",
     errGeneric: "Algo salió mal. Inténtelo de nuevo.", errNetwork: "Error de red. Inténtelo de nuevo.",
   },
@@ -66,9 +67,42 @@ export default function ScheduleForm({ lang = "en", initialLocation = "" }: { la
   const clinic = findClinic(clinicId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState<{ confirmation: string; priorityCheckin: boolean; emailStatus?: string; clinic?: string } | null>(null);
+  const [slots, setSlots] = useState<{ time: string; available: boolean }[]>([]);
+  const [availabilityError, setAvailabilityError] = useState(false);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupFound, setLookupFound] = useState(false);
+  const [done, setDone] = useState<{ confirmation: string; priorityCheckin: boolean; emailStatus?: string; clinic?: string; intakeToken?: string } | null>(null);
 
-  function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+  useEffect(() => {
+    const day = form.preferredDate;
+    setSlots([]);
+    setAvailabilityError(false);
+    if (!day) return;
+    const controller = new AbortController();
+    fetch(`/api/appointments/request/availability?day=${encodeURIComponent(day)}`, { cache: "no-store", signal: controller.signal })
+      .then(async (response) => { if (!response.ok) throw new Error("Unavailable"); return response.json(); })
+      .then((data) => setSlots(data.slots))
+      .catch(() => { if (!controller.signal.aborted) setAvailabilityError(true); });
+    return () => controller.abort();
+  }, [form.preferredDate]);
+
+  function set(k: string, v: string) {
+    const identityField = ["mrn", "firstName", "lastName", "dob", "postalCode"].includes(k);
+    if (identityField) setLookupFound(false);
+    setForm((f) => ({ ...f, [k]: v, ...(identityField ? { bookingId: "" } : {}) }));
+  }
+
+  async function lookupPatient() {
+    setLookupBusy(true); setError(""); setLookupFound(false);
+    try {
+      const response = await fetch("/api/appointments/request/lookup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ firstName: form.firstName, lastName: form.lastName, dob: form.dob, postalCode: form.postalCode }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error();
+      setForm((current) => ({ ...current, mrn: "", bookingId: result.bookingId }));
+      setLookupFound(true);
+    } catch { setError(t.lookupError); }
+    finally { setLookupBusy(false); }
+  }
 
   async function submit(patientType: "new" | "existing") {
     if (!clinicId) { setError(t.clinicReq); return; }
@@ -80,7 +114,7 @@ export default function ScheduleForm({ lang = "en", initialLocation = "" }: { la
       });
       const j = await resp.json();
       if (!resp.ok) { setError(j.error || t.errGeneric); setBusy(false); return; }
-      setDone({ confirmation: j.confirmation, priorityCheckin: j.priorityCheckin, emailStatus: j.emailStatus, clinic: clinic ? `${clinic.name} — ${clinic.address}` : undefined });
+      setDone({ confirmation: j.confirmation, priorityCheckin: j.priorityCheckin, emailStatus: j.emailStatus, clinic: clinic ? `${clinic.name} — ${clinic.address}` : undefined, intakeToken: j.intakeToken });
     } catch { setError(t.errNetwork); }
     setBusy(false);
   }
@@ -98,6 +132,7 @@ export default function ScheduleForm({ lang = "en", initialLocation = "" }: { la
         {done.clinic && <p className="text-sm font-medium text-slate-700 mb-1" data-testid="booking-done-clinic">{t.bookingAt}: {done.clinic}</p>}
         <p className="text-sm text-slate-500">{t.contactSoon}</p>
         {done.emailStatus === "sent" && <p className="text-sm text-emerald-600 mt-1">{t.emailSent}</p>}
+        {done.intakeToken && <BookingIntake token={done.intakeToken} lang={lang} />}
         <a href="/" className="btn-primary inline-block mt-4">{t.home}</a>
       </div>
     );
@@ -151,9 +186,11 @@ export default function ScheduleForm({ lang = "en", initialLocation = "" }: { la
         {mode === "existing" && (<>
           <label className="block"><span className="label">{t.mrn}</span><input className="input" value={form.mrn || ""} onChange={(e) => set("mrn", e.target.value)} placeholder="PC-XXXXXX" /></label>
           <label className="block"><span className="label">{t.dob}</span><input type="date" className="input" value={form.dob || ""} onChange={(e) => set("dob", e.target.value)} /></label>
+          <label className="block"><span className="label">{t.zip}</span><input className="input" inputMode="numeric" maxLength={5} autoComplete="postal-code" value={form.postalCode || ""} onChange={(e) => set("postalCode", e.target.value)} /></label>
         </>)}
         <label className="block"><span className="label">{t.first}</span><input className="input" value={form.firstName || ""} onChange={(e) => set("firstName", e.target.value)} /></label>
         <label className="block"><span className="label">{t.last}</span><input className="input" value={form.lastName || ""} onChange={(e) => set("lastName", e.target.value)} /></label>
+        {mode === "existing" && <div className="sm:col-span-2"><button type="button" className="btn-secondary text-sm" disabled={lookupBusy} onClick={lookupPatient}>{t.lookup}</button>{lookupFound && <p role="status" className="mt-2 text-sm text-emerald-700">{t.lookupOk}</p>}</div>}
         <label className="block"><span className="label">{t.phone}</span><input className="input" value={form.phone || ""} onChange={(e) => set("phone", e.target.value)} /></label>
         <label className="block"><span className="label">{t.email}</span><input className="input" value={form.email || ""} onChange={(e) => set("email", e.target.value)} /></label>
         {mode === "new" && (
@@ -165,8 +202,8 @@ export default function ScheduleForm({ lang = "en", initialLocation = "" }: { la
             {services.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
-        <label className="block"><span className="label">{t.prefDate}</span><input type="date" className="input" value={form.preferredDate || ""} onChange={(e) => set("preferredDate", e.target.value)} /></label>
-        <label className="block"><span className="label">{t.prefTime}</span><input type="time" min="09:00" max="20:00" step={900} className="input" value={form.preferredTime || ""} onChange={(e) => set("preferredTime", e.target.value)} /></label>
+        <label className="block"><span className="label">{t.prefDate}</span><input type="date" className="input" value={form.preferredDate || ""} onChange={(e) => setForm((current) => ({ ...current, preferredDate: e.target.value, preferredTime: "" }))} /></label>
+        <label className="block"><span className="label">{t.prefTime}</span><select className="input" value={form.preferredTime || ""} onChange={(e) => set("preferredTime", e.target.value)}><option value="">{t.selectTime}</option>{slots.map((slot) => <option key={slot.time} value={slot.time} disabled={!slot.available}>{slot.time}{!slot.available ? ` — ${t.booked}` : ""}</option>)}</select>{availabilityError && <span className="text-sm text-rose-700">{t.availabilityError}</span>}</label>
         <label className="block sm:col-span-2"><span className="label">{t.notes}</span><textarea className="input" rows={3} value={form.message || ""} onChange={(e) => set("message", e.target.value)} /></label>
       </div>
 

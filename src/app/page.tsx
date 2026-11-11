@@ -3,6 +3,7 @@ import LandingLoginForm from "./LandingLoginForm";
 import HeroAuth from "@/components/HeroAuth";
 import LandingHeader from "@/components/LandingHeader";
 import ClosestClinicContact from "@/components/ClosestClinicContact";
+import BookingButton from "@/components/BookingButton";
 import { getT } from "@/lib/i18n/server";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -141,7 +142,7 @@ function Hero({ L }: { L: LandingDict }) {
           </div>
           <p className="text-base sm:text-lg text-slate-600 max-w-xl leading-relaxed">{L.heroDesc}</p>
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <a href="/demo" className="btn-primary text-base px-8 py-3.5">{L.scheduleVisit}</a>
+            <BookingButton className="btn-primary text-base px-8 py-3.5">{L.scheduleVisit}</BookingButton>
             <a href="#services" className="btn-secondary text-base px-8 py-3.5">{L.ourServices}</a>
           </div>
         </div>
@@ -440,10 +441,10 @@ function BookBand({ L }: { L: LandingDict }) {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
               <span className="font-semibold">(210) 500-2914</span>
             </div>
-            <a href="/demo" className="inline-flex items-center justify-center gap-2 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3.5 shadow-lg transition">
+            <BookingButton className="inline-flex items-center justify-center gap-2 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3.5 shadow-lg transition">
               {L.bookCta}
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
-            </a>
+            </BookingButton>
           </div>
         </div>
       </div>

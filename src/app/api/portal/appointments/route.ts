@@ -4,6 +4,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requirePortalSession } from "@/lib/portalAuth";
 import { clinicHoursError } from "@/lib/clinic";
+import { NON_BLOCKING_STATUSES, withProviderBookingLock } from "@/lib/appointments";
+import { providerHoursError } from "@/lib/scheduling";
 
 const schema = z.object({
   serviceTypeId: z.string().optional().nullable(),
@@ -55,22 +57,30 @@ export async function POST(req: Request) {
       }
     }
 
+    const end = addMinutes(start, durationMin);
+    const availabilityError = clinicHoursError(start, end) || providerHoursError(provider.workingHours, start, end);
+    if (availabilityError) return NextResponse.json({ error: availabilityError }, { status: 400 });
     const confirmationNumber = "PC-" + Math.random().toString(36).slice(2, 8).toUpperCase();
 
-    const appointment = await db.appointment.create({
-      data: {
-        patientId: session.patientId,
-        providerId: provider.id,
-        serviceTypeId: svcId,
-        startsAt: start,
-        endsAt: addMinutes(start, durationMin),
-        location,
-        reason: reason?.trim() || null,
-        notes: `Requested via patient portal · Confirmation ${confirmationNumber}`,
-        status: "requested",
-      },
-      include: { provider: true, serviceType: true },
+    const appointment = await withProviderBookingLock(provider.id, async (tx) => {
+      const conflict = await tx.appointment.findFirst({ where: { providerId: provider.id, status: { notIn: NON_BLOCKING_STATUSES }, startsAt: { lt: end }, endsAt: { gt: start } }, select: { id: true } });
+      if (conflict) return null;
+      return tx.appointment.create({
+        data: {
+          patientId: session.patientId,
+          providerId: provider.id,
+          serviceTypeId: svcId,
+          startsAt: start,
+          endsAt: end,
+          location,
+          reason: reason?.trim() || null,
+          notes: `Requested via patient portal · Confirmation ${confirmationNumber}`,
+          status: "requested",
+        },
+        include: { provider: { select: { id: true, firstName: true, lastName: true, credential: true } }, serviceType: true },
+      });
     });
+    if (!appointment) return NextResponse.json({ error: "That time is no longer available. Please choose another time." }, { status: 409 });
 
     // Notify front desk (non-fatal). Use assigned provider as sender; admin/front-desk as recipient.
     try {
@@ -108,8 +118,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, confirmationNumber, appointment });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Could not submit your request. Please try again." },
-      { status: 500 },
+      { error: "Could not submit your request. Please try again." },
+      { status: 503 },
     );
   }
 }

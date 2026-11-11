@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import DotPanel from "@/components/enterprise/DotPanel";
+import EnterpriseCalendar from "@/components/enterprise/EnterpriseCalendar";
 
 type Svc = { key: string; label: string; category: string; priceCents: number };
 type Session = { companyName: string; name: string; email: string; role?: "company_admin" | "super_admin"; enterpriseId?: string };
@@ -26,7 +27,6 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
   const [documents, setDocuments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [resultDocs, setResultDocs] = useState<Record<string, any>>({});
-  const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [toast, setToast] = useState<string | null>(null);
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
@@ -313,47 +313,7 @@ export default function EnterpriseDashboard({ session, catalog }: { session: Ses
               </div>
             </div>
 
-            {/* Monthly calendar of visits */}
-            <div className="card card-pad">
-              <div className="flex items-center justify-between mb-2">
-                <div className="font-semibold text-slate-900">{calMonth.toLocaleString(undefined, { month: "long", year: "numeric" })} — employee visits</div>
-                <div className="flex gap-1">
-                  <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))} className="chip bg-white ring-1 ring-slate-200 text-xs">‹</button>
-                  <button onClick={() => setCalMonth(new Date())} className="chip bg-white ring-1 ring-slate-200 text-xs">Today</button>
-                  <button onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))} className="chip bg-white ring-1 ring-slate-200 text-xs">›</button>
-                </div>
-              </div>
-              {(() => {
-                const y = calMonth.getFullYear(), m = calMonth.getMonth();
-                const first = new Date(y, m, 1).getDay();
-                const days = new Date(y, m + 1, 0).getDate();
-                const byDay: Record<number, any[]> = {};
-                for (const r of requests) {
-                  const d = new Date(r.dueDate || r.createdAt);
-                  if (d.getFullYear() === y && d.getMonth() === m) (byDay[d.getDate()] = byDay[d.getDate()] || []).push(r);
-                }
-                const cells: React.ReactNode[] = [];
-                for (let i = 0; i < first; i++) cells.push(<div key={`e${i}`} />);
-                for (let day = 1; day <= days; day++) {
-                  const items = byDay[day] || [];
-                  cells.push(
-                    <div key={day} className="min-h-[64px] rounded border border-slate-100 p-1">
-                      <div className="text-[10px] text-slate-400">{day}</div>
-                      {items.slice(0, 3).map((r) => (
-                        <div key={r.id} className={`mt-0.5 truncate rounded px-1 text-[9px] ${STATUS_COLORS[r.status] || "bg-slate-100 text-slate-600"}`} title={`${r.employeeLastName}, ${r.employeeFirstName} — ${r.serviceLabel} (${r.status})`}>{r.employeeLastName} · {r.serviceLabel.split(" ")[0]}</div>
-                      ))}
-                      {items.length > 3 && <div className="text-[9px] text-slate-400">+{items.length - 3} more</div>}
-                    </div>
-                  );
-                }
-                return (
-                  <div>
-                    <div className="grid grid-cols-7 gap-1 text-[10px] text-slate-400 mb-1">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} className="text-center">{d}</div>)}</div>
-                    <div className="grid grid-cols-7 gap-1">{cells}</div>
-                  </div>
-                );
-              })()}
-            </div>
+            {(!isSuper || companyId) && <EnterpriseCalendar enterpriseId={isSuper ? companyId : undefined} />}
 
             <button onClick={() => setTab("new")} className="btn-primary">+ New service request</button>
           </div>

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { mapByIds } from "@/lib/safe-relations";
 import { clinicHoursError, clinicMinutesOfDay, clinicHHmm, clinicDayKey, practiceWallClockToDate } from "@/lib/clinic";
-import { findConflict } from "@/lib/appointments";
+import { findConflict, NON_BLOCKING_STATUSES, withProviderBookingLock } from "@/lib/appointments";
 import { providerHoursError, nextAvailableSlot } from "@/lib/scheduling";
 import { createAndSendOffer } from "@/lib/waitlist/notify";
 
@@ -49,6 +49,7 @@ export async function GET(req: Request) {
         reason: r.reason,
         notes: r.notes,
         location: r.location,
+        clinicLocationId: r.clinicLocationId,
         seriesId: r.seriesId,
         patientName: p ? `${p.lastName}, ${p.firstName}` : null,
         providerName: u ? `${u.firstName} ${u.lastName}` : null,
@@ -106,19 +107,24 @@ export async function POST(req: Request) {
     if (conflict && !b.allowDoubleBook) {
       return NextResponse.json({ error: "Double-booking — the provider already has an appointment in that time.", conflict: true }, { status: 409 });
     }
-    const appt = await db.appointment.create({
-      data: {
-        patientId: b.patientId,
-        providerId: b.providerId,
-        serviceTypeId: b.serviceTypeId || null,
-        startsAt: start,
-        endsAt: end,
-        location: b.location || "in-office",
-        reason: b.reason || null,
-        notes: b.notes || null,
-        status: "scheduled",
-      },
+    const appt = await withProviderBookingLock(b.providerId, async (tx) => {
+      const currentConflict = await tx.appointment.findFirst({ where: { providerId: b.providerId, status: { notIn: NON_BLOCKING_STATUSES }, startsAt: { lt: end }, endsAt: { gt: start } }, select: { id: true } });
+      if (currentConflict && !b.allowDoubleBook) return null;
+      return tx.appointment.create({
+        data: {
+          patientId: b.patientId,
+          providerId: b.providerId,
+          serviceTypeId: b.serviceTypeId || null,
+          startsAt: start,
+          endsAt: end,
+          location: b.location || "in-office",
+          reason: b.reason || null,
+          notes: b.notes || null,
+          status: "scheduled",
+        },
+      });
     });
+    if (!appt) return NextResponse.json({ error: "Double-booking — the provider already has an appointment in that time.", conflict: true }, { status: 409 });
     return NextResponse.json({ ok: true, appointment: appt, shifted, day: clinicDayKey(start), time: clinicHHmm(start) });
   } catch {
     return NextResponse.json({ error: "Scheduling is temporarily unavailable" }, { status: 503 });
@@ -194,7 +200,26 @@ export async function PATCH(req: Request) {
       if (clash && !b.allowDoubleBook) return NextResponse.json({ error: "Double-booking — the provider already has an appointment in that time.", conflict: true }, { status: 409 });
     }
 
-    const updated = await db.appointment.update({ where: { id: b.id }, data });
+    const targetProviderId = (data.providerId as string) || existing.providerId;
+    const updated = data.startsAt || data.providerId
+      ? await withProviderBookingLock(targetProviderId, async (tx) => {
+        const startsAt = (data.startsAt as Date) || existing.startsAt;
+        const endsAt = (data.endsAt as Date) || existing.endsAt;
+        const currentConflict = await tx.appointment.findFirst({
+          where: {
+            providerId: targetProviderId,
+            status: { notIn: NON_BLOCKING_STATUSES },
+            startsAt: { lt: endsAt },
+            endsAt: { gt: startsAt },
+            id: { not: existing.id },
+          },
+          select: { id: true },
+        });
+        if (currentConflict && !b.allowDoubleBook) return null;
+        return tx.appointment.update({ where: { id: b.id }, data });
+      })
+      : await db.appointment.update({ where: { id: b.id }, data });
+    if (!updated) return NextResponse.json({ error: "Double-booking — the provider already has an appointment in that time.", conflict: true }, { status: 409 });
     const st = updated.startsAt;
 
     // Waitlist fill: when a booked appointment is cancelled, surface the next

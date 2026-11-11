@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin/auth";
 import { db } from "@/lib/db";
 import { parseClinicalDocument, detectFormat } from "@/lib/import/clinical";
+import { matchClinicalPatient } from "@/lib/import/patientMatch";
 
 // POST /api/admin/import/clinical/preview { content }
 // Parses a C-CDA XML or FHIR JSON bundle and returns extracted demographics +
@@ -24,22 +25,10 @@ export async function POST(req: Request) {
   const hasName = !!(p.firstName && p.lastName);
   const missing: string[] = [];
   if (!hasName) missing.push("patient name");
+  if (!p.dob) missing.push("date of birth");
 
   // Existing patient match
-  let match: any = null;
-  if (p.mrn) {
-    const found = await db.patient.findFirst({ where: { mrn: p.mrn }, select: { id: true, firstName: true, lastName: true, mrn: true } });
-    if (found) match = { by: "mrn", ...found };
-  }
-  if (!match && hasName) {
-    const cands = await db.patient.findMany({
-      where: { firstName: { equals: p.firstName!, mode: "insensitive" }, lastName: { equals: p.lastName!, mode: "insensitive" } },
-      select: { id: true, firstName: true, lastName: true, mrn: true, dob: true },
-    });
-    const narrowed = p.dob ? cands.filter((c) => c.dob && c.dob.toISOString().slice(0, 10) === p.dob) : cands;
-    if (narrowed.length === 1) match = { by: p.dob ? "name+dob" : "name", id: narrowed[0].id, firstName: narrowed[0].firstName, lastName: narrowed[0].lastName, mrn: narrowed[0].mrn };
-    else if (narrowed.length > 1) match = { by: "ambiguous", count: narrowed.length };
-  }
+  const match = await matchClinicalPatient(p);
 
   // Provider roster (for the "default provider for imported visits" picker,
   // only relevant when the document carries encounters/notes).

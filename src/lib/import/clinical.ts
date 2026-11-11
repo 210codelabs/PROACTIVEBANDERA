@@ -290,6 +290,21 @@ export function parseFhirBundle(jsonText: string): Extracted {
   const resources: any[] = bundle?.resourceType === "Bundle"
     ? toArr(bundle.entry).map((e: any) => e?.resource).filter(Boolean)
     : bundle?.resourceType ? [bundle] : [];
+  if (resources.filter((resource) => resource?.resourceType === "Patient").length > 1) {
+    throw new Error("This FHIR bundle contains multiple patients and cannot be imported as a single patient document.");
+  }
+  const patient = resources.find((resource) => resource?.resourceType === "Patient");
+  const patientEntry = toArr(bundle?.entry).find((entry: any) => entry?.resource === patient);
+  const allowedReferences = new Set([patient?.id ? `Patient/${patient.id}` : null, patientEntry?.fullUrl].filter(Boolean));
+  for (const resource of resources) {
+    const reference = resource?.subject?.reference || resource?.patient?.reference;
+    if (typeof reference !== "string") continue;
+    const patientReference = reference.match(/(?:^|\/)Patient\/([^/]+)(?:\/_history\/[^/]+)?$/);
+    if ((patientReference || reference.startsWith("urn:uuid:")) &&
+        !allowedReferences.has(reference) && !(patientReference && allowedReferences.has(`Patient/${patientReference[1]}`))) {
+      throw new Error("A FHIR resource references a different or unidentified patient. Import was stopped.");
+    }
+  }
   return extractFromFhirResources(resources);
 }
 
@@ -415,7 +430,7 @@ export function extractFromFhirResources(resources: any[]): Extracted {
         const type = fhirDisplay(r.type) || "Clinical note";
         let note: string | undefined = r.description || undefined;
         const attach = toArr(r.content)[0]?.attachment;
-        if (attach?.data) {
+        if (attach?.data && /^text\/(plain|html)(?:;|$)/i.test(String(attach.contentType || ""))) {
           try {
             const decoded = Buffer.from(String(attach.data), "base64").toString("utf8").trim();
             if (decoded) note = decoded;
@@ -425,7 +440,7 @@ export function extractFromFhirResources(resources: any[]): Extracted {
           if (secText) note = secText;
         }
         const provider = toArr(r.author)[0]?.display;
-        if (note || type) encounters.push({
+        if (note) encounters.push({
           date: date ? String(date) : undefined,
           type: type ? String(type) : undefined,
           note,

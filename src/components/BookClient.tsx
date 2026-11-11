@@ -7,8 +7,8 @@ import ClinicTZBadge from "@/components/ClinicTZBadge";
 type Lang = "en" | "es";
 
 const H: Record<Lang, { title: string; subtitle: string; home: string }> = {
-  en: { title: "Schedule a Visit", subtitle: "Request an appointment online. New and current patients welcome.", home: "← Home" },
-  es: { title: "Agendar una Visita", subtitle: "Solicite una cita en línea. Pacientes nuevos y actuales bienvenidos.", home: "← Inicio" },
+  en: { title: "Schedule a Visit", subtitle: "Book an appointment online. New and current patients welcome.", home: "← Home" },
+  es: { title: "Agendar una Visita", subtitle: "Reserve una cita en línea. Pacientes nuevos y actuales bienvenidos.", home: "← Inicio" },
 };
 
 export default function BookClient({ initialLang = "en", initialLocation = "" }: { initialLang?: Lang; initialLocation?: string }) {

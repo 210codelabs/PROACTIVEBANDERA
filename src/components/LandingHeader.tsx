@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
 import InstallAppButton from "@/components/InstallAppButton"; // eslint-disable-line @typescript-eslint/no-unused-vars
+import BookingButton from "@/components/BookingButton";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 type LandingDict = Dictionary["landing"];
@@ -107,8 +108,7 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
               <span className="hidden sm:inline">Modo Kiosco</span>
             </a>
 
-            <a
-              href="/demo"
+            <BookingButton
               className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full text-[13px] xl:text-sm font-bold px-3.5 sm:px-5 py-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 ${
                 solid
                   ? "bg-brand-700 hover:bg-brand-800 text-white"
@@ -117,8 +117,8 @@ export default function LandingHeader({ L }: { L: LandingDict }) {
             >
               <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               <span className="hidden sm:inline">{L.scheduleVisit}</span>
-              <span className="sm:hidden">Demo</span>
-            </a>
+              <span className="sr-only sm:hidden">{L.scheduleVisit}</span>
+            </BookingButton>
 
             {/* Hamburger — mobile only */}
             <button

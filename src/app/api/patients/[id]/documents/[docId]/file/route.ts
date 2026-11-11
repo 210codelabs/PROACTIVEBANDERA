@@ -50,7 +50,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     headers: {
       "Content-Type": f.mime,
       "Content-Length": String(bytes.length),
-      "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${name}"`,
+      "Content-Disposition": `${download || f.mime === "application/xml" || f.mime === "application/json" ? "attachment" : "inline"}; filename="${name}"`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },

@@ -1,23 +1,22 @@
 import { NextResponse } from "next/server";
-import { addMinutes, isValid, parse as parseDate } from "date-fns";
+import { addMinutes } from "date-fns";
+import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { sendBookingConfirmation } from "@/lib/email";
-import { clinicHoursError } from "@/lib/clinic";
+import { clinicDayKey, clinicHHmm, clinicHoursError, formatClinic, practiceWallClockToDate } from "@/lib/clinic";
+import { findClinic } from "@/lib/clinicLocations";
+import { NON_BLOCKING_STATUSES, withProviderBookingLock } from "@/lib/appointments";
+import { providerHoursError } from "@/lib/scheduling";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function genMrn() {
-  return "PC-" + Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-// POST (STAFF): convert a website AppointmentRequest into a real scheduled Appointment.
-// - existing patient: uses the matched patient record.
-// - new patient: creates a Patient (this is the in-clinic activation of the MRN, done by staff).
+// POST (STAFF): reserve a legacy website request in the central calendar.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!["admin", "provider", "nurse", "frontdesk", "front-desk", "staff"].includes(s.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
@@ -25,6 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const reqRow = await db.appointmentRequest.findUnique({ where: { id } });
   if (!reqRow) return NextResponse.json({ error: "Request not found" }, { status: 404 });
   if (reqRow.appointmentId) return NextResponse.json({ error: "This request has already been scheduled." }, { status: 409 });
+  if (reqRow.status === "declined") return NextResponse.json({ error: "A declined request cannot be scheduled." }, { status: 409 });
 
   // Resolve date/time: body overrides, else the patient's preferred values.
   const date = String((body as Record<string, unknown>).date || reqRow.preferredDate || "").trim();
@@ -33,63 +33,58 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ? String((body as Record<string, unknown>).location)
     : "in-office");
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]?\d|2[0-3]):[0-5]\d$/.test(time)) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
     return NextResponse.json({ error: "A valid date and time are required to schedule this appointment." }, { status: 400 });
   }
-  const start = parseDate(`${date} ${time}`, "yyyy-MM-dd HH:mm", new Date());
-  if (!isValid(start)) return NextResponse.json({ error: "Invalid date or time." }, { status: 400 });
-  const hoursErr = clinicHoursError(start, addMinutes(start, 30));
+  const start = practiceWallClockToDate(date, time);
+  if (clinicDayKey(start) !== date || clinicHHmm(start) !== time || start.getTime() <= Date.now()) return NextResponse.json({ error: "Choose a valid future date and time." }, { status: 400 });
+  if (reqRow.patientType === "new" && (!reqRow.dob || !/^\d{4}-\d{2}-\d{2}$/.test(reqRow.dob) || new Date(`${reqRow.dob}T00:00:00Z`).toISOString().slice(0, 10) !== reqRow.dob)) {
+    return NextResponse.json({ error: "A valid date of birth is required before scheduling this new patient." }, { status: 400 });
+  }
+  const end = addMinutes(start, 30);
+  const hoursErr = clinicHoursError(start, end);
   if (hoursErr) return NextResponse.json({ error: hoursErr }, { status: 400 });
 
-  // Provider (first active provider).
-  const provider = await db.user.findFirst({ where: { role: "provider", active: true }, orderBy: { lastName: "asc" } });
-  if (!provider) return NextResponse.json({ error: "No active providers are available." }, { status: 409 });
+  const clinic = findClinic(reqRow.clinicLocation);
+  const providers = await db.user.findMany({ where: { role: "provider", active: true }, orderBy: { lastName: "asc" }, select: { id: true, workingHours: true } });
+  if (!providers.length) return NextResponse.json({ error: "No active providers are available." }, { status: 409 });
 
-  // Resolve or create the patient.
-  let patientId = reqRow.matchedPatientId;
-  if (!patientId) {
-    // New patient — create a minimal record with a unique MRN.
-    let mrn = genMrn();
-    for (let i = 0; i < 6; i++) {
-      const exists = await db.patient.findUnique({ where: { mrn } });
-      if (!exists) break;
-      mrn = genMrn();
-    }
-    const dob = reqRow.dob && /^\d{4}-\d{2}-\d{2}$/.test(reqRow.dob) ? new Date(reqRow.dob) : new Date("1900-01-01");
-    const patient = await db.patient.create({
-      data: {
-        mrn,
-        firstName: reqRow.firstName,
-        lastName: reqRow.lastName,
-        dob,
-        sex: "X",
-        email: reqRow.email || null,
-        phone: reqRow.phone || null,
-        status: "active",
-        patientType: "clinical",
-      },
+  let reservation: { request: any; appointment: any; alreadyScheduled?: boolean } | null = null;
+  for (const provider of providers) {
+    if (providerHoursError(provider.workingHours, start, end)) continue;
+    const result = await withProviderBookingLock(provider.id, async (tx) => {
+      const current = await tx.appointmentRequest.findUnique({ where: { id } });
+      if (!current || current.status === "declined") return { kind: "invalid" as const };
+      if (current.appointmentId) return { kind: "already" as const };
+      const conflict = await tx.appointment.findFirst({ where: { providerId: provider.id, status: { notIn: NON_BLOCKING_STATUSES }, startsAt: { lt: end }, endsAt: { gt: start } }, select: { id: true } });
+      if (conflict) return { kind: "conflict" as const };
+
+      let patientId = current.matchedPatientId;
+      if (!patientId) {
+        const patient = await tx.patient.create({ data: {
+          mrn: `PENDING-${randomUUID()}`, firstName: current.firstName, lastName: current.lastName,
+          dob: new Date(`${current.dob}T00:00:00Z`), sex: "X", email: current.email || null,
+          phone: current.phone || null, status: "pending-verification", patientType: "clinical",
+        } });
+        patientId = patient.id;
+      }
+      const appointment = await tx.appointment.create({ data: {
+        patientId, providerId: provider.id, startsAt: start, endsAt: end, location,
+        clinicLocationId: clinic?.id || null, reason: current.serviceInterest || null,
+        notes: `Scheduled from website request ${current.confirmation}`, status: "scheduled",
+      }, include: { patient: true, provider: { select: { firstName: true, lastName: true } } } });
+      const updated = await tx.appointmentRequest.update({ where: { id }, data: {
+        status: current.patientType === "new" ? "pending" : "confirmed",
+        matchedPatientId: patientId, appointmentId: appointment.id, scheduledStartsAt: start,
+      } });
+      return { kind: "created" as const, request: updated, appointment };
     });
-    patientId = patient.id;
+    if (result.kind === "already") return NextResponse.json({ error: "This request has already been scheduled." }, { status: 409 });
+    if (result.kind === "invalid") return NextResponse.json({ error: "This request cannot be scheduled." }, { status: 409 });
+    if (result.kind === "created") { reservation = result; break; }
   }
-
-  const appointment = await db.appointment.create({
-    data: {
-      patientId,
-      providerId: provider.id,
-      startsAt: start,
-      endsAt: addMinutes(start, 30),
-      location,
-      reason: reqRow.serviceInterest || null,
-      notes: `Scheduled from website request ${reqRow.confirmation}`,
-      status: "scheduled",
-    },
-    include: { patient: true, provider: true },
-  });
-
-  const updated = await db.appointmentRequest.update({
-    where: { id },
-    data: { status: "confirmed", appointmentId: appointment.id, scheduledStartsAt: start },
-  });
+  if (!reservation) return NextResponse.json({ error: "No provider is available for that appointment time." }, { status: 409 });
+  const { request: updated, appointment } = reservation;
 
   // Best-effort confirmation email now that it's scheduled.
   if (reqRow.email) {
@@ -100,7 +95,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         confirmation: reqRow.confirmation,
         serviceInterest: reqRow.serviceInterest,
         priorityCheckin: reqRow.priorityCheckin,
-        scheduledAt: start.toLocaleString(),
+        scheduledAt: `${formatClinic(start)} Central Time`,
       });
     } catch { /* non-fatal */ }
   }
@@ -113,9 +108,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       startsAt: appointment.startsAt,
       endsAt: appointment.endsAt,
       location: appointment.location,
-      patientId,
+      clinicLocationId: appointment.clinicLocationId,
+      patientId: appointment.patientId,
       providerName: `${appointment.provider.firstName} ${appointment.provider.lastName}`,
-      patientMrn: appointment.patient.mrn,
+      patientMrn: reqRow.patientType === "existing" ? appointment.patient.mrn : null,
     },
   });
 }

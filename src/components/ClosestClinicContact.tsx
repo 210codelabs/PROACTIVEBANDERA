@@ -1,5 +1,7 @@
 "use client";
 
+import BookingButton from "@/components/BookingButton";
+
 import React, { useEffect, useMemo, useState } from "react";
 import MapNav from "@/components/MapNav";
 import { CLINIC_LOCATIONS, closestClinic, milesBetween, telHref, type ClinicLocation } from "@/lib/clinicLocations";
@@ -181,7 +183,7 @@ export default function ClosestClinicContact({ L }: { L: L }) {
         <div className="lg:col-span-2 rounded-2xl border border-brand-100 bg-brand-50 p-6 flex flex-col justify-center">
           <h3 className="font-bold text-brand-900 mb-2">{L.insuranceTitle}</h3>
           <p className="text-sm text-slate-600">{L.insuranceDesc}</p>
-          <a href="/demo" className="btn-primary mt-5 self-start">{L.scheduleVisit}</a>
+          <BookingButton className="btn-primary mt-5 self-start">{L.scheduleVisit}</BookingButton>
         </div>
       </div>
     </>

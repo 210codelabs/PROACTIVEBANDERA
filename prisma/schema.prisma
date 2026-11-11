@@ -20,8 +20,8 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 }
 
-// Public "request a visit" submissions from the website (new or existing
-// patients). Front desk reviews these and confirms/schedules them.
+// Website bookings paired with the central Appointment calendar. Staff review
+// new-patient identity and insurance during first-visit onboarding.
 model AppointmentRequest {
   id               String   @id @default(cuid()) @map("_id")
   patientType      String   // "new" | "existing"
@@ -40,8 +40,8 @@ model AppointmentRequest {
   priorityCheckin  Boolean  @default(false)
   status           String   @default("pending") // pending | confirmed | declined
   confirmation     String   @unique
-  appointmentId    String?  // set when front desk converts this into a real Appointment
-  scheduledStartsAt DateTime? // the scheduled time once converted
+  appointmentId    String?  // central calendar appointment reserved for this request
+  scheduledStartsAt DateTime? // reserved appointment time
   emailStatus      String?  // sent | failed | skipped
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -449,16 +449,19 @@ model Appointment {
   startsAt       DateTime
   endsAt         DateTime
   location       String?     // in-office | home-visit | telehealth
+  clinicLocationId String?   // clinic id from src/lib/clinicLocations.ts
   status         String      @default("scheduled") // scheduled | checked-in | in-room | completed | no-show | cancelled
   reason         String?
   notes          String?
   seriesId       String?     // links appointments created as one recurring series
+  bookedByEnterpriseId String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
   encounter      Encounter[]
 
   @@index([seriesId])
+  @@index([bookedByEnterpriseId])
 }
 
 // -------------------------------------------------------------

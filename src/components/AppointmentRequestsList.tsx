@@ -8,6 +8,7 @@ type Req = {
   dob?: string; mrn?: string; serviceInterest?: string; clinicLocation?: string | null; preferredDate?: string; preferredTime?: string;
   message?: string; priorityCheckin: boolean; status: string; confirmation: string; createdAt: string;
   appointmentId?: string | null; scheduledStartsAt?: string | null;
+  matchedPatientId?: string | null;
 };
 
 export default function AppointmentRequestsList() {
@@ -30,6 +31,15 @@ export default function AppointmentRequestsList() {
   async function setStatus(id: string, status: string) {
     await fetch(`/api/appointments/request/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status }) });
     load();
+  }
+
+  async function verifyFirstVisit(id: string) {
+    if (!window.confirm("Confirm that clinic staff reviewed the patient's identity and insurance information at the first visit?")) return;
+    const response = await fetch(`/api/appointments/request/${id}/verify`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ identityReviewed: true, insuranceReviewed: true }) });
+    const result = await response.json();
+    if (!response.ok) { setErr(result.error || "Could not complete verification."); return; }
+    setErr("");
+    await load();
   }
 
   function openSchedule(r: Req) {
@@ -55,6 +65,7 @@ export default function AppointmentRequestsList() {
 
   return (
     <div className="space-y-3">
+      {err && !scheduling && <div role="alert" className="text-sm text-rose-700">{err}</div>}
       {items.map((r) => (
         <div key={r.id} className="card card-pad">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -84,7 +95,9 @@ export default function AppointmentRequestsList() {
               {!r.appointmentId && (
                 <button onClick={() => openSchedule(r)} className="chip bg-indigo-600 text-white text-xs">Schedule appointment</button>
               )}
-              {r.status !== "confirmed" && <button onClick={() => setStatus(r.id, "confirmed")} className="chip bg-emerald-600 text-white text-xs">Confirm</button>}
+              {r.patientType === "new" && r.appointmentId && r.status === "pending" && <button onClick={() => verifyFirstVisit(r.id)} className="chip bg-emerald-600 text-white text-xs">Verify at first visit</button>}
+              {r.matchedPatientId && <a href={`/patients/${r.matchedPatientId}`} className="chip bg-white ring-slate-200 text-slate-600 text-xs">Open patient chart</a>}
+              {(r.patientType !== "new" || !r.appointmentId) && r.status !== "confirmed" && <button onClick={() => setStatus(r.id, "confirmed")} className="chip bg-emerald-600 text-white text-xs">Confirm</button>}
               {r.status !== "declined" && <button onClick={() => setStatus(r.id, "declined")} className="chip bg-white ring-slate-200 text-slate-600 text-xs">Decline</button>}
             </div>
           </div>

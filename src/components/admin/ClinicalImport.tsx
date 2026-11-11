@@ -6,6 +6,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState("");
   const [content, setContent] = useState("");
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
   const [preview, setPreview] = useState<any>(null);
   const [defaultProviderId, setDefaultProviderId] = useState("");
@@ -14,6 +15,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
 
   async function onFile(f: File) {
     setFileName(f.name);
+    setSourceFile(f);
     setContent(await f.text());
     setPreview(null); setResult(null);
   }
@@ -24,7 +26,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
       const r = await fetch("/api/admin/import/clinical/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
       const d = await r.json();
       if (!r.ok) { setMsg({ kind: "err", text: d.error || "Preview failed." }); setPreview(null); }
-      else { setPreview(d); if (!defaultProviderId && d.providers?.length) setDefaultProviderId(d.providers[0].id); }
+      else { setPreview(d); }
     } finally { setBusy(""); }
   }
 
@@ -40,7 +42,11 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
     if (!confirm(`Import ${parts} ${verb} ${who}? Existing records are skipped, never overwritten.`)) return;
     setBusy("import"); setMsg(null);
     try {
-      const r = await fetch("/api/admin/import/clinical/commit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, defaultProviderId: defaultProviderId || null }) });
+      const body = new FormData();
+      if (sourceFile) body.set("file", sourceFile);
+      else body.set("content", content);
+      if (defaultProviderId) body.set("defaultProviderId", defaultProviderId);
+      const r = await fetch("/api/admin/import/clinical/commit", { method: "POST", body });
       const d = await r.json();
       if (!r.ok) setMsg({ kind: "err", text: d.error || "Import failed." });
       else {
@@ -60,7 +66,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
       {msg && <div className={`rounded-lg px-4 py-3 text-sm ring-1 ${msg.kind === "ok" ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-rose-50 text-rose-700 ring-rose-200"}`}>{msg.text}</div>}
 
       <div className="rounded-xl border border-slate-200 p-3 text-sm text-slate-600">
-        Upload a <b>C-CDA</b> document (<span className="font-mono text-xs">.xml</span> / <span className="font-mono text-xs">.cda</span>) or a <b>FHIR</b> bundle (<span className="font-mono text-xs">.json</span>). We&apos;ll bring across demographics plus <b>problems, medications and allergies</b>.
+        Upload one patient&apos;s UTF-8 <b>C-CDA</b> document (<span className="font-mono text-xs">.xml</span> / <span className="font-mono text-xs">.cda</span>) or <b>FHIR</b> bundle (<span className="font-mono text-xs">.json</span>), up to 8 MB. The original file is saved in the patient chart. Only supported clinical fields are imported; other source data remains in the original document. Practice Fusion EHI ZIP archives and multi-patient bundles are not supported here.
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -71,7 +77,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
       </div>
       <details className="text-sm">
         <summary className="cursor-pointer text-slate-500">…or paste XML / JSON</summary>
-        <textarea className="input min-h-[140px] mt-2 font-mono text-xs" value={content} onChange={(e) => { setContent(e.target.value); setPreview(null); setResult(null); }} placeholder={"<ClinicalDocument …>…</ClinicalDocument>   — or —   { \"resourceType\": \"Bundle\", \"entry\": [ … ] }"} />
+        <textarea className="input min-h-[140px] mt-2 font-mono text-xs" value={content} onChange={(e) => { setContent(e.target.value); setSourceFile(null); setFileName(""); if (fileRef.current) fileRef.current.value = ""; setPreview(null); setResult(null); }} placeholder={"<ClinicalDocument …>…</ClinicalDocument>   — or —   { \"resourceType\": \"Bundle\", \"entry\": [ … ] }"} />
       </details>
 
       {preview && (
@@ -82,8 +88,8 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
               ? <span className="chip bg-rose-100 text-rose-800 ring-rose-200">Missing: {missing.join(", ")}</span>
               : preview.match?.id
                 ? <span className="chip bg-amber-100 text-amber-800 ring-amber-200">Matches existing chart{preview.match.mrn ? ` · MRN ${preview.match.mrn}` : ""} — will merge</span>
-                : preview.match?.by === "ambiguous"
-                  ? <span className="chip bg-rose-100 text-rose-800 ring-rose-200">Ambiguous — {preview.match.count} patients match this name</span>
+                : preview.match?.by === "ambiguous" || preview.match?.by === "conflict" || preview.match?.by === "missing_identity"
+                  ? <span className="chip bg-rose-100 text-rose-800 ring-rose-200">Patient identity needs review before import</span>
                   : <span className="chip bg-emerald-100 text-emerald-800 ring-emerald-200">New patient — will create a chart</span>}
           </div>
 
@@ -118,7 +124,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
             </label>
           )}
 
-          <button onClick={runImport} disabled={busy !== "" || missing.length > 0 || preview.match?.by === "ambiguous"} className="btn-primary">
+          <button onClick={runImport} disabled={busy !== "" || missing.length > 0 || ["ambiguous", "conflict", "missing_identity"].includes(preview.match?.by)} className="btn-primary">
             {busy === "import" ? "Importing…" : preview.match?.id ? "Merge into existing chart" : "Create chart & import"}
           </button>
           <p className="text-[11px] text-slate-400">Imported clinical data should be reviewed by a clinician before it is relied upon. Records are added, never overwritten; re-running is safe (duplicates are skipped).</p>
@@ -130,6 +136,7 @@ export default function ClinicalImport({ onImported }: { onImported?: () => void
           <div className="font-semibold text-slate-800">Import complete</div>
           <div className="text-slate-600">{result.patientCreated ? "New chart created." : "Merged into existing chart."} Problems +{result.counts.problems.created} ({result.counts.problems.skipped} skipped) · Meds +{result.counts.medications.created} ({result.counts.medications.skipped} skipped) · Allergies +{result.counts.allergies.created} ({result.counts.allergies.skipped} skipped) · Vitals +{result.counts.vitals.created} ({result.counts.vitals.skipped} skipped) · Immunizations +{result.counts.immunizations.created} ({result.counts.immunizations.skipped} skipped) · Visit notes +{result.counts.encounters?.created ?? 0} ({result.counts.encounters?.skipped ?? 0} skipped)</div>
           {result.notice && <div className="mt-1 text-amber-700">{result.notice}</div>}
+          {result.sourceDocumentId && <div className="mt-1 text-slate-600">Original source document saved in the patient chart.</div>}
           {result.patientId && <a href={`/patients/${result.patientId}`} className="text-brand-600 hover:underline">Open patient chart →</a>}
         </div>
       )}
